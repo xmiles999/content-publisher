@@ -194,6 +194,10 @@ case "${1:-help}" in
       docker compose -f "$ROOT_DIR/deploy/dokploy-compose.yaml" config >/dev/null
     info "Compose 配置渲染通过"
     ;;
+  browser)
+    shift
+    exec "$ROOT_DIR/scripts/browser-session" "${1:-open}"
+    ;;
   *)
     cat <<'USAGE'
 用法：./scripts/dev <command>
@@ -208,6 +212,7 @@ case "${1:-help}" in
                 在非 root Maven 容器中执行真实 PostgreSQL Testcontainers 测试
   security      执行 OWASP 依赖漏洞检查；优先使用 NVD_API_KEY，否则使用每日缓存
   compose-check 校验开发和部署 Compose 配置
+  browser       使用独立持久浏览器资料打开应用；可追加 status 查看状态
 USAGE
     ;;
 esac

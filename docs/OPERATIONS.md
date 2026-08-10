@@ -45,6 +45,8 @@
 ./scripts/dev compose-check
 ./scripts/dev dev-up
 ./scripts/dev run
+./scripts/dev browser
+./scripts/dev browser status
 ./scripts/dev verify
 ./scripts/openapi check
 ./scripts/dev integration-container
@@ -139,9 +141,29 @@
 | `PUBLISHER_CHANNELS_ALLOWED_HOSTS` | 空 | 自托管渠道主机允许列表 |
 | `PUBLISHER_CHANNELS_TIMEOUT` | `30s` | 渠道调用超时 |
 
-17 个人工平台配置使用数据库表 `manual_channel_profiles`，不需要新增环境变量。账号别名、默认标签/栏目、备注、排序、启停和人工登录确认时间不属于平台凭据；第三方登录状态由操作者浏览器维护。
+17 个人工平台配置使用数据库表 `manual_channel_profiles`，不需要新增应用环境变量。账号别名、默认标签/栏目、备注、排序、启停和兼容登录确认时间不属于平台凭据；第三方登录状态由用户设备上的专用浏览器 Profile 维护。
 
-严禁把第三方平台密码、Cookie、Session、验证码或恢复码写入环境变量、人工平台备注、日志或备份操作说明。“确认已登录”只是数据库时间标记，不是连接验证。
+启动器支持以下本机环境变量：
+
+| 环境变量 | 默认值 | 说明 |
+|---|---|---|
+| `PUBLISHER_APP_URL` | `http://127.0.0.1:8080` | 专用浏览器打开的 Content Publisher 地址，必须为 HTTP(S) |
+| `PUBLISHER_BROWSER_PROFILE_DIR` | `/data/services/content-publisher/browser-profile` | Chromium 持久 Profile；必须位于 Git 仓库外且不能是符号链接 |
+| `PUBLISHER_BROWSER_BIN` | 自动检测 | 可选，显式指定 Chrome、Chromium 或 Edge 可执行文件 |
+
+使用方式：
+
+```bash
+./scripts/dev browser status
+./scripts/dev browser
+
+# 访问远程部署
+PUBLISHER_APP_URL=https://publisher.example.com ./scripts/dev browser
+```
+
+启动器拒绝 root 身份打开浏览器，以 `0700` 创建 Profile 目录，并固定使用 `Default` Profile。首次在平台官方页面登录后，浏览器会在跨重启时继续复用 Cookie、LocalStorage 和 Session。平台主动注销、风控或会话过期不受本系统控制，发生后必须重新登录。
+
+该 Profile 可能直接代表第三方账号登录身份，敏感级别等同平台凭据。严禁把第三方平台密码、Cookie、Session、验证码、恢复码或整个 Profile 写入环境文件、人工平台备注、Git、日志、项目备份、云同步或运维工单。若需备份，只能在用户明确授权并具备等同凭据的加密与访问控制后单独设计；默认运维流程不备份该目录。
 
 两个主密钥均使用：
 
@@ -416,11 +438,13 @@ publisher.channels.verification_failed
 
 检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V22，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
 
-### 13.4 人工平台配置或登录提示不符合预期
+### 13.4 人工平台配置或持久登录不符合预期
 
 确认数据库已执行 V21，平台属于 17 个纯人工渠道，并检查当前配置版本和启停状态。未配置的平台默认启用；停用平台不能进入人工发布工作区。
 
-登录确认时间由用户主动点击产生，系统不会检测第三方 Cookie 或 Session。若第三方要求重新登录，应直接在官方页面完成，不要把登录秘密写入本系统。
+执行 `./scripts/dev browser status` 检查应用地址、Profile 路径和浏览器检测结果。必须始终从 `./scripts/dev browser` 打开系统；普通浏览器、隐私模式、不同操作系统账号或不同 `PUBLISHER_BROWSER_PROFILE_DIR` 不共享会话。确认 Profile 目录权限为 `0700`，且未被清理工具或浏览器策略删除。
+
+系统不会检测第三方 Cookie 或 Session。若平台要求重新登录，应直接在同一专用浏览器的官方页面完成；不要把登录秘密写入本系统。历史 `login_confirmed_at` 时间和 Portal 路由仅为兼容保留，不代表真实会话状态。
 
 ### 13.5 LOCAL 无法登录
 

@@ -610,14 +610,10 @@ class LocalSecurityIntegrationTest {
                         .param("sortOrder", "10"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/channels?view=manual#manual-XIAOHONGSHU"));
-        mockMvc.perform(post("/channels/manual/XIAOHONGSHU/login-confirmation").session(session).with(csrf())
-                        .param("expectedVersion", "1"))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/channels?view=manual#manual-XIAOHONGSHU"));
         mockMvc.perform(get("/channels?view=manual").session(session)).andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("打开官方登录/创作页")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("个人小红书")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("已人工确认登录")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("持久浏览器会话")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("name=\"password\""))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
@@ -626,14 +622,14 @@ class LocalSecurityIntegrationTest {
                         org.hamcrest.Matchers.containsString("name=\"session\""))));
         mockMvc.perform(get("/articles/" + articleId + "/manual/XIAOHONGSHU").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("打开官方登录/发布页")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("使用当前登录状态打开")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("发布标签")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("#java")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("#发布")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("#个人默认")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("个人小红书")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "登录确认仅用于个人提醒，不代表系统已检测平台会话")))
+                        "如果平台主动注销会话，请在打开的官方页面重新登录一次")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("PLAIN_TEXT")));
 
         mockMvc.perform(post("/articles/" + articleId + "/manual/XIAOHONGSHU").session(session).with(csrf())
@@ -648,7 +644,7 @@ class LocalSecurityIntegrationTest {
                 .satisfies(item -> assertThat(item.adaptedTitle()).isEqualTo("小红书发布标题"));
         mockMvc.perform(post("/channels/manual/XIAOHONGSHU/profile").session(session).with(csrf())
                         .param("channelType", "XIAOHONGSHU")
-                        .param("expectedVersion", "2")
+                        .param("expectedVersion", "1")
                         .param("accountAlias", "个人小红书")
                         .param("defaultTags", "个人默认, Java")
                         .param("defaultSection", "技术分享")
@@ -661,7 +657,7 @@ class LocalSecurityIntegrationTest {
                         "该人工平台已停用，请先在渠道管理中启用")));
         mockMvc.perform(post("/channels/manual/XIAOHONGSHU/profile").session(session).with(csrf())
                         .param("channelType", "XIAOHONGSHU")
-                        .param("expectedVersion", "3")
+                        .param("expectedVersion", "2")
                         .param("enabled", "true")
                         .param("accountAlias", "个人小红书")
                         .param("defaultTags", "个人默认, Java")

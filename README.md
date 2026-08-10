@@ -30,7 +30,7 @@ Portal 主流程已经迁移为纯个人内容确认，不再提供待审核、�
 | 持久化任务 | 已实现 | 幂等、配额、进度、批次、定时、租约、退避、取消、恢复和通用失败重放 |
 | 发布计划 | 已实现 | 浏览器时区输入转 UTC、DST 间隙/歧义校验、发布日历 |
 | API 渠道 | 已实现 | 9 个可新接入渠道，Medium 只保留合法存量账号 |
-| 人工渠道 | 已实现 | 17 个平台，可提前配置启停、个人账号别名、默认标签/栏目、备注、排序和人工登录确认，并支持五项操作进度、适配、复制、官方入口和外链回填 |
+| 人工渠道 | 已实现 | 17 个平台，可提前配置启停、个人账号别名、默认标签/栏目、备注和排序，通过独立持久浏览器 Profile 复用登录会话，并支持五项操作进度、适配、复制、官方入口和外链回填 |
 | 动作与通知 | 已实现 | 待办动作台、站内通知、确认、渠道失败/恢复通知 |
 | Webhook | 已实现 | 租户端点启停、指定端点测试、最近投递诊断、有限 Payload、退避重试、HTTPS/公网地址校验 |
 | 渠道巡检 | 已实现 | 按陈旧时间批量验证，状态变化时生成失败或恢复通知 |
@@ -94,6 +94,8 @@ cd /data/projects/content-publisher
 ./scripts/dev compose-check   # 只渲染 Compose，不要求 daemon
 ./scripts/dev dev-up          # 启动本地 PostgreSQL
 ./scripts/dev run             # DISABLED 模式本地运行
+./scripts/dev browser         # 用独立持久浏览器资料打开应用并复用第三方登录
+./scripts/dev browser status  # 查看应用地址、Profile 路径和浏览器检测状态
 ./scripts/dev verify          # clean verify、测试、JaCoCo、SBOM
 ./scripts/openapi check       # 校验 OpenAPI 快照
 ./scripts/openapi update      # Controller 合法变化后更新快照
@@ -124,6 +126,20 @@ cd /data/projects/content-publisher
 curl --fail http://127.0.0.1:8080/actuator/health/readiness
 ```
 
+首次使用人工平台时，从另一个普通终端启动专用浏览器：
+
+```bash
+./scripts/dev browser
+```
+
+默认 Profile 位于 `/data/services/content-publisher/browser-profile`。第一次在各平台官方页面完成登录后，Cookie、LocalStorage 和站点会话会留在该 Profile 中；关闭并重新启动浏览器后仍会复用。访问远程部署时显式指定应用地址：
+
+```bash
+PUBLISHER_APP_URL=https://publisher.example.com ./scripts/dev browser
+```
+
+不要使用普通浏览器窗口替代该入口，也不要清理、同步、复制或提交这个 Profile。平台主动注销、触发风控或使会话过期时，仍需在官方页面重新登录。
+
 安全模式：
 
 - `DISABLED`：仅受控本地开发。
@@ -152,10 +168,10 @@ curl --fail http://127.0.0.1:8080/actuator/health/readiness
 
 - 先在 `/channels?view=manual` 配置 17 个人工平台；未保存配置的平台默认启用。
 - 可保存个人账号别名、默认标签、默认栏目/分类、发布备注、排序和启停状态；停用的平台不会出现在文章发布目标中。
-- “确认已登录”只是当前浏览器的人工时间标记，不检测第三方会话，也不保证登录仍有效。
+- 使用 `./scripts/dev browser` 打开系统，并在第一次使用时登录各平台；后续人工发布复用同一设备上的持久浏览器 Profile。
 - 工作区记录“复制标题、复制正文、打开编辑器、检查格式、已发布”五项进度。
-- 系统只使用渠道目录中的官方登录/创作入口，不接受任意自定义平台 URL；浏览器自行维护第三方登录状态。
-- 系统不保存第三方密码、Cookie、Session、验证码或恢复码，也不模拟登录。
+- 系统只使用渠道目录中的官方登录/创作入口，不接受任意自定义平台 URL；第三方 Cookie、LocalStorage 和 Session 仅保存在专用浏览器 Profile，不写入 PostgreSQL。
+- 系统不保存第三方明文密码、验证码或恢复码，也不模拟登录；平台主动使会话失效时需要重新登录。
 - 发布后回填公开 HTTPS URL，服务端校验渠道域名并保存最终快照。
 
 ### 运营自动化
@@ -198,6 +214,8 @@ openssl rand -base64 32
 - `PUBLISHER_CHANNELS_ENCRYPTION_KEY`：渠道凭据。
 
 当前没有主密钥在线轮换迁移；丢失或直接替换会使历史密文不可恢复。
+
+人工平台的持久浏览器 Profile 默认位于 `/data/services/content-publisher/browser-profile`，其中可能包含可直接代表登录身份的 Cookie 和 Session，敏感级别等同平台凭据。该目录必须保持仅当前操作系统用户可访问，不得进入 Git、日志、普通项目备份或云同步；丢失或清理后需要重新登录第三方平台。
 
 ## 构建与不可变发布物
 

@@ -5,3 +5,5 @@ target/
 *.iml
 .env
 *.log
+browser-profile/
+browser-profiles/

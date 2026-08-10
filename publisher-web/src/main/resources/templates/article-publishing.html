@@ -13,7 +13,7 @@
                 <div>
                     <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>人工发布</h3><p>生成平台所需格式，完成发布后回填公开链接。</p></div><strong th:text="|${manualTargets.size()} 个平台|">0 个平台</strong></header>
                         <div class="manual-channel-list"><div class="manual-channel-row" th:each="channel : ${manualTargets}">
-                            <span><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'OVERSEAS' ? '国外 / 英文版' : '国内 / 中文版'} · ${channel.channel.contentFormat()} · ${channel.accountLabel()}|">平台要求</small><small th:if="${channel.loginConfirmedAt != null}" th:text="|当前浏览器登录已人工确认于 ${channel.loginConfirmedAt}|">登录确认</small><small th:unless="${channel.loginConfirmedAt != null}">尚未人工确认当前浏览器登录状态</small></span>
+                            <span><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'OVERSEAS' ? '国外 / 英文版' : '国内 / 中文版'} · ${channel.channel.contentFormat()} · ${channel.accountLabel()}|">平台要求</small><small>继续使用当前设备的持久浏览器登录状态</small></span>
                             <a class="text-link" th:if="${canEdit and publishable}" th:href="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.channel.type()})}">准备发布</a>
                             <span class="muted-action" th:unless="${canEdit and publishable}" th:text="${canEdit} ? '等待确认当前内容' : '只读'">等待确认当前内容</span>
                         </div></div>

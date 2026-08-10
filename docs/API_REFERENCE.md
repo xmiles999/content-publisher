@@ -241,7 +241,7 @@ API 发布和批量发布接受文章状态 `READY`、兼容 `APPROVED` 或 `PUB
 | POST | `/articles/{articleId}/confirm` | Editor/Admin | 本人确认当前版本；`DRAFT/REJECTED → READY` |
 | POST | `/articles/{articleId}/reopen` | Editor/Admin | 将 `READY/APPROVED` 重新进入 `DRAFT`；`PUBLISHED` 拒绝 |
 | POST | `/channels/manual/{channelType}/profile` | Admin | 保存纯人工平台个人配置 |
-| POST | `/channels/manual/{channelType}/login-confirmation` | Admin | 记录当前浏览器的人工登录确认时间 |
+| POST | `/channels/manual/{channelType}/login-confirmation` | Admin | 历史兼容：记录人工登录确认时间；当前 Portal 不再提供入口 |
 
 LOCAL 模式使用服务端 Session 和 CSRF Token。现阶段 URL 安全规则继续由 Spring Security 中的 `/channels/**` Admin 门禁提供；这是历史角色兼容，不表示未来纯个人模式需要渠道管理员审批。
 
@@ -260,7 +260,7 @@ LOCAL 模式使用服务端 Session 和 CSRF Token。现阶段 URL 安全规则�
 | `notes` | 可选，最长 1000 |
 | `sortOrder` | 0–1000 |
 
-登录确认只提交 `expectedVersion`。未配置时会创建默认启用配置；已配置时通过乐观锁更新时间。它只保存人工确认时间，不读取 Cookie、Session，不调用平台验证接口，也不保证第三方登录仍有效。
+历史登录确认端点只提交 `expectedVersion`。未配置时会创建默认启用配置；已配置时通过乐观锁更新时间。它只保存人工确认时间，不读取 Cookie、Session，不调用平台验证接口，也不保证第三方登录仍有效。当前人工发布主流程使用 `./scripts/dev browser` 启动的本机持久浏览器 Profile；该 Profile 不属于 REST 或 Portal 数据契约。
 
 Portal 捕获应用异常后以 Flash 消息重定向到 `/channels?view=manual#manual-{CHANNEL}`。相关稳定错误码包括：
 

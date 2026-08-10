@@ -12,7 +12,7 @@
     <div class="app-main">
         <header th:replace="~{fragments/app-shell :: topbar('渠道管理', '维护 API 账号和人工发布平台')}"></header>
         <main class="page-content">
-            <section class="page-header compact-page-header"><div><h2>发布渠道</h2><p>API 凭据加密保存且不回显；人工平台只保存发布结果，不保存账号密码和 Cookie。</p></div><div class="header-actions"><a class="secondary-link" th:href="@{/publishing}">返回发布中心</a></div></section>
+            <section class="page-header compact-page-header"><div><h2>发布渠道</h2><p>API 凭据加密保存；人工平台通过当前设备的持久浏览器资料复用登录状态。</p></div><div class="header-actions"><a class="secondary-link" th:href="@{/publishing}">返回发布中心</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
 
             <nav class="workspace-tabs" aria-label="渠道管理视图">
@@ -50,15 +50,15 @@
             </section>
 
             <section class="workspace-panel" th:if="${selectedChannelView == 'manual'}">
-                <header class="workspace-panel-header"><div><h3>个人人工平台</h3><p>提前保存账号提示、默认标签、栏目和发布备注；发布时仍由你在官方创作页完成操作。</p></div><strong th:text="|${manualChannels.size()} 个平台|">0 个平台</strong></header>
-                <div class="manual-profile-notice"><strong>个人登录边界</strong><span>首次未配置的平台默认启用。“确认已登录”只是个人提醒，系统不会检测或保存平台密码、Cookie、Session 和恢复码，登录状态由当前浏览器负责维护。</span></div>
-                <div class="table-wrap manual-profile-table"><table class="management-table"><thead><tr><th>启用</th><th>平台</th><th>个人账号</th><th>默认设置</th><th>登录准备</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
+                <header class="workspace-panel-header"><div><h3>个人人工平台</h3><p>提前保存账号提示、默认标签、栏目和发布备注；平台登录状态由专用浏览器资料持续保留。</p></div><strong th:text="|${manualChannels.size()} 个平台|">0 个平台</strong></header>
+                <div class="manual-profile-notice"><strong>一次登录，持续复用</strong><span>使用 <code>./scripts/dev browser</code> 打开本系统，第一次在各官方平台完成登录；后续发布继续使用同一浏览器资料中的 Cookie 和站点会话。平台主动使会话失效时才需要重新登录。</span></div>
+                <div class="table-wrap manual-profile-table"><table class="management-table"><thead><tr><th>启用</th><th>平台</th><th>个人账号</th><th>默认设置</th><th>登录方式</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
                     <tbody><tr th:each="channel : ${manualChannels}" th:id="|manual-${channel.channel.type()}|" th:classappend="${!channel.enabled} ? ' is-disabled'">
                         <td data-label="启用"><span class="manual-profile-state" th:classappend="${channel.enabled} ? ' enabled' : ' disabled'" th:text="${channel.enabled ? '启用' : '停用'}">启用</span><small th:unless="${channel.configured}">默认状态</small></td>
                         <td data-label="平台"><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'DOMESTIC' ? '国内' : '海外'} · ${channel.channel.contentFormat()} · ${channel.channel.characterLimit()} 字符|">平台要求</small></td>
-                        <td data-label="个人账号"><strong th:text="${channel.accountLabel()}">未填写账号别名</strong><small>仅作本地识别，不用于自动登录</small></td>
+                        <td data-label="个人账号"><strong th:text="${channel.accountLabel()}">未填写账号别名</strong><small>用于识别当前个人平台账号</small></td>
                         <td data-label="默认设置"><strong th:text="${channel.defaultSettingLabel()}">未设置默认值</strong><small th:if="${channel.notes != null}" th:text="${channel.notes}">备注</small><small th:unless="${channel.notes != null}">发布时可继续调整</small></td>
-                        <td data-label="登录准备"><span class="manual-profile-state confirmed" th:if="${channel.loginConfirmedAt != null}">已人工确认登录</span><span class="manual-profile-state pending" th:unless="${channel.loginConfirmedAt != null}">尚未确认登录</span><small th:if="${channel.loginConfirmedAt != null}" th:text="${channel.loginConfirmedAt}">时间</small><small th:unless="${channel.loginConfirmedAt != null}">不代表实际会话检测</small></td>
+                        <td data-label="登录方式"><span class="manual-profile-state confirmed">持久浏览器会话</span><small>同一设备和浏览器资料自动复用</small></td>
                         <td data-label="更新时间"><span th:text="${channel.updatedAt != null ? channel.updatedAt : '尚未保存配置'}">时间</span><small th:text="|配置版本 v${channel.version}|">v0</small></td>
                         <td data-label="操作"><details class="table-action-menu"><summary>配置</summary><div class="account-action-panel manual-profile-form">
                             <a class="primary-link" th:href="${channel.channel.editorUrl()}" th:attr="target=|publisher-${channel.channel.type()}|,data-platform-window=|publisher-${channel.channel.type()}|" data-platform-launch rel="noopener noreferrer">打开官方登录/创作页 ↗</a>
@@ -71,8 +71,7 @@
                                 <div class="field"><label th:for="|manual-notes-${channel.channel.type()}|">发布备注</label><textarea th:id="|manual-notes-${channel.channel.type()}|" name="notes" rows="4" maxlength="1000" th:text="${channel.notes}" placeholder="记录封面比例、转载声明、专栏选择等个人操作提示"></textarea></div>
                                 <button class="secondary-button" type="submit">保存个人配置</button>
                             </form>
-                            <form th:if="${canAdmin and channel.enabled}" th:action="@{/channels/manual/{type}/login-confirmation(type=${channel.channel.type()})}" method="post"><input type="hidden" name="expectedVersion" th:value="${channel.version}"><button class="secondary-button" type="submit">确认当前浏览器已登录</button></form>
-                            <small class="manual-profile-security">仅记录确认时间，不读取跨域会话，也不保存任何登录秘密。</small>
+                            <small class="manual-profile-security">第一次登录后不要清理该浏览器资料；后续从同一资料打开系统即可继续使用平台会话。</small>
                         </div></details></td>
                     </tr></tbody>
                 </table></div>

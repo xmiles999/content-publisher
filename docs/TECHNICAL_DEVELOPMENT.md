@@ -202,7 +202,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `Publication` | API 发布事实 |
 | `PublicationStatus` | `PUBLISHING`、`PUBLISHED`、`FAILED` |
 | `ManualPublication` | 人工发布最终内容快照与外链 |
-| `ManualChannelProfile` | 纯人工渠道的个人启停、账号别名、默认标签/栏目、备注、排序、登录确认时间和乐观锁版本 |
+| `ManualChannelProfile` | 纯人工渠道的个人启停、账号别名、默认标签/栏目、备注、排序、兼容登录确认时间和乐观锁版本 |
 
 ## 7. 应用组件
 
@@ -457,7 +457,7 @@ OpenAPI 快照当前包含 48 个 REST 操作。完整路径与角色见 `API_RE
 - REST Request 使用 Bean Validation。
 - REST Response 显式挑选安全字段，不直接序列化 JPA Entity。
 - `ManualChannelProfileForm` 是 Portal 表单模型，接收版本、启停、账号别名、标签文本、栏目、备注和排序；标签文本通过 `PortalFormSupport.splitValues(...)` 转为列表。
-- `ManualChannelProfileView` 合并目录定义和可选持久化配置，向模板提供默认启用、官方入口、登录确认和排序展示，不暴露任何登录秘密。
+- `ManualChannelProfileView` 合并目录定义和可选持久化配置，向模板提供默认启用、官方入口和排序展示；兼容字段仍可读取，但当前页面不展示登录确认，也不暴露任何登录秘密。
 - Portal Form 与 REST DTO 分离，避免 HTML 字段和 API 契约相互污染。
 - `ArticleResponse` 统一输出三类来源。
 - `JobResponse` 根据任务类型计算结果资源类型。
@@ -570,7 +570,14 @@ Portal reopen（Editor/Admin）
   → ChannelCatalog 过滤纯人工渠道
   → 读取或创建 ManualChannelProfile（未配置默认启用）
   → 保存别名 / 默认标签 / 栏目 / 备注 / 排序 / 启停
-  → 可选记录人工确认登录时间
+  → 历史客户端可选记录兼容登录确认时间
+
+用户设备
+  → scripts/browser-session 校验应用地址和 Profile 路径
+  → 创建权限 0700 的仓库外独立浏览器 Profile
+  → Chromium 系浏览器以固定 user-data-dir 打开 Portal
+  → 官方平台 Cookie / LocalStorage / Session 保留在该 Profile
+  → 后续浏览器重启继续复用，平台使会话失效时重新登录
 
 文章 + 已启用 ChannelType
   → PlatformContentAdapter
@@ -583,7 +590,7 @@ Portal reopen（Editor/Admin）
   → ManualPublication 快照 + 审计
 ```
 
-人工登录确认不读取浏览器 Cookie，也不调用第三方验证接口；它只保存 `login_confirmed_at`。GET 工作区和 POST 发布都会重新检查平台启用状态，防止绕过页面目标列表。
+应用后端不接收或读取浏览器 Cookie、LocalStorage 和第三方 Session，也不调用第三方验证接口。历史登录确认路由只保存 `login_confirmed_at`，保留用于旧数据和旧客户端兼容，当前 Portal 不再显示该操作。GET 工作区和 POST 发布都会重新检查平台启用状态，防止绕过页面目标列表。
 
 ### 10.7 软删除与恢复
 
@@ -846,9 +853,9 @@ Git、网站、AI 和自托管渠道都执行：
 - 自动化 Controller 聚合项目、主题和网站三类生成预设、掩码 Webhook 视图和最近投递；模板只迭代准备好的列表，避免依赖 Thymeleaf 不提供的列表拼接工具方法，也不把完整 Webhook URL 写入 DOM。
 - 编辑页提供节流自动保存、离开保护和服务端草稿恢复；创建页支持生成预设。
 - 文章详情页以“确认内容并准备发布”和“重新编辑”表达个人工作流，不提供审核、批准或驳回表单；状态文字把 `READY` 显示为“可发布”，并明确标识兼容状态。
-- 渠道管理人工 Tab 使用紧凑表格而非平台卡片墙，支持平台启停、个人账号别名、默认标签/栏目、备注、排序、官方入口和人工登录确认；小屏以横向滚动和单列配置表单保持可操作。
-- 人工发布页展示合并后的标签、个人账号别名、默认栏目、备注和登录确认时间，并保存复制标题、复制正文、打开编辑器、检查格式和发布五项进度。
-- 人工平台相关颜色复用语义主题变量；启停和登录状态同时提供文字，不能仅凭颜色区分。
+- 渠道管理人工 Tab 使用紧凑表格而非平台卡片墙，支持平台启停、个人账号别名、默认标签/栏目、备注、排序和官方入口，并提示通过 `./scripts/dev browser` 使用专用持久浏览器 Profile；小屏以横向滚动和单列配置表单保持可操作。
+- 人工发布页展示合并后的标签、个人账号别名、默认栏目、备注和持久浏览器登录方式，并保存复制标题、复制正文、打开编辑器、检查格式和发布五项进度。
+- 人工平台相关颜色复用语义主题变量；启停和浏览器会话方式同时提供文字，不能仅凭颜色区分。
 - 动作台、日历和自动化设置采用完整视口工作区，不以大面积卡片堆叠替代信息层级。
 - 发布批次存在活动任务时每 5 秒刷新局部 HTML。
 - 页面应处理空、加载、错误、权限、长文本和移动端状态。
@@ -1038,3 +1045,5 @@ Git、网站、AI 和自托管渠道都执行：
 2026-08-10：明确长期纯个人模式方向；新增 17 个人工平台的个人配置、默认启用、启停门禁、默认标签合并和人工登录确认时间，加入 `ManualChannelProfile` 领域/应用/JPA 链路与 Flyway V21。
 
 2026-08-10：新增 `READY`、个人内容确认与重新编辑，Portal 主流程迁移为 `DRAFT → READY → PUBLISHED`，发布门禁接受 `READY/APPROVED/PUBLISHED`；Flyway V22 将已有 `APPROVED` 回填为 `READY`，REST `approve/reject` 与兼容状态继续保留。
+
+2026-08-10：人工平台主流程改为独立持久浏览器 Profile；新增 `scripts/browser-session` 和 `./scripts/dev browser`，在仓库外以 0700 权限保存 Chromium Cookie、LocalStorage 和站点会话，Portal 移除人工登录确认操作，旧路由和字段仅作兼容保留。
