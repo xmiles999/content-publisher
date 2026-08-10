@@ -986,3 +986,5 @@ Git、网站、AI 和自托管渠道都执行：
 ### 21.3 当前文档基线记录
 
 2026-08-10：同步自动保存与预设、动作台/通知/日历、时区发布、人工进度、通用任务重放、渠道巡检、Webhook、低基数指标、Flyway V20、OpenAPI、Maven Wrapper、CI/SBOM/安全扫描、不可变发布物和 Dokploy/Traefik 部署边界。
+
+2026-08-10：自动化仓储向 JDBC 传递时间参数时统一显式转换为 `Timestamp`，避免 PostgreSQL 驱动无法推断 `Instant` 类型；PostgreSQL 容器集成测试覆盖通知、Webhook 重试、日历、动作台和渠道巡检时间查询。

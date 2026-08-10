@@ -17,8 +17,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +58,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 where tenant_id=? and article_id=? and actor_subject=?
                 """, draft.baseVersion(), draft.title(), draft.summary(), draft.markdown(), write(draft.tags()),
                 write(draft.keywords()), draft.titleEn(), draft.summaryEn(), draft.markdownEn(),
-                write(draft.tagsEn()), write(draft.keywordsEn()), draft.updatedAt(), draft.tenantId(),
+                write(draft.tagsEn()), write(draft.keywordsEn()), timestamp(draft.updatedAt()), draft.tenantId(),
                 draft.articleId(), draft.actorSubject());
         if (updated == 0) {
             try {
@@ -69,7 +70,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                         """, draft.id(), draft.tenantId(), draft.articleId(), draft.actorSubject(),
                         draft.baseVersion(), draft.title(), draft.summary(), draft.markdown(), write(draft.tags()),
                         write(draft.keywords()), draft.titleEn(), draft.summaryEn(), draft.markdownEn(),
-                        write(draft.tagsEn()), write(draft.keywordsEn()), draft.updatedAt());
+                        write(draft.tagsEn()), write(draft.keywordsEn()), timestamp(draft.updatedAt()));
             } catch (DuplicateKeyException ignored) {
                 return saveDraft(draft);
             }
@@ -102,7 +103,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 """, preset.language(), preset.tone(), preset.minCharacters(), preset.maxCharacters(),
                 preset.maxKeywords(), preset.requiredSections(), preset.articleType(), preset.knowledgeLevel(),
                 preset.recommendationAngle(), preset.model(), preset.promptVersion(), preset.parameterVersion(),
-                preset.updatedAt(), preset.tenantId(), preset.sourceType(), preset.name());
+                timestamp(preset.updatedAt()), preset.tenantId(), preset.sourceType(), preset.name());
         if (updated == 0) {
             try {
                 jdbc.update("""
@@ -115,7 +116,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                         preset.tone(), preset.minCharacters(), preset.maxCharacters(), preset.maxKeywords(),
                         preset.requiredSections(), preset.articleType(), preset.knowledgeLevel(),
                         preset.recommendationAngle(), preset.model(), preset.promptVersion(), preset.parameterVersion(),
-                        preset.usageCount(), preset.createdBy(), preset.createdAt(), preset.updatedAt());
+                        preset.usageCount(), preset.createdBy(), timestamp(preset.createdAt()),
+                        timestamp(preset.updatedAt()));
             } catch (DuplicateKeyException ignored) {
                 return savePreset(preset);
             }
@@ -140,7 +142,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 "select count(*) from jobs where tenant_id=? and deleted_at is null and status='FAILED'", tenantId);
         addCount(items, "STALE_JOB", "ERROR", "运行超时任务", "工作器租约可能已经失效", "/jobs?status=RUNNING",
                 "select count(*) from jobs where tenant_id=? and deleted_at is null and status='RUNNING' and locked_at<?",
-                tenantId, staleBefore);
+                tenantId, timestamp(staleBefore));
         addCount(items, "MANUAL_PROGRESS", "INFO", "未完成的人工发布",
                 "已有操作进度但尚未确认发布", "/publishing",
                 "select count(*) from manual_publication_progress where tenant_id=? and published=false", tenantId);
@@ -172,7 +174,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 order by scheduled_at
                 """, (rs, row) -> new JobCalendarRow(uuid(rs, "id"), rs.getString("status"),
                 UUID.fromString(readMap(rs.getString("payload_json")).get("articleId").toString()),
-                instant(rs, "scheduled_at"), instant(rs, "updated_at")), tenantId, from, to);
+                instant(rs, "scheduled_at"), instant(rs, "updated_at")), tenantId,
+                timestamp(from), timestamp(to));
         Map<UUID, String> titles = jdbc.query("select id, title from articles where tenant_id=? and deleted_at is null",
                 rs -> {
                     Map<UUID, String> values = new java.util.HashMap<>();
@@ -205,7 +208,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                         acknowledged_at=null, acknowledged_by=null, resolved_at=null, updated_at=?,
                         webhook_delivered_at=null where tenant_id=? and dedup_key=?
                     """, item.type(), item.severity(), item.title(), item.message(), item.targetUrl(),
-                    item.updatedAt(), item.tenantId(), item.dedupKey());
+                    timestamp(item.updatedAt()), item.tenantId(), item.dedupKey());
             return jdbc.query("select * from notifications where tenant_id=? and dedup_key=?",
                     (rs, row) -> notification(rs), item.tenantId(), item.dedupKey()).get(0);
         }
@@ -214,8 +217,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                     acknowledged_at, acknowledged_by, resolved_at, created_at, updated_at)
                 values(?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, item.id(), item.tenantId(), item.type(), item.severity(), item.dedupKey(), item.title(),
-                item.message(), item.targetUrl(), item.acknowledgedAt(), item.acknowledgedBy(), item.resolvedAt(),
-                item.createdAt(), item.updatedAt());
+                item.message(), item.targetUrl(), timestampNullable(item.acknowledgedAt()), item.acknowledgedBy(),
+                timestampNullable(item.resolvedAt()), timestamp(item.createdAt()), timestamp(item.updatedAt()));
         return item;
     }
 
@@ -224,7 +227,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
         return jdbc.update("""
                 update notifications set acknowledged_at=?, acknowledged_by=?, updated_at=?
                 where tenant_id=? and id=? and acknowledged_at is null
-                """, now, subject, now, tenantId, id) == 1;
+                """, timestamp(now), subject, timestamp(now), tenantId, id) == 1;
     }
 
     @Override
@@ -246,13 +249,14 @@ public class JdbcAutomationRepository implements AutomationRepository {
         int updated = jdbc.update("""
                 update notification_endpoints set webhook_url=?, enabled=?, updated_at=?
                 where tenant_id=? and display_name=?
-                """, endpoint.webhookUrl(), endpoint.enabled(), endpoint.updatedAt(),
+                """, endpoint.webhookUrl(), endpoint.enabled(), timestamp(endpoint.updatedAt()),
                 endpoint.tenantId(), endpoint.displayName());
         if (updated == 0) jdbc.update("""
                 insert into notification_endpoints(id, tenant_id, display_name, webhook_url, enabled,
                     created_by, created_at, updated_at) values(?,?,?,?,?,?,?,?)
                 """, endpoint.id(), endpoint.tenantId(), endpoint.displayName(), endpoint.webhookUrl(),
-                endpoint.enabled(), endpoint.createdBy(), endpoint.createdAt(), endpoint.updatedAt());
+                endpoint.enabled(), endpoint.createdBy(), timestamp(endpoint.createdAt()),
+                timestamp(endpoint.updatedAt()));
         return findNotificationEndpoints(endpoint.tenantId()).stream()
                 .filter(item -> item.displayName().equals(endpoint.displayName())).findFirst().orElseThrow();
     }
@@ -285,7 +289,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                             created_at, updated_at)
                         values(?,?,?,?, 'PENDING', 0, ?, ?, ?)
                         """, UUID.randomUUID(), pair.notificationId(), pair.endpointId(), pair.tenantId(),
-                        now, now, now);
+                        timestamp(now), timestamp(now), timestamp(now));
             } catch (DuplicateKeyException ignored) {
                 // Another dispatcher prepared the same delivery concurrently.
             }
@@ -308,7 +312,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 """, (rs, row) -> new WebhookDelivery(uuid(rs, "id"), uuid(rs, "notification_id"),
                 uuid(rs, "endpoint_id"), rs.getString("tenant_id"), rs.getString("webhook_url"),
                 rs.getString("type"), rs.getString("severity"), rs.getString("title"), rs.getString("message"),
-                rs.getString("target_url"), instant(rs, "created_at"), rs.getInt("attempts")), now, limit);
+                rs.getString("target_url"), instant(rs, "created_at"), rs.getInt("attempts")),
+                timestamp(now), limit);
     }
 
     @Override
@@ -317,7 +322,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 update notification_webhook_deliveries
                 set status='DELIVERED', attempts=attempts+1, delivered_at=?, last_error=null, updated_at=?
                 where id=? and status='PENDING'
-                """, deliveredAt, deliveredAt, deliveryId);
+                """, timestamp(deliveredAt), timestamp(deliveredAt), deliveryId);
     }
 
     @Override
@@ -327,7 +332,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 update notification_webhook_deliveries
                 set status=?, attempts=?, next_attempt_at=?, last_error=?, updated_at=?
                 where id=? and status='PENDING'
-                """, exhausted ? "FAILED" : "PENDING", attempts, nextAttemptAt, errorSummary, now, deliveryId);
+                """, exhausted ? "FAILED" : "PENDING", attempts, timestamp(nextAttemptAt), errorSummary,
+                timestamp(now), deliveryId);
     }
 
     @Override
@@ -347,7 +353,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                     checked_format=?, published=?, updated_at=?
                 where tenant_id=? and article_id=? and channel_type=? and actor_subject=?
                 """, progress.copiedTitle(), progress.copiedContent(), progress.openedEditor(),
-                progress.checkedFormat(), progress.published(), progress.updatedAt(), progress.tenantId(),
+                progress.checkedFormat(), progress.published(), timestamp(progress.updatedAt()), progress.tenantId(),
                 progress.articleId(), progress.channelType(), progress.actorSubject());
         if (updated == 0) jdbc.update("""
                 insert into manual_publication_progress(id, tenant_id, article_id, channel_type, actor_subject,
@@ -355,7 +361,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 values(?,?,?,?,?,?,?,?,?,?,?)
                 """, progress.id(), progress.tenantId(), progress.articleId(), progress.channelType(),
                 progress.actorSubject(), progress.copiedTitle(), progress.copiedContent(), progress.openedEditor(),
-                progress.checkedFormat(), progress.published(), progress.updatedAt());
+                progress.checkedFormat(), progress.published(), timestamp(progress.updatedAt()));
         return findManualProgress(progress.tenantId(), progress.articleId(), progress.channelType(),
                 progress.actorSubject()).orElseThrow();
     }
@@ -368,7 +374,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 where status='ACTIVE' and (last_verified_at is null or last_verified_at<?)
                 order by last_verified_at nulls first, updated_at limit ?
                 """, (rs, row) -> new ChannelCheckTarget(rs.getString("tenant_id"), uuid(rs, "id"),
-                rs.getString("verification_status")), checkedBefore, limit);
+                rs.getString("verification_status")), timestamp(checkedBefore), limit);
     }
 
     private ArticleDraft draft(java.sql.ResultSet rs) throws java.sql.SQLException {
@@ -414,13 +420,24 @@ public class JdbcAutomationRepository implements AutomationRepository {
     private UUID uuid(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
         return rs.getObject(column, UUID.class);
     }
+
     private Instant instant(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
         return rs.getTimestamp(column).toInstant();
     }
+
     private Instant instantNullable(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
         var value = rs.getTimestamp(column);
         return value == null ? null : value.toInstant();
     }
+
+    private Timestamp timestamp(Instant value) {
+        return Timestamp.from(value);
+    }
+
+    private Timestamp timestampNullable(Instant value) {
+        return value == null ? null : timestamp(value);
+    }
+
     private String write(Object value) {
         try { return json.writeValueAsString(value); }
         catch (Exception exception) { throw new IllegalStateException("自动化数据序列化失败", exception); }

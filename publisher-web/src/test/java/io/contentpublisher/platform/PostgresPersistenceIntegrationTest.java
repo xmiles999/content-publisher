@@ -1,5 +1,8 @@
 package io.contentpublisher.platform;
 
+import io.contentpublisher.platform.application.AutomationApplicationService.NotificationEndpoint;
+import io.contentpublisher.platform.application.AutomationApplicationService.NotificationItem;
+import io.contentpublisher.platform.application.port.AutomationRepository;
 import io.contentpublisher.platform.application.port.JobRepository;
 import io.contentpublisher.platform.domain.Job;
 import io.contentpublisher.platform.domain.JobPayload;
@@ -43,6 +46,7 @@ class PostgresPersistenceIntegrationTest {
     }
 
     @Autowired JobRepository jobs;
+    @Autowired AutomationRepository automation;
 
     @Test
     void shouldRunAllMigrationsAndClaimScheduledJobOnlyOnceAcrossWorkers() throws Exception {
@@ -86,6 +90,34 @@ class PostgresPersistenceIntegrationTest {
         assertThat(jobs.findByIdempotencyKey("postgres-tenant", "postgres-scheduled"))
                 .get().extracting(Job::id).isEqualTo(scheduled.id());
         assertThat(jobs.findByIdempotencyKey("other-tenant", "postgres-scheduled")).isEmpty();
+    }
+
+    @Test
+    void shouldPersistAutomationTimestampsWithPostgres() {
+        Instant now = Instant.parse("2026-08-10T00:00:00Z");
+        String tenant = "postgres-automation";
+        NotificationItem notification = automation.saveNotification(new NotificationItem(
+                UUID.randomUUID(), tenant, "CHANNEL_HEALTH_FAILED", "ERROR", "postgres-webhook",
+                "渠道巡检失败", "PostgreSQL 时间参数验证", "/channels", null, null, null, now, now));
+        automation.saveNotificationEndpoint(new NotificationEndpoint(
+                UUID.randomUUID(), tenant, "postgres-test", "https://example.com/webhook",
+                true, "integration-test", now, now));
+
+        automation.prepareWebhookDeliveries(now, 10);
+        var delivery = automation.findWebhookDeliveriesDue(now, 10).get(0);
+        assertThat(delivery.notificationId()).isEqualTo(notification.id());
+
+        automation.markWebhookDeliveryFailed(delivery.id(), 1, now.plusSeconds(60),
+                "HTTP 503", false, now.plusSeconds(1));
+        assertThat(automation.findWebhookDeliveriesDue(now.plusSeconds(30), 10)).isEmpty();
+        assertThat(automation.findWebhookDeliveriesDue(now.plusSeconds(60), 10)).singleElement()
+                .extracting(item -> item.attempts()).isEqualTo(1);
+
+        automation.markWebhookDeliverySucceeded(delivery.id(), now.plusSeconds(61));
+        assertThat(automation.findWebhookDeliveriesDue(now.plusSeconds(120), 10)).isEmpty();
+        assertThat(automation.findCalendar(tenant, now.minusSeconds(60), now.plusSeconds(60))).isEmpty();
+        assertThat(automation.findChannelChecksDue(now, 10)).isEmpty();
+        assertThat(automation.findActions(tenant, now.minusSeconds(900))).isNotNull();
     }
 
     private Job pending(String idempotencyKey, Instant scheduledAt) {
