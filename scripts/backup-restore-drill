@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TMP_ROOT="${DRILL_TMP_ROOT:-/data/tmp}"
+SOURCE_DATABASE_URL="${BACKUP_SOURCE_DATABASE_URL:-}"
+LOGIN_USERNAME="${DRILL_LOGIN_USERNAME:-}"
+LOGIN_PASSWORD="${DRILL_LOGIN_PASSWORD:-}"
+EXPECTED_TENANT="${DRILL_EXPECTED_TENANT:-}"
+POSTGRES_IMAGE="${DRILL_POSTGRES_IMAGE:-postgres:17-alpine}"
+
+fail() { printf '[restore-drill] %s\n' "$*" >&2; exit 1; }
+info() { printf '[restore-drill] %s\n' "$*"; }
+
+[[ "$TMP_ROOT" == /data/tmp || "$TMP_ROOT" == /data/tmp/* ]] \
+  || fail "临时目录必须位于 /data/tmp"
+[[ -n "$SOURCE_DATABASE_URL" ]] || fail "缺少 BACKUP_SOURCE_DATABASE_URL"
+[[ -n "$LOGIN_USERNAME" ]] || fail "缺少 DRILL_LOGIN_USERNAME"
+[[ -n "$LOGIN_PASSWORD" ]] || fail "缺少 DRILL_LOGIN_PASSWORD"
+[[ -n "${PUBLISHER_SECRETS_ENCRYPTION_KEY:-}" ]] || fail "缺少 PUBLISHER_SECRETS_ENCRYPTION_KEY"
+[[ -n "${PUBLISHER_CHANNELS_ENCRYPTION_KEY:-}" ]] || fail "缺少 PUBLISHER_CHANNELS_ENCRYPTION_KEY"
+command -v docker >/dev/null 2>&1 || fail "缺少 docker"
+docker info >/dev/null 2>&1 || fail "当前用户无法访问 Docker；请在具备隔离容器权限的 CI/预发布环境运行"
+
+mkdir -p "$TMP_ROOT"
+WORK_DIR="$(mktemp -d "$TMP_ROOT/content-publisher-restore-drill.XXXXXX")"
+RUN_ID="$(basename "$WORK_DIR" | tr -cd 'a-zA-Z0-9_.-')"
+NETWORK="cp-restore-${RUN_ID}"
+POSTGRES="cp-restore-postgres-${RUN_ID}"
+DB_PASSWORD="$(openssl rand -hex 24)"
+
+cleanup() {
+  docker rm -f "$POSTGRES" >/dev/null 2>&1 || true
+  docker network rm "$NETWORK" >/dev/null 2>&1 || true
+  rm -rf "$WORK_DIR"
+}
+trap cleanup EXIT INT TERM
+
+info "创建只读逻辑备份"
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$WORK_DIR:/work" "$POSTGRES_IMAGE" \
+  pg_dump --format=custom --no-owner --no-acl \
+  --file=/work/content-publisher.dump "$SOURCE_DATABASE_URL"
+(
+  cd "$WORK_DIR"
+  sha256sum content-publisher.dump >content-publisher.dump.sha256
+  sha256sum --check content-publisher.dump.sha256
+)
+info "备份校验通过：$(cat "$WORK_DIR/content-publisher.dump.sha256")"
+
+docker network create "$NETWORK" >/dev/null
+docker run -d --name "$POSTGRES" --network "$NETWORK" \
+  -e POSTGRES_DB=content_publisher \
+  -e POSTGRES_USER=content_publisher \
+  -e POSTGRES_PASSWORD="$DB_PASSWORD" \
+  "$POSTGRES_IMAGE" >/dev/null
+
+for _ in $(seq 1 40); do
+  if docker exec "$POSTGRES" pg_isready -U content_publisher -d content_publisher >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+docker exec "$POSTGRES" pg_isready -U content_publisher -d content_publisher >/dev/null 2>&1 \
+  || fail "隔离 PostgreSQL 未在 40 秒内就绪"
+
+info "恢复到隔离 PostgreSQL"
+docker run --rm --network "$NETWORK" --user "$(id -u):$(id -g)" \
+  -v "$WORK_DIR:/work:ro" -e PGPASSWORD="$DB_PASSWORD" "$POSTGRES_IMAGE" \
+  pg_restore --exit-on-error --no-owner --no-acl \
+  --host="$POSTGRES" --username=content_publisher --dbname=content_publisher \
+  /work/content-publisher.dump
+
+POSTGRES_IP="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$POSTGRES")"
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+export PATH="$JAVA_HOME/bin:$PATH"
+export DB_URL="jdbc:postgresql://${POSTGRES_IP}:5432/content_publisher"
+export DB_USERNAME=content_publisher
+export DB_PASSWORD
+export PUBLISHER_SECURITY_MODE=LOCAL
+export PUBLISHER_CHANNELS_ENABLED=true
+
+info "执行 Flyway、登录、租户和密钥解密冒烟"
+"$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" -pl publisher-web -am \
+  -Dtest=RestoreDrillIntegrationTest \
+  -Dsurefire.failIfNoSpecifiedTests=false \
+  -Drestore.drill.enabled=true \
+  -Drestore.drill.username="$LOGIN_USERNAME" \
+  -Drestore.drill.password="$LOGIN_PASSWORD" \
+  -Drestore.drill.tenant="$EXPECTED_TENANT" \
+  test
+
+if [[ -n "${DRILL_OUTPUT_DIR:-}" ]]; then
+  mkdir -p "$DRILL_OUTPUT_DIR"
+  install -m 0600 "$WORK_DIR/content-publisher.dump" "$DRILL_OUTPUT_DIR/"
+  install -m 0600 "$WORK_DIR/content-publisher.dump.sha256" "$DRILL_OUTPUT_DIR/"
+  info "演练备份已保存到 $DRILL_OUTPUT_DIR"
+fi
+info "恢复演练通过；隔离资源将自动清理"

@@ -1,0 +1,10 @@
+.git
+.github
+.idea
+.vscode
+.agents
+**/target
+target
+.env
+*.log
+skills-lock.json

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: content_publisher
+      POSTGRES_USER: content_publisher
+      POSTGRES_PASSWORD: ${DEV_DB_PASSWORD:-content-publisher-dev}
+    ports:
+      - "127.0.0.1:${DEV_DB_PORT:-55432}:5432"
+    volumes:
+      - content-publisher-dev-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U content_publisher -d content_publisher"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  content-publisher-dev-postgres:

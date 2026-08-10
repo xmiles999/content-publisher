@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+export PATH="$JAVA_HOME/bin:$PATH"
+
+case "${1:-check}" in
+  check)
+    exec "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" -pl publisher-web -am \
+      -Dtest=OpenApiContractTest -Dsurefire.failIfNoSpecifiedTests=false test
+    ;;
+  update)
+    exec "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" -pl publisher-web -am \
+      -Dtest=OpenApiContractTest -Dsurefire.failIfNoSpecifiedTests=false \
+      -Dopenapi.update=true test
+    ;;
+  *)
+    printf '用法：%s [check|update]\n' "$0" >&2
+    exit 2
+    ;;
+esac

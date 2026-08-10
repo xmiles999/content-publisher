@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -x /usr/lib/jvm/java-17-openjdk-amd64/bin/java ]]; then
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+WORKTREE_STATUS="$(git -C "$ROOT_DIR" status --porcelain=v1 --untracked-files=normal)"
+if [[ -n "$WORKTREE_STATUS" ]]; then
+  printf '拒绝生成正式发布物：Git 工作区存在未提交或未跟踪内容，无法保证产物与 Git SHA 一致。\n' >&2
+  printf '%s\n' "$WORKTREE_STATUS" >&2
+  exit 1
+fi
+
+VERSION="${1:-$("$ROOT_DIR/mvnw" -q help:evaluate -Dexpression=project.version -DforceStdout)}"
+GIT_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
+RELEASE_ID="${VERSION}-${GIT_SHA}"
+OUTPUT_DIR="${RELEASE_OUTPUT_DIR:-$ROOT_DIR/target/releases/$RELEASE_ID}"
+
+"$ROOT_DIR/scripts/dev" verify
+mkdir -p "$OUTPUT_DIR"
+
+JAR_PATH="$ROOT_DIR/publisher-web/target/content-publisher.jar"
+[[ -f "$JAR_PATH" ]] || {
+  printf '未找到唯一可执行 JAR：%s\n' "$JAR_PATH" >&2
+  exit 1
+}
+cp "$JAR_PATH" "$OUTPUT_DIR/content-publisher-${RELEASE_ID}.jar"
+cp "$ROOT_DIR/target/bom.json" \
+  "$OUTPUT_DIR/content-publisher-${RELEASE_ID}.cdx.json"
+
+cat >"$OUTPUT_DIR/release.properties" <<EOF
+version=$VERSION
+git_sha=$(git -C "$ROOT_DIR" rev-parse HEAD)
+git_ref=$(git -C "$ROOT_DIR" symbolic-ref --short -q HEAD || echo detached)
+built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+java_version=$("$JAVA_HOME/bin/java" -version 2>&1 | head -1)
+EOF
+
+(
+  cd "$OUTPUT_DIR"
+  sha256sum ./* >SHA256SUMS
+)
+printf 'Release created: %s\n' "$OUTPUT_DIR"

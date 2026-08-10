@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEV_COMPOSE="$ROOT_DIR/deploy/dev-compose.yaml"
+DEFAULT_JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+
+info() { printf '\033[1;34m[content-publisher]\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33m[warning]\033[0m %s\n' "$*" >&2; }
+fail() { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
+
+select_java17() {
+  if [[ -n "${JAVA_HOME:-}" ]] && [[ -x "$JAVA_HOME/bin/java" ]] \
+      && "$JAVA_HOME/bin/java" -version 2>&1 | head -1 | grep -Eq '"17(\.|")'; then
+    return
+  fi
+  for candidate in \
+      "$DEFAULT_JAVA_HOME" \
+      "/usr/lib/jvm/java-1.17.0-openjdk-amd64" \
+      "/usr/lib/jvm/openjdk-17" \
+      "${HOME}/.sdkman/candidates/java/current"; do
+    if [[ -x "$candidate/bin/java" ]] \
+        && "$candidate/bin/java" -version 2>&1 | head -1 | grep -Eq '"17(\.|")'; then
+      export JAVA_HOME="$candidate"
+      export PATH="$JAVA_HOME/bin:$PATH"
+      return
+    fi
+  done
+  fail "未找到 JDK 17。请安装 JDK 17 或将 JAVA_HOME 指向 JDK 17。"
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "缺少命令：$1"
+}
+
+docker_command() {
+  if docker info >/dev/null 2>&1; then
+    printf '%s\n' "docker"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
+    printf '%s\n' "sudo -n docker"
+    return
+  fi
+  return 1
+}
+
+compose() {
+  local runtime
+  runtime="$(docker_command)" || fail "Docker daemon 不可用，且当前账号没有免交互 sudo Docker 权限"
+  # shellcheck disable=SC2086
+  $runtime compose -f "$DEV_COMPOSE" "$@"
+}
+
+doctor() {
+  local errors=0
+  info "检查开发环境"
+  if select_java17; then
+    info "JDK: $("$JAVA_HOME/bin/java" -version 2>&1 | head -1)"
+  else
+    errors=$((errors + 1))
+  fi
+  for command in git curl docker; do
+    if command -v "$command" >/dev/null 2>&1; then
+      info "$command: $(command -v "$command")"
+    else
+      warn "缺少命令：$command"
+      errors=$((errors + 1))
+    fi
+  done
+  if [[ -x "$ROOT_DIR/mvnw" ]]; then
+    info "Maven Wrapper: $("$ROOT_DIR/mvnw" -version 2>/dev/null | sed -n '1p')"
+  else
+    warn "缺少 Maven Wrapper"
+    errors=$((errors + 1))
+  fi
+  if docker info >/dev/null 2>&1; then
+    info "容器运行时可用（当前用户）"
+  elif command -v sudo >/dev/null 2>&1 && sudo -n docker info >/dev/null 2>&1; then
+    info "容器运行时可用（通过 sudo -n；不会把用户加入 docker 组）"
+    warn "Testcontainers 仍无法直接使用 root Docker socket；真实 PostgreSQL 测试由 CI 或 integration-container 执行"
+  else
+    warn "Docker daemon 不可用；dev-up 与容器化集成测试将无法运行"
+    errors=$((errors + 1))
+  fi
+  if command -v ss >/dev/null 2>&1 && ss -ltnH | awk '{print $4}' | grep -Eq '(^|:)8080$'; then
+    warn "8080 端口已被占用，run 命令可能无法启动"
+  fi
+  if [[ "$errors" -gt 0 ]]; then
+    fail "环境诊断发现 $errors 个阻断项"
+  fi
+  info "环境诊断通过"
+}
+
+wait_for_postgres() {
+  local attempts=0
+  until compose exec -T postgres pg_isready -U content_publisher -d content_publisher >/dev/null 2>&1; do
+    attempts=$((attempts + 1))
+    [[ "$attempts" -le 30 ]] || fail "PostgreSQL 在 60 秒内未就绪"
+    sleep 2
+  done
+}
+
+case "${1:-help}" in
+  doctor)
+    doctor
+    ;;
+  dev-up)
+    require_command docker
+    compose up -d
+    wait_for_postgres
+    info "PostgreSQL 已就绪：127.0.0.1:${DEV_DB_PORT:-55432}"
+    ;;
+  dev-down)
+    require_command docker
+    compose down
+    ;;
+  dev-reset)
+    require_command docker
+    compose down -v
+    info "开发数据库卷已删除"
+    ;;
+  run)
+    select_java17
+    require_command docker
+    compose up -d
+    wait_for_postgres
+    export DB_URL="${DB_URL:-jdbc:postgresql://127.0.0.1:${DEV_DB_PORT:-55432}/content_publisher}"
+    export DB_USERNAME="${DB_USERNAME:-content_publisher}"
+    export DB_PASSWORD="${DB_PASSWORD:-${DEV_DB_PASSWORD:-content-publisher-dev}}"
+    export PUBLISHER_SECURITY_MODE="${PUBLISHER_SECURITY_MODE:-DISABLED}"
+    export PUBLISHER_JOBS_WORKER_ENABLED="${PUBLISHER_JOBS_WORKER_ENABLED:-false}"
+    exec "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" -pl publisher-web -am spring-boot:run
+    ;;
+  verify)
+    select_java17
+    exec "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" clean verify
+    ;;
+  integration-container)
+    select_java17
+    require_command docker
+    runtime="$(docker_command)" || fail "Docker daemon 不可用"
+    socket_gid="$($runtime run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine:3.22 stat -c %g /var/run/docker.sock)"
+    # 在临时 Maven 容器中以非 root 用户运行，并仅追加 Docker socket 的实际 GID。
+    # shellcheck disable=SC2086
+    exec $runtime run --rm \
+      --user 10001:10001 \
+      --group-add "$socket_gid" \
+      -e HOME=/tmp/home \
+      -e MAVEN_CONFIG=/tmp/home/.m2 \
+      -v "$ROOT_DIR:/workspace:rw" \
+      -v /var/run/docker.sock:/var/run/docker.sock \
+      -w /workspace \
+      maven:3.9.11-eclipse-temurin-17 \
+      ./mvnw -Dtest=PostgresPersistenceIntegrationTest -pl publisher-web -am test
+    ;;
+  security)
+    select_java17
+    shift
+    security_args=("$@")
+    nvd_source_configured=false
+    for arg in "${security_args[@]}"; do
+      case "$arg" in
+        -DnvdApiKey=*|-DnvdApiKeyEnvironmentVariable=*|-DnvdApiServerId=*|-DnvdDatafeedUrl=*)
+          nvd_source_configured=true
+          break
+          ;;
+      esac
+    done
+    if [[ "$nvd_source_configured" == false ]]; then
+      if [[ -n "${NVD_API_KEY:-}" ]]; then
+        # 只传环境变量名，避免 Maven 调试日志或进程参数泄漏密钥。
+        security_args+=("-DnvdApiKeyEnvironmentVariable=NVD_API_KEY")
+      else
+        # OWASP dependency-check 维护组织每日生成的只读 NVD 数据源，
+        # 让本地与无 Secret 的 CI 扫描不依赖低速匿名 NVD API。
+        security_args+=("-DnvdDatafeedUrl=https://dependency-check.github.io/DependencyCheck_Builder/nvd_cache/nvdcve-{0}.json.gz")
+      fi
+    fi
+    exec "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" -Psecurity verify "${security_args[@]}"
+    ;;
+  compose-check)
+    require_command docker
+    # `docker compose config` 只校验和渲染配置，不依赖 Docker daemon。
+    docker compose -f "$DEV_COMPOSE" config >/dev/null
+    DB_PASSWORD=compose-check-password \
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://identity.example.test/issuer \
+      docker compose -f "$ROOT_DIR/deploy/compose.yaml" config >/dev/null
+    DB_PASSWORD=compose-check-password \
+      PUBLISHER_IMAGE_TAG=0.1.0-test-5bfe244cc528 \
+      PUBLISHER_LOCAL_ADMIN_PASSWORD=compose-check-admin-password \
+      PUBLISHER_SECRETS_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+      PUBLISHER_CHANNELS_ENCRYPTION_KEY=BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB= \
+      docker compose -f "$ROOT_DIR/deploy/dokploy-compose.yaml" config >/dev/null
+    info "Compose 配置渲染通过"
+    ;;
+  *)
+    cat <<'USAGE'
+用法：./scripts/dev <command>
+
+  doctor        检查 JDK 17、Wrapper、Docker 和常用命令
+  dev-up        启动本地 PostgreSQL
+  dev-down      停止本地 PostgreSQL
+  dev-reset     停止并删除本地开发数据库卷
+  run           启动 PostgreSQL，并以 DISABLED 安全模式运行应用
+  verify        使用 JDK 17 执行完整 Maven 验证
+  integration-container
+                在非 root Maven 容器中执行真实 PostgreSQL Testcontainers 测试
+  security      执行 OWASP 依赖漏洞检查；优先使用 NVD_API_KEY，否则使用每日缓存
+  compose-check 校验开发和部署 Compose 配置
+USAGE
+    ;;
+esac
