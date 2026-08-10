@@ -52,12 +52,26 @@ class PublishingApplicationServiceTest {
     private static final ActorContext ACTOR = new ActorContext("tenant", "admin");
 
     @Test
-    void shouldRequireApprovalBeforePublishing() {
+    void shouldRequireContentConfirmationBeforePublishing() {
         Fixture fixture = fixture(ArticleStatus.DRAFT);
 
         assertThatThrownBy(() -> fixture.service.assertPublishable(ACTOR, fixture.article.id(), fixture.account.id()))
                 .isInstanceOfSatisfying(ApplicationException.class,
                         exception -> assertThat(exception.code()).isEqualTo("ARTICLE_NOT_APPROVED"));
+    }
+
+    @Test
+    void shouldPublishReadyPersonalContent() {
+        Fixture fixture = fixture(ArticleStatus.READY);
+
+        assertThat(fixture.service.preflight(ACTOR, fixture.article.id(), fixture.account.id()).ready()).isTrue();
+    }
+
+    @Test
+    void shouldKeepLegacyApprovedContentPublishable() {
+        Fixture fixture = fixture(ArticleStatus.APPROVED);
+
+        assertThat(fixture.service.preflight(ACTOR, fixture.article.id(), fixture.account.id()).ready()).isTrue();
     }
 
     @Test
@@ -71,7 +85,7 @@ class PublishingApplicationServiceTest {
 
     @Test
     void shouldBlockOverseasPreflightWhenEnglishContentIsMissing() {
-        Fixture fixture = fixture(ArticleStatus.APPROVED);
+        Fixture fixture = fixture(ArticleStatus.READY);
         Article articleWithoutEnglish = new Article(fixture.article.id(), fixture.article.tenantId(),
                 fixture.article.origin(), fixture.article.generationJobId(), fixture.article.title(),
                 fixture.article.summary(), fixture.article.markdown(), fixture.article.tags(),
@@ -90,7 +104,7 @@ class PublishingApplicationServiceTest {
 
     @Test
     void shouldCreatePublicationAndMarkArticlePublished() {
-        Fixture fixture = fixture(ArticleStatus.APPROVED);
+        Fixture fixture = fixture(ArticleStatus.READY);
         UUID jobId = UUID.randomUUID();
 
         Publication result = fixture.service.publish(ACTOR, fixture.article.id(), fixture.account.id(),
@@ -111,7 +125,7 @@ class PublishingApplicationServiceTest {
         ChannelCredentialRefresher refresher = mock(ChannelCredentialRefresher.class);
         ChannelPublisher publisher = mock(ChannelPublisher.class);
         AuditRecorder audits = mock(AuditRecorder.class);
-        Article article = article(ArticleStatus.APPROVED);
+        Article article = article(ArticleStatus.READY);
         ChannelAccount account = new ChannelAccount(UUID.randomUUID(), "tenant", ChannelType.X, "X",
                 "https://api.x.com", "encrypted-x", "channel-x-001", "a".repeat(64), "b".repeat(64), 1,
                 ChannelAccountStatus.ACTIVE, "admin", "admin", NOW, NOW);
@@ -185,7 +199,7 @@ class PublishingApplicationServiceTest {
 
     @Test
     void shouldRejectNonHttpsCanonicalUrl() {
-        Fixture fixture = fixture(ArticleStatus.APPROVED);
+        Fixture fixture = fixture(ArticleStatus.READY);
 
         assertThatThrownBy(() -> fixture.service.validateCanonicalUrl("http://example.com/article"))
                 .isInstanceOfSatisfying(ApplicationException.class,
@@ -205,7 +219,7 @@ class PublishingApplicationServiceTest {
 
     @Test
     void shouldRecordManualPublicationSnapshotAndMarkArticlePublished() {
-        Fixture fixture = fixture(ArticleStatus.APPROVED);
+        Fixture fixture = fixture(ArticleStatus.READY);
         when(fixture.manualPublications.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         ManualPublication result = fixture.service.completeManualPublication(ACTOR, fixture.article.id(),

@@ -4,19 +4,25 @@ import io.contentpublisher.platform.application.ApplicationException;
 import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.ChannelCatalog;
 import io.contentpublisher.platform.application.JobApplicationService;
+import io.contentpublisher.platform.application.ManualChannelProfileApplicationService;
 import io.contentpublisher.platform.application.ProjectApplicationService;
 import io.contentpublisher.platform.application.PublishingApplicationService;
 import io.contentpublisher.platform.application.PublicationMethod;
 import io.contentpublisher.platform.application.PublicationRecord;
+import io.contentpublisher.platform.domain.ActorContext;
+import io.contentpublisher.platform.domain.AdaptedContent;
 import io.contentpublisher.platform.domain.Article;
 import io.contentpublisher.platform.domain.ChannelAccountStatus;
 import io.contentpublisher.platform.domain.ChannelType;
+import io.contentpublisher.platform.domain.ManualChannelProfile;
 import io.contentpublisher.platform.domain.PublicationStatus;
-import io.contentpublisher.platform.web.form.CreateChannelAccountForm;
 import io.contentpublisher.platform.web.form.BatchPublishArticleForm;
+import io.contentpublisher.platform.web.form.CreateChannelAccountForm;
+import io.contentpublisher.platform.web.form.ManualChannelProfileForm;
 import io.contentpublisher.platform.web.form.ManualPublicationForm;
 import io.contentpublisher.platform.web.form.PublishArticleForm;
 import io.contentpublisher.platform.web.dto.ChannelAccountView;
+import io.contentpublisher.platform.web.dto.ManualChannelProfileView;
 import io.contentpublisher.platform.web.dto.PublicationMatrixCell;
 import io.contentpublisher.platform.web.dto.PublicationMatrixRow;
 import io.contentpublisher.platform.web.dto.PublicationBatchView;
@@ -33,13 +39,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.time.Instant;
+
+import static io.contentpublisher.platform.web.controller.PortalFormSupport.splitValues;
 
 @Controller
 public class PortalPublishingController {
@@ -47,6 +58,7 @@ public class PortalPublishingController {
     private final ProjectApplicationService projects;
     private final JobApplicationService jobs;
     private final AutomationApplicationService automation;
+    private final ManualChannelProfileApplicationService manualProfiles;
     private final ScheduleParser scheduleParser;
     private final RequestActorProvider actors;
 
@@ -54,12 +66,14 @@ public class PortalPublishingController {
                                       ProjectApplicationService projects,
                                       JobApplicationService jobs,
                                       AutomationApplicationService automation,
+                                      ManualChannelProfileApplicationService manualProfiles,
                                       ScheduleParser scheduleParser,
                                       RequestActorProvider actors) {
         this.publishing = publishing;
         this.projects = projects;
         this.jobs = jobs;
         this.automation = automation;
+        this.manualProfiles = manualProfiles;
         this.scheduleParser = scheduleParser;
         this.actors = actors;
     }
@@ -186,6 +200,7 @@ public class PortalPublishingController {
         var actor = actors.currentActor();
         Article article = publishing.getArticle(actor, articleId);
         model.addAttribute("article", article);
+        model.addAttribute("publishable", article.status().isPublishable());
         model.addAttribute("articleStatusName", PortalLabels.articleStatusNames().get(article.status()));
         BatchPublishArticleForm form = new BatchPublishArticleForm();
         form.setIdempotencyKey(idempotencyKey("publish-batch"));
@@ -200,8 +215,8 @@ public class PortalPublishingController {
         model.addAttribute("publicationPreflights", preflights);
         model.addAttribute("readyChannelAccountCount", preflights.values().stream()
                 .filter(io.contentpublisher.platform.application.PublicationPreflightResult::ready).count());
-        model.addAttribute("manualTargets", ChannelCatalog.all().stream()
-                .filter(ChannelCatalog.ChannelDefinition::manualAvailable).toList());
+        model.addAttribute("manualTargets", manualProfileViews(actor).stream()
+                .filter(ManualChannelProfileView::enabled).toList());
         model.addAttribute("publicationRecords", publishing.getArticlePublicationRecords(actor, articleId));
         model.addAttribute("channelNames", channelNames());
         Map<ChannelType, ChannelCatalog.ChannelRegion> channelRegions = new java.util.EnumMap<>(ChannelType.class);
@@ -311,6 +326,44 @@ public class PortalPublishingController {
         return "redirect:/channels#account-" + accountId;
     }
 
+    @PostMapping("/channels/manual/{channelType}/profile")
+    public String saveManualChannelProfile(@PathVariable ChannelType channelType,
+                                           @Valid @ModelAttribute ManualChannelProfileForm form,
+                                           BindingResult bindingResult,
+                                           RedirectAttributes redirectAttributes) {
+        String redirect = manualChannelRedirect(channelType);
+        if (bindingResult.hasErrors()) {
+            redirectAttributes.addFlashAttribute("error", firstError(bindingResult));
+            return redirect;
+        }
+        try {
+            if (form.getChannelType() != channelType) {
+                throw new ApplicationException("MANUAL_CHANNEL_PROFILE_INVALID", "人工平台参数不一致");
+            }
+            manualProfiles.saveProfile(actors.currentActor(), channelType, form.getExpectedVersion(),
+                    form.isEnabled(), form.getAccountAlias(), splitValues(form.getDefaultTags()),
+                    form.getDefaultSection(), form.getNotes(), form.getSortOrder());
+            redirectAttributes.addFlashAttribute("success", "人工平台个人配置已保存");
+        } catch (ApplicationException | IllegalArgumentException exception) {
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return redirect;
+    }
+
+    @PostMapping("/channels/manual/{channelType}/login-confirmation")
+    public String confirmManualChannelLogin(@PathVariable ChannelType channelType,
+                                            @RequestParam int expectedVersion,
+                                            RedirectAttributes redirectAttributes) {
+        try {
+            manualProfiles.confirmLogin(actors.currentActor(), channelType, expectedVersion);
+            redirectAttributes.addFlashAttribute("success",
+                    "已记录人工登录确认；该状态仅用于个人提醒，不代表系统检测到平台会话");
+        } catch (ApplicationException | IllegalArgumentException exception) {
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return manualChannelRedirect(channelType);
+    }
+
     @PostMapping("/articles/{articleId}/publications")
     public String publishByApi(@PathVariable UUID articleId,
                                @Valid @ModelAttribute PublishArticleForm form,
@@ -373,17 +426,16 @@ public class PortalPublishingController {
                                 RedirectAttributes redirectAttributes) {
         var actor = actors.currentActor();
         var article = publishing.getArticle(actor, articleId);
-        var definition = ChannelCatalog.definition(channelType);
-        if (!definition.manualAvailable()) {
-            throw new ApplicationException("MANUAL_PUBLISH_UNAVAILABLE", "该渠道尚未配置人工发布入口");
-        }
-        io.contentpublisher.platform.domain.AdaptedContent adapted;
+        var definition = requireEnabledManualChannel(actor, channelType);
+        ManualChannelProfile profile = manualProfiles.findProfile(actor, channelType).orElse(null);
+        AdaptedContent adapted;
         try {
             adapted = publishing.adaptContent(actor, articleId, channelType, null);
         } catch (ApplicationException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
             return "redirect:/publishing/articles/" + articleId;
         }
+        adapted = withProfileTags(adapted, profile);
         if (!model.containsAttribute("manualPublicationForm")) {
             ManualPublicationForm form = new ManualPublicationForm();
             form.setContentFormat(adapted.format());
@@ -394,6 +446,8 @@ public class PortalPublishingController {
         model.addAttribute("article", article);
         model.addAttribute("channel", definition);
         model.addAttribute("adapted", adapted);
+        model.addAttribute("manualProfile", ManualChannelProfileView.from(definition, profile,
+                manualProfiles.defaultSortOrder(channelType)));
         model.addAttribute("history", publishing.getManualPublications(actor, articleId).stream()
                 .filter(item -> item.channelType() == channelType).toList());
         var progress = automation.manualProgress(actor, articleId, channelType.name())
@@ -415,6 +469,7 @@ public class PortalPublishingController {
         }
         try {
             var actor = actors.currentActor();
+            requireEnabledManualChannel(actor, channelType);
             publishing.completeManualPublication(actor, articleId, channelType, form.getTitle(),
                     form.getContent(), form.getContentFormat(), form.getExternalUrl());
             automation.saveManualProgress(actor, articleId, channelType.name(),
@@ -429,15 +484,58 @@ public class PortalPublishingController {
 
     private void populateChannels(Model model) {
         if (!model.containsAttribute("selectedChannelView")) model.addAttribute("selectedChannelView", "api");
-        model.addAttribute("accounts", publishing.listAccounts(actors.currentActor()).stream()
+        ActorContext actor = actors.currentActor();
+        model.addAttribute("accounts", publishing.listAccounts(actor).stream()
                 .map(ChannelAccountView::from).toList());
         model.addAttribute("apiChannels", ChannelCatalog.automated());
-        model.addAttribute("manualChannels", ChannelCatalog.manualOnly());
+        model.addAttribute("manualChannels", manualProfileViews(actor));
         model.addAttribute("channelNames", channelNames());
-        Map<ChannelType, ChannelCatalog.ChannelDefinition> definitions = new java.util.EnumMap<>(ChannelType.class);
+        Map<ChannelType, ChannelCatalog.ChannelDefinition> definitions = new EnumMap<>(ChannelType.class);
         ChannelCatalog.all().forEach(definition -> definitions.put(definition.type(), definition));
         model.addAttribute("channelDefinitions", definitions);
         model.addAttribute("channelAccountStatusNames", PortalLabels.channelAccountStatusNames());
+    }
+
+    private List<ManualChannelProfileView> manualProfileViews(ActorContext actor) {
+        Map<ChannelType, ManualChannelProfile> savedProfiles = new EnumMap<>(ChannelType.class);
+        manualProfiles.listProfiles(actor).forEach(profile -> savedProfiles.put(profile.channelType(), profile));
+        return ManualChannelProfileApplicationService.configurableChannels().stream()
+                .map(channel -> ManualChannelProfileView.from(channel, savedProfiles.get(channel.type()),
+                        manualProfiles.defaultSortOrder(channel.type())))
+                .sorted(Comparator.comparingInt(ManualChannelProfileView::sortOrder)
+                        .thenComparing(view -> view.channel().type().name()))
+                .toList();
+    }
+
+    private ChannelCatalog.ChannelDefinition requireEnabledManualChannel(ActorContext actor,
+                                                                          ChannelType channelType) {
+        ChannelCatalog.ChannelDefinition definition = ChannelCatalog.definition(channelType);
+        if (definition.apiSupported() || !definition.manualAvailable()) {
+            throw new ApplicationException("MANUAL_PUBLISH_UNAVAILABLE", "该渠道不支持个人人工发布");
+        }
+        if (!manualProfiles.isEnabled(actor, channelType)) {
+            throw new ApplicationException("MANUAL_CHANNEL_DISABLED", "该人工平台已停用，请先在渠道管理中启用");
+        }
+        return definition;
+    }
+
+    private AdaptedContent withProfileTags(AdaptedContent adapted, ManualChannelProfile profile) {
+        if (profile == null || profile.defaultTags().isEmpty()) return adapted;
+        LinkedHashSet<String> tags = new LinkedHashSet<>();
+        adapted.tags().forEach(tag -> addTag(tags, tag));
+        profile.defaultTags().forEach(tag -> addTag(tags, tag));
+        return new AdaptedContent(adapted.channelType(), adapted.format(), adapted.title(), adapted.body(),
+                List.copyOf(tags), adapted.characterLimit());
+    }
+
+    private void addTag(Set<String> tags, String tag) {
+        if (tag == null || tag.isBlank()) return;
+        String normalized = tag.trim().replaceFirst("^#+", "").toLowerCase(Locale.ROOT);
+        if (!normalized.isBlank()) tags.add(normalized);
+    }
+
+    private String manualChannelRedirect(ChannelType channelType) {
+        return "redirect:/channels?view=manual#manual-" + channelType.name();
     }
 
     private Map<String, String> credentials(CreateChannelAccountForm form) {

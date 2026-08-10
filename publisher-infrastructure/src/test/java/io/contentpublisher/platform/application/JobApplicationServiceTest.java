@@ -219,7 +219,7 @@ class JobApplicationServiceTest {
         Job second = failedPublicationJob(now, articleId, UUID.randomUUID(), "CHANNEL_FAILED", "平台拒绝请求");
         when(jobs.findJobById("tenant", first.id())).thenReturn(Optional.of(first));
         when(jobs.findJobById("tenant", second.id())).thenReturn(Optional.of(second));
-        org.mockito.Mockito.doThrow(new ApplicationException("ARTICLE_NOT_APPROVED", "文章未审核"))
+        org.mockito.Mockito.doThrow(new ApplicationException("ARTICLE_NOT_APPROVED", "当前内容版本尚未确认"))
                 .when(publishing).assertPublishable(any(), eq(articleId), eq(second.payload()
                         instanceof JobPayload.PublishArticle payload ? payload.channelAccountId() : null));
         JobApplicationService service = service(jobs, projects, publishing, audits, now);

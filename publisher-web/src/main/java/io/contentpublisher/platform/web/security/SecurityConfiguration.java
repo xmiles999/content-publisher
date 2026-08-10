@@ -134,9 +134,8 @@ public class SecurityConfiguration {
                     .hasAnyRole("EDITOR", "ADMIN")
                 .requestMatchers(HttpMethod.GET, "/articles/*/manual/**")
                     .hasAnyRole("EDITOR", "ADMIN")
-                .requestMatchers(HttpMethod.POST, "/articles/*/approve", "/articles/*/reject")
-                    .hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/projects/**", "/articles/*/edit", "/articles/*/versions/**")
+                .requestMatchers(HttpMethod.POST, "/projects/**", "/articles/*/edit", "/articles/*/versions/**",
+                        "/articles/*/confirm", "/articles/*/reopen")
                     .hasAnyRole("EDITOR", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/articles/topic-generations")
                     .hasAnyRole("EDITOR", "ADMIN")

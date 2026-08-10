@@ -139,6 +139,10 @@
 | `PUBLISHER_CHANNELS_ALLOWED_HOSTS` | 空 | 自托管渠道主机允许列表 |
 | `PUBLISHER_CHANNELS_TIMEOUT` | `30s` | 渠道调用超时 |
 
+17 个人工平台配置使用数据库表 `manual_channel_profiles`，不需要新增环境变量。账号别名、默认标签/栏目、备注、排序、启停和人工登录确认时间不属于平台凭据；第三方登录状态由操作者浏览器维护。
+
+严禁把第三方平台密码、Cookie、Session、验证码或恢复码写入环境变量、人工平台备注、日志或备份操作说明。“确认已登录”只是数据库时间标记，不是连接验证。
+
 两个主密钥均使用：
 
 ```bash
@@ -273,7 +277,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 2. 执行第 5 节门禁并校验 `SHA256SUMS`。
 3. 部署端先备份数据库与 Secret 元数据，验证备份校验和。
 4. Dokploy 构建/加载不可变镜像并启动 PostgreSQL、应用。
-5. 检查 Flyway 到 V20、readiness、容器用户和网络。
+5. 检查 Flyway 到 V22、readiness、容器用户和网络。
 6. 在 Dokploy Domains 配置正确目标端口后检查 Traefik 源站 HTTPS。
 7. 最后切换或确认 Cloudflare DNS，并执行业务冒烟。
 
@@ -284,7 +288,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 应用无宿主机 published port
 PostgreSQL User=70:70、无外部端口且卷已挂载
 /actuator/health/readiness = UP
-flyway_schema_history 最新成功版本 = 20
+flyway_schema_history 最新成功版本 = 22
 登录/认证成功
 租户隔离查询成功
 草稿自动保存、动作台、日历、任务重放至少各一条冒烟
@@ -293,14 +297,16 @@ Traefik 源站 HTTPS 与 Cloudflare HTTPS 正常
 
 未实际执行的项必须明确标记“未验证”。
 
-## 9. Flyway V1–V20
+## 9. Flyway V1–V22
 
-- 迁移按 V1–V20 从空库前向执行。
+- 迁移按 V1–V22 从空库前向执行。
 - V19：文章草稿、生成预设、通知、Webhook 端点、人工发布进度。
 - V20：通知 Webhook 投递状态、唯一去重和到期索引。
+- V21：人工平台个人配置、启停、默认标签/栏目、备注、排序、登录确认时间和乐观锁版本。
+- V22：将迁移时已有的 `articles.status='APPROVED'` 回填为 `READY`，作为个人内容确认后的可发布状态。
 - 已发布脚本不可修改；新增结构只添加更高版本。
 - Hibernate 使用 `ddl-auto=validate`。
-- 没有 Down Migration；回滚应用前必须确认旧版本与新 Schema 兼容。
+- 没有 Down Migration；回滚应用前必须确认旧版本与新 Schema 和数据枚举兼容。
 
 生产迁移前备份；迁移后验证：
 
@@ -311,11 +317,35 @@ order by installed_rank desc
 limit 5;
 ```
 
+同时验证 V21 表、唯一约束和 V22 状态回填：
+
+```sql
+select tenant_id, channel_type, enabled, profile_version
+from manual_channel_profiles
+order by tenant_id, sort_order, channel_type;
+
+select conname
+from pg_constraint
+where conrelid = 'manual_channel_profiles'::regclass
+  and contype in ('u', 'c');
+
+select count(*) as legacy_approved_count
+from articles
+where status = 'APPROVED';
+
+select count(*) as ready_count
+from articles
+where status = 'READY';
+```
+
+V22 只执行数据回填，不删除兼容状态，也不增加表结构。新应用仍能读取后续由兼容 REST 产生的 `APPROVED`。不含 `READY` 枚举的旧应用通常无法读取回填后的文章，因此回滚旧 JAR 前必须恢复迁移前数据库备份，或先执行经过验证的显式数据兼容方案；不能只替换制品后直接启动。
+
 ## 10. 备份与恢复演练
 
 至少备份：
 
 - PostgreSQL 自定义格式逻辑备份及 SHA-256。
+- `manual_channel_profiles` 与其他业务表一起进入 PostgreSQL 逻辑备份。
 - 两个加密主密钥和受限生产配置。
 - 当前不可变镜像/JAR、完整 Git SHA、SBOM 和清单。
 - Dokploy Compose 与 Domains 配置的审阅记录。
@@ -367,8 +397,8 @@ publisher.channels.verification_failed
 
 1. 停止接收新写入并确认没有正在执行的不可重复外部发布。
 2. 保留当前失败版本日志、镜像和数据库状态证据。
-3. 若 Schema 向后兼容，切回上一不可变镜像和对应配置。
-4. 若不兼容，按已演练方案恢复部署前备份；不得手工篡改 Flyway 历史。
+3. 若 Schema 和状态数据向后兼容，切回上一不可变镜像和对应配置。
+4. 若回滚目标不识别 `READY`（V22 前版本通常如此），按已演练方案恢复部署前备份；不得手工篡改 Flyway 历史或直接让旧 JAR 读取新状态。
 5. 重启后重复容器用户、端口、readiness、登录、租户、任务和发布冒烟。
 6. Cloudflare/Dokploy 域名回切必须有明确授权和可验证源站。
 
@@ -384,17 +414,23 @@ publisher.channels.verification_failed
 
 ### 13.3 Schema 校验失败
 
-检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V20。不要用 `ddl-auto=update` 绕过迁移。
+检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V22，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
 
-### 13.4 LOCAL 无法登录
+### 13.4 人工平台配置或登录提示不符合预期
+
+确认数据库已执行 V21，平台属于 17 个纯人工渠道，并检查当前配置版本和启停状态。未配置的平台默认启用；停用平台不能进入人工发布工作区。
+
+登录确认时间由用户主动点击产生，系统不会检测第三方 Cookie 或 Session。若第三方要求重新登录，应直接在官方页面完成，不要把登录秘密写入本系统。
+
+### 13.5 LOCAL 无法登录
 
 检查初始化管理员是否已创建、密码策略、强制改密状态和 Secure Cookie 是否与 HTTPS 一致。初始化成功后环境中的明文密码应已移除。
 
-### 13.5 Webhook 或渠道巡检失败
+### 13.6 Webhook 或渠道巡检失败
 
 检查功能开关、允许主机、DNS、公网地址、TLS、超时和出站 ACL。Webhook 重试最终耗尽后保留 `FAILED` 投递记录，不应无限重试。
 
-### 13.6 发布结果不确定
+### 13.7 发布结果不确定
 
 先到第三方平台核对外部内容。确认未发布后再使用单任务或批量重放；不得因网络超时直接盲目重复发布。
 

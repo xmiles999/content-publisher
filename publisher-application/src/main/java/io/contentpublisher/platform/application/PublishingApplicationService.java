@@ -124,6 +124,14 @@ public final class PublishingApplicationService {
         return articles.approveArticle(actor, articleId);
     }
 
+    public Article confirmArticle(ActorContext actor, UUID articleId) {
+        return articles.confirmArticle(actor, articleId);
+    }
+
+    public Article reopenArticle(ActorContext actor, UUID articleId) {
+        return articles.reopenArticle(actor, articleId);
+    }
+
     public Article rejectArticle(ActorContext actor, UUID articleId, String reason) {
         return articles.rejectArticle(actor, articleId, reason);
     }

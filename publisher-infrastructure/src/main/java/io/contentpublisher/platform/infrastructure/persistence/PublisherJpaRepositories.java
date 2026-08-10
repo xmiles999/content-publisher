@@ -109,6 +109,27 @@ interface ChannelAccountJpaRepository extends JpaRepository<ChannelAccountEntity
                            String message, Instant checkedAt);
 }
 
+interface ManualChannelProfileJpaRepository extends JpaRepository<ManualChannelProfileEntity, UUID> {
+    Optional<ManualChannelProfileEntity> findByTenantIdAndChannelType(
+            String tenantId, io.contentpublisher.platform.domain.ChannelType channelType);
+    List<ManualChannelProfileEntity> findAllByTenantIdOrderBySortOrderAscChannelTypeAsc(String tenantId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update ManualChannelProfileEntity p set p.enabled = :enabled,
+                p.accountAlias = :accountAlias, p.defaultTagsJson = :defaultTagsJson,
+                p.defaultSection = :defaultSection, p.notes = :notes, p.sortOrder = :sortOrder,
+                p.loginConfirmedAt = :loginConfirmedAt, p.profileVersion = :nextVersion,
+                p.updatedBy = :updatedBy, p.updatedAt = :updatedAt
+            where p.tenantId = :tenantId and p.channelType = :channelType
+              and p.profileVersion = :expectedVersion
+            """)
+    int updateIfVersionMatches(String tenantId, io.contentpublisher.platform.domain.ChannelType channelType,
+                               boolean enabled, String accountAlias, String defaultTagsJson,
+                               String defaultSection, String notes, int sortOrder, Instant loginConfirmedAt,
+                               int expectedVersion, int nextVersion, String updatedBy, Instant updatedAt);
+}
+
 interface PublicationJpaRepository extends JpaRepository<PublicationEntity, UUID> {
     Optional<PublicationEntity> findByTenantIdAndIdAndDeletedAtIsNull(String tenantId, UUID id);
     Optional<PublicationEntity> findByTenantIdAndPublicationJobIdAndDeletedAtIsNull(String tenantId,

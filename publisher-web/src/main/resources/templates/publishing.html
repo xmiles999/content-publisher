@@ -41,12 +41,12 @@
             </form>
 
             <section class="workspace-panel" th:if="${selectedTab == 'queue'}">
-                <header class="workspace-panel-header"><div><h3>待发布内容</h3><p>已审核内容可以选择渠道；草稿和驳回内容返回内容库处理。</p></div><strong th:text="|${articlePage.totalItems} 条|">0 条</strong></header>
+                <header class="workspace-panel-header"><div><h3>待发布内容</h3><p>已确认内容可以选择渠道；草稿和兼容需修改内容返回内容库处理。</p></div><strong th:text="|${articlePage.totalItems} 条|">0 条</strong></header>
                 <div class="empty-state" th:if="${#lists.isEmpty(articlePage.items)}">没有符合条件的内容。</div>
                 <div class="table-wrap" th:unless="${#lists.isEmpty(articlePage.items)}"><table class="management-table"><thead><tr><th>内容</th><th>阶段</th><th>语言</th><th>版本</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
                     <tbody><tr th:each="article : ${articlePage.items}"><td><a class="table-title" th:href="@{/articles/{id}(id=${article.id})}" th:text="${article.title}">标题</a><small class="line-clamp-1" th:text="${article.summary}">摘要</small></td>
                         <td><span class="status-pill" th:classappend="| status-${article.status.name().toLowerCase()}|" th:text="${articleStatusNames.get(article.status)}">草稿</span></td><td th:text="${article.language}">zh-CN</td><td th:text="|v${article.currentVersion}|">v1</td><td th:text="${article.updatedAt}">time</td>
-                        <td><div class="row-actions"><a class="primary-row-action" th:if="${article.status.name() == 'APPROVED' or article.status.name() == 'PUBLISHED'}" th:href="@{/publishing/articles/{id}(id=${article.id})}">选择渠道</a><a class="text-link" th:unless="${article.status.name() == 'APPROVED' or article.status.name() == 'PUBLISHED'}" th:href="@{/articles/{id}(id=${article.id})}">编辑审核</a></div></td></tr></tbody></table></div>
+                        <td><div class="row-actions"><a class="primary-row-action" th:if="${article.status.name() == 'READY' or article.status.name() == 'APPROVED' or article.status.name() == 'PUBLISHED'}" th:href="@{/publishing/articles/{id}(id=${article.id})}">选择渠道</a><a class="text-link" th:unless="${article.status.name() == 'READY' or article.status.name() == 'APPROVED' or article.status.name() == 'PUBLISHED'}" th:href="@{/articles/{id}(id=${article.id})}">编辑确认</a></div></td></tr></tbody></table></div>
                 <nav class="pagination" th:if="${articlePage.totalPages > 1}" aria-label="待发布内容分页"><a th:if="${articlePage.hasPrevious()}" th:href="@{/publishing(tab='queue',q=${searchQuery},size=${articlePage.pageSize},page=${articlePage.previousPage()})}">上一页</a><span th:text="|第 ${articlePage.page + 1} / ${articlePage.totalPages} 页|">第 1 页</span><a th:if="${articlePage.hasNext()}" th:href="@{/publishing(tab='queue',q=${searchQuery},size=${articlePage.pageSize},page=${articlePage.nextPage()})}">下一页</a></nav>
             </section>
 

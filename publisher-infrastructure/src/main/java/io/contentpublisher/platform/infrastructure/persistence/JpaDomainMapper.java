@@ -14,6 +14,7 @@ import io.contentpublisher.platform.domain.Job;
 import io.contentpublisher.platform.domain.JobPayload;
 import io.contentpublisher.platform.domain.JobType;
 import io.contentpublisher.platform.domain.ManualPublication;
+import io.contentpublisher.platform.domain.ManualChannelProfile;
 import io.contentpublisher.platform.domain.Project;
 import io.contentpublisher.platform.domain.ProjectStatus;
 import io.contentpublisher.platform.domain.Publication;
@@ -79,6 +80,13 @@ final class JpaDomainMapper {
         return new ManualPublication(entity.id, entity.tenantId, entity.articleId, entity.channelType,
                 entity.contentFormat, entity.adaptedTitle, entity.adaptedContent, entity.externalUrl,
                 entity.publishedBy, entity.publishedAt);
+    }
+
+    ManualChannelProfile manualChannelProfile(ManualChannelProfileEntity entity) {
+        return new ManualChannelProfile(entity.id, entity.tenantId, entity.channelType, entity.enabled,
+                entity.accountAlias, strings(entity.defaultTagsJson), entity.defaultSection, entity.notes,
+                entity.sortOrder, entity.loginConfirmedAt, entity.profileVersion, entity.createdBy,
+                entity.updatedBy, entity.createdAt, entity.updatedAt);
     }
 
     Job job(JobEntity entity) {

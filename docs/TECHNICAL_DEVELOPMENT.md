@@ -19,12 +19,13 @@
 
 ### 2.1 目标
 
-- 以单一可部署进程承载内容生成、审核、发布和监控，降低部署复杂度。
+- 以单一可部署进程承载个人内容生成、版本管理、发布和监控，降低部署复杂度。
 - 通过领域、应用端口和基础设施适配器隔离外部系统。
 - 使用数据库持久化任务处理 Git、网站、AI 和渠道等长耗时操作。
 - 以认证上下文建立租户边界，不接受客户端指定租户。
 - 对所有外部内容、地址和 AI 输出执行信任边界校验。
 - 保留内容来源、版本、任务、发布和审计事实，支持追溯和恢复。
+- 长期产品形态保持纯个人模式，不新增待审核、多级审批、指派、评论或多人协作模型。
 
 ### 2.2 约束
 
@@ -35,6 +36,7 @@
 - 应用模块不直接依赖 JPA Repository、Spring MVC 或具体外部协议。
 - 外部发布结果可能不确定时不自动重试。
 - 密钥只从运行环境进入，加密密文可以落库，明文不能进入日志、响应、任务 Payload 或审计。
+- Portal 和发布门禁已经迁移到个人内容确认；多租户、角色、REST 审核 API、`APPROVED/REJECTED` 与旧错误码仍是历史兼容层。
 
 ## 3. 技术栈
 
@@ -68,7 +70,7 @@
 |---|---|---|
 | Spring Data JPA / Hibernate | Boot 管理 | ORM 和事务 |
 | PostgreSQL Driver | 42.7.13 | 生产数据库连接 |
-| Flyway Core + PostgreSQL | Boot 管理 | V1–V20 迁移 |
+| Flyway Core + PostgreSQL | Boot 管理 | V1–V22 迁移 |
 | Eclipse JGit | 7.3.0.202506031305-r | 安全浅克隆和仓库分析 |
 | Jsoup | 1.18.3 | 网站 HTML 文本提取 |
 | CommonMark | 0.24.0 | Markdown 解析与安全渲染 |
@@ -167,7 +169,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `GenerationPolicy` | 语言、语气、200–3000 正文范围、关键词和章节约束 |
 | `Article` | 当前中英文主稿、来源、标签、关键词、状态、版本和审计字段 |
 | `ArticleVersion` | 不可变中英文内容版本 |
-| `ArticleStatus` | `DRAFT`、`APPROVED`、`PUBLISHED`、`REJECTED` |
+| `ArticleStatus` | `DRAFT`、`READY`、`APPROVED`、`PUBLISHED`、`REJECTED`；集中定义可编辑、可发布和已确认基线判断 |
 
 `Article.projectId()` 是从 `ContentOrigin` 派生的兼容访问器。只有 Git 来源具有项目 ID。
 
@@ -200,6 +202,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `Publication` | API 发布事实 |
 | `PublicationStatus` | `PUBLISHING`、`PUBLISHED`、`FAILED` |
 | `ManualPublication` | 人工发布最终内容快照与外链 |
+| `ManualChannelProfile` | 纯人工渠道的个人启停、账号别名、默认标签/栏目、备注、排序、登录确认时间和乐观锁版本 |
 
 ## 7. 应用组件
 
@@ -212,9 +215,10 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `ProjectApplicationService` | 项目查询和兼容门面 |
 | `JobApplicationService` | 任务提交、幂等、配额、批次、调度、取消和发布重试 |
 | `AutomationApplicationService` | 草稿、生成预设、动作台、日历、通知、Webhook 端点、投递与人工发布进度 |
-| `ArticleEditorialApplicationService` | 编辑、版本、审核、驳回和历史版本恢复 |
+| `ArticleEditorialApplicationService` | 编辑、版本、个人确认、重新编辑、历史版本恢复，以及兼容审核/驳回 |
 | `AiSettingsApplicationService` | 租户 AI 设置、地址校验、API Key 加密和版本控制 |
 | `ChannelAccountApplicationService` | 渠道账号创建、修改、启停、验证和凭据轮换 |
+| `ManualChannelProfileApplicationService` | 校验纯人工渠道，查询/保存个人平台配置、确认登录时间、规范化默认标签和处理乐观锁 |
 | `PublicationCommandApplicationService` | 预检、API 发布、人工发布、凭据自动刷新和结果保存 |
 | `PublicationQueryApplicationService` | API/人工发布统一查询、分页和安全视图 |
 | `PublishingApplicationService` | 保持发布用例的稳定聚合门面 |
@@ -240,7 +244,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | AI 与网站 | `ContentGenerator`、`WebsiteInspector`、`AiProviderSettingsRepository`、`AiEndpointPolicy` |
 | 任务与审计 | `JobRepository`、`JobProgressReporter`、`AuditRecorder`、`MonitoringQuery` |
 | 自动化 | `AutomationRepository`、`WebhookEndpointPolicy` |
-| 发布 | `ChannelAccountRepository`、`PublicationRepository`、`ManualPublicationRepository`、`ChannelPublisher` |
+| 发布 | `ChannelAccountRepository`、`ManualChannelProfileRepository`、`PublicationRepository`、`ManualPublicationRepository`、`ChannelPublisher` |
 | 渠道安全 | `CredentialVault`、`ChannelEndpointPolicy`、`ChannelConnectionVerifier`、`ChannelCredentialRefresher` |
 | 通用安全与渲染 | `SecretCipher`、`MarkdownRenderer` |
 
@@ -260,13 +264,15 @@ publisher-infrastructure → publisher-application → publisher-domain
 
 后端校验、Portal 表单和内容适配都读取该目录，避免重复维护渠道规则。
 
+人工平台配置只接受 `ChannelCatalog.manualOnly()` 中 `manualAvailable=true` 且 `apiSupported=false` 的 17 个渠道。官方编辑器 URL 继续由目录提供，不开放自定义 URL 字段。
+
 ## 8. 基础设施组件
 
 ### 8.1 配置与装配
 
 `InfrastructureConfiguration`：
 
-- 注册 Git、AI、网站、任务、秘密和渠道配置。
+- 注册 Git、AI、网站、任务、秘密、API 渠道和人工平台配置。
 - 创建 UTC `Clock`。
 - 创建三个独立 Java HttpClient。
 - 装配所有应用服务、端口实现和 Publisher 列表。
@@ -374,6 +380,7 @@ JPA Entity：
 - `JobEntity`
 - `ChannelAccountEntity`
 - `PublicationEntity`、`ManualPublicationEntity`
+- `ManualChannelProfileEntity`
 - `AiProviderSettingsEntity`
 - `AuditLogEntity`
 - V19/V20 自动化表由 `JdbcAutomationRepository` 通过 JDBC 显式映射，避免为轻量工作区引入额外 JPA 聚合。
@@ -384,11 +391,12 @@ Adapter：
 - `JpaArticlePersistenceAdapter`
 - `JpaJobPersistenceAdapter`
 - `JpaPublishingPersistenceAdapter`
+- `JpaManualChannelProfilePersistenceAdapter`
 - `JpaAiProviderSettingsPersistenceAdapter`
 - `JpaAuditRecorder`
 - `JdbcMonitoringQuery`
 
-`JpaDomainMapper` 负责 Entity 与 Domain 转换。`PublisherJpaRepositories` 集中声明 Spring Data Repository。
+`JpaDomainMapper` 负责 Entity 与 Domain 转换。`PublisherJpaRepositories` 集中声明 Spring Data Repository，其中人工平台配置按租户查询，并以“租户 + 渠道”唯一约束配合条件更新实现乐观锁。
 
 `JdbcAutomationRepository` 实现草稿、预设、通知、Webhook 端点与投递、人工发布进度、动作台、发布日历和渠道巡检查询；写操作始终携带租户/主体条件。
 
@@ -432,8 +440,8 @@ OpenAPI 快照当前包含 48 个 REST 操作。完整路径与角色见 `API_RE
 |---|---|
 | `PortalController` | 登录、工作台、权限错误 |
 | `ContentCreationPortalController` | Git、主题、网站内容创建 |
-| `ContentLibraryPortalController` | 内容库、编辑、版本、审核 |
-| `PortalPublishingController` | 发布中心、渠道、API/人工发布和失败重试 |
+| `ContentLibraryPortalController` | 内容库、编辑、版本、个人确认和重新编辑 |
+| `PortalPublishingController` | 发布中心、API 渠道、人工平台个人配置、API/人工发布和失败重试 |
 | `JobPortalController` | 任务列表、详情和取消 |
 | `PortalMonitoringController` | 监控大屏与局部刷新 |
 | `RecycleBinPortalController` | 软删除和恢复 |
@@ -448,6 +456,8 @@ OpenAPI 快照当前包含 48 个 REST 操作。完整路径与角色见 `API_RE
 
 - REST Request 使用 Bean Validation。
 - REST Response 显式挑选安全字段，不直接序列化 JPA Entity。
+- `ManualChannelProfileForm` 是 Portal 表单模型，接收版本、启停、账号别名、标签文本、栏目、备注和排序；标签文本通过 `PortalFormSupport.splitValues(...)` 转为列表。
+- `ManualChannelProfileView` 合并目录定义和可选持久化配置，向模板提供默认启用、官方入口、登录确认和排序展示，不暴露任何登录秘密。
 - Portal Form 与 REST DTO 分离，避免 HTML 字段和 API 契约相互污染。
 - `ArticleResponse` 统一输出三类来源。
 - `JobResponse` 根据任务类型计算结果资源类型。
@@ -505,7 +515,7 @@ Git Project / TopicBrief / WebsiteBrief
 
 网站流程先调用 `WebsiteInspector`，Git 流程读取 `RepositorySnapshot`，主题流程只使用结构化 Brief。
 
-### 10.4 编辑与审核
+### 10.4 编辑与个人确认
 
 ```text
 PUT Draft(baseVersion)
@@ -518,13 +528,21 @@ PUT Article(expectedVersion)
   → 同事务插入 ArticleVersion
   → 审计
 
-Admin approve/reject
-  → 状态机检查
-  → 更新状态
-  → 审计
+Portal confirm（Editor/Admin）
+  → DRAFT/REJECTED 转 READY
+  → READY/APPROVED/PUBLISHED 幂等
+  → ARTICLE_CONTENT_CONFIRMED 审计
+
+Portal reopen（Editor/Admin）
+  → READY/APPROVED 转 DRAFT
+  → PUBLISHED 拒绝
+  → ARTICLE_EDITING_REOPENED 审计
+
+兼容 REST approve/reject（Admin）
+  → 保留 APPROVED/REJECTED 与旧审计事件
 ```
 
-正式保存仍以当前文章版本为准；服务端草稿不能覆盖新版本。生成预设按租户和来源类型查询，最终请求仍经过 DTO 和领域校验。
+正式保存仍以当前文章版本为准；服务端草稿不能覆盖新版本。`READY/APPROVED/PUBLISHED` 不能直接编辑，必须先按允许状态重新进入编辑。生成预设按租户和来源类型查询，最终请求仍经过 DTO 和领域校验。
 
 ### 10.5 API 发布
 
@@ -548,8 +566,15 @@ Admin approve/reject
 ### 10.6 人工发布
 
 ```text
-文章 + ChannelType
+渠道管理
+  → ChannelCatalog 过滤纯人工渠道
+  → 读取或创建 ManualChannelProfile（未配置默认启用）
+  → 保存别名 / 默认标签 / 栏目 / 备注 / 排序 / 启停
+  → 可选记录人工确认登录时间
+
+文章 + 已启用 ChannelType
   → PlatformContentAdapter
+  → 合并平台默认标签和文章适配标签
   → Portal 显示派生内容
   → 当前主体五项进度按步骤持久化
   → 用户复制并打开官方页面
@@ -557,6 +582,8 @@ Admin approve/reject
   → 渠道域名校验
   → ManualPublication 快照 + 审计
 ```
+
+人工登录确认不读取浏览器 Cookie，也不调用第三方验证接口；它只保存 `login_confirmed_at`。GET 工作区和 POST 发布都会重新检查平台启用状态，防止绕过页面目标列表。
 
 ### 10.7 软删除与恢复
 
@@ -581,7 +608,7 @@ Admin 删除文章
 
 - `ScheduleParser` 接收 Portal 本地日期时间、IANA 时区和可选偏移，拒绝 DST 间隙与未明确的歧义时间，再转换为 UTC `Instant`。
 - `/calendar` 按 UTC 日期窗口合并计划任务和发布事实。
-- `/actions` 查询待审核文章、失败任务、待发布文章和开放通知。
+- `/actions` 查询 `DRAFT/REJECTED` 待本人确认内容、失败任务、`READY/APPROVED` 待发布文章和开放通知。
 - 通知使用租户内 `dedup_key` 唯一约束；确认和恢复状态分别保存。
 - Webhook 通过 V20 投递表保证每个通知和端点只存在一条投递事实。
 
@@ -649,6 +676,7 @@ delay = min(initialRetryDelay × 2^(attempt - 1), maxRetryDelay)
 | `article_versions` | 不可变内容版本 | `(article_id, version_number)` 主键 |
 | `jobs` | 持久化任务 | 租户幂等唯一、调度/租约/进度/批次、软删除 |
 | `channel_accounts` | API 渠道账号 | 租户幂等唯一、账号版本、验证结果 |
+| `manual_channel_profiles` | 人工平台个人配置 | `(tenant_id, channel_type)` 唯一、启停、默认设置、登录确认和配置版本 |
 | `publications` | API 发布事实 | 发布任务唯一、文章和账号外键、软删除 |
 | `manual_publications` | 人工发布快照 | 文章外键、软删除 |
 | `article_drafts` | 当前主体服务端草稿 | `(tenant_id, article_id, actor_subject)` 唯一 |
@@ -705,8 +733,10 @@ V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `del
 | V18 | Hashnode 地址更新 |
 | V19 | 草稿、生成预设、通知、Webhook 端点和人工发布进度 |
 | V20 | Webhook 投递去重、重试状态和到期索引 |
+| V21 | 人工平台个人配置、启停、默认设置、登录确认时间和乐观锁版本 |
+| V22 | 将已有 `articles.status='APPROVED'` 回填为 `READY`，建立个人确认状态基线 |
 
-已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。
+已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。V22 引入旧应用无法识别的 `READY` 字符串状态，因此回滚到不含该枚举的旧 JAR 通常必须恢复迁移前备份，不能只切换应用制品。
 
 ## 13. API 设计
 
@@ -794,7 +824,7 @@ Git、网站、AI 和自托管渠道都执行：
 
 - 认证不能替代资源授权。
 - URL 级角色检查后，应用仓储仍使用租户过滤。
-- Admin 专属能力包括审核、渠道管理、AI 设置、删除和恢复。
+- Editor/Admin 可以执行 Portal 内容确认和重新编辑；Admin 专属能力包括兼容 REST 审核、渠道管理、AI 设置、删除和恢复。
 - 跨租户访问统一 404。
 
 ### 14.7 日志与错误
@@ -815,7 +845,10 @@ Git、网站、AI 和自托管渠道都执行：
 - 主题能力不引入第三方依赖或前端构建链；偏好只保存在当前浏览器 `localStorage`，不写入服务端、日志或页面业务数据。
 - 自动化 Controller 聚合项目、主题和网站三类生成预设、掩码 Webhook 视图和最近投递；模板只迭代准备好的列表，避免依赖 Thymeleaf 不提供的列表拼接工具方法，也不把完整 Webhook URL 写入 DOM。
 - 编辑页提供节流自动保存、离开保护和服务端草稿恢复；创建页支持生成预设。
-- 人工发布页保存复制标题、复制正文、打开编辑器、检查格式和发布五项进度。
+- 文章详情页以“确认内容并准备发布”和“重新编辑”表达个人工作流，不提供审核、批准或驳回表单；状态文字把 `READY` 显示为“可发布”，并明确标识兼容状态。
+- 渠道管理人工 Tab 使用紧凑表格而非平台卡片墙，支持平台启停、个人账号别名、默认标签/栏目、备注、排序、官方入口和人工登录确认；小屏以横向滚动和单列配置表单保持可操作。
+- 人工发布页展示合并后的标签、个人账号别名、默认栏目、备注和登录确认时间，并保存复制标题、复制正文、打开编辑器、检查格式和发布五项进度。
+- 人工平台相关颜色复用语义主题变量；启停和登录状态同时提供文字，不能仅凭颜色区分。
 - 动作台、日历和自动化设置采用完整视口工作区，不以大面积卡片堆叠替代信息层级。
 - 发布批次存在活动任务时每 5 秒刷新局部 HTML。
 - 页面应处理空、加载、错误、权限、长文本和移动端状态。
@@ -849,18 +882,18 @@ Git、网站、AI 和自托管渠道都执行：
 
 | 层次 | 代表测试 | 风险 |
 |---|---|---|
-| 应用服务单元 | `ProjectApplicationServiceTest`、`JobApplicationServiceTest`、`RecordManagementApplicationServiceTest` | 状态、幂等、配额、删除恢复 |
+| 应用服务单元 | `ProjectApplicationServiceTest`、`JobApplicationServiceTest`、`RecordManagementApplicationServiceTest`、`ArticleEditorialApplicationServiceTest` | 状态、个人确认、重新编辑、兼容审核、幂等、配额、删除恢复 |
 | AI/网站安全 | `OpenAiCompatibleContentGeneratorTest`、`SecureAiEndpointPolicyTest`、`SecureWebsiteInspectorTest` | 输出校验、SSRF、响应限制 |
-| 发布与加密 | `PublishingApplicationServiceTest`、`OfficialChannelPublishersTest`、`AesGcmCredentialVaultTest`、`AesGcmSecretCipherTest` | 审核门禁、请求映射、凭据 |
+| 发布与加密 | `PublishingApplicationServiceTest`、`OfficialChannelPublishersTest`、`ManualChannelProfileApplicationServiceTest`、`AesGcmCredentialVaultTest`、`AesGcmSecretCipherTest` | `READY/APPROVED/PUBLISHED` 发布门禁、请求映射、人工平台配置、凭据 |
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
-| 持久化与租户 | `TenantPersistenceIntegrationTest` | Flyway、JPA、租户、审计、并发 |
+| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V22、`APPROVED → READY` 回填、JPA、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 渠道巡检/Webhook | `ChannelHealthSchedulerTest`、`SecureWebhookEndpointPolicyTest`、自动化持久化测试 | 转换通知、去重、投递状态、SSRF |
 | 时区与重放 | `ScheduleParserTest`、`JobApplicationServiceTest` | DST、单个/批量原子重放和不确定发布门禁 |
 | OpenAPI | `OpenApiContractTest` | 快照生成与差异门禁 |
 | PostgreSQL/恢复 | `PostgresPersistenceIntegrationTest`、`RestoreDrillIntegrationTest` | Docker 可用时的真实数据库和隔离恢复 |
-| 安全 | `SecurityIntegrationTest`、`LocalSecurityIntegrationTest` | JWT、LOCAL、CSRF、角色、改密 |
+| 安全 | `SecurityIntegrationTest`、`LocalSecurityIntegrationTest` | JWT、LOCAL、CSRF、角色、改密、Editor 内容确认、人工平台配置权限和无秘密字段 |
 | 架构 | `ArchitectureBoundaryTest` | 模块依赖和入口边界 |
 | 上下文 | `PublisherApplicationTest` | Bean、Flyway、Hibernate 装配 |
 | SEO | `ArticleSeoViewTest` | 评分规则 |
@@ -959,7 +992,7 @@ Git、网站、AI 和自托管渠道都执行：
 
 ## 20. 已知技术债
 
-1. 审核事实只有通用审计，没有独立审核历史模型。
+1. Portal 已完成个人确认迁移，但多租户、角色、REST `approve/reject`、`APPROVED/REJECTED` 和 `ARTICLE_NOT_APPROVED` 仍是待收敛兼容结构。
 2. 主密钥没有版本化和在线迁移。
 3. Worker 单线程轮询，没有可配置并发和独立死信表。
 4. H2 不能完全代表 PostgreSQL 锁和串行化语义，Testcontainers 仍依赖可用 Docker。
@@ -1001,3 +1034,7 @@ Git、网站、AI 和自托管渠道都执行：
 2026-08-10：增加桌面紧凑侧栏、账户弹层和租户真实导航计数；自动化设置补充预设字段校验、Webhook 启停、指定端点测试、URL 掩码和最近投递诊断；统一后台中文错误兜底并保持 API JSON 与正确 HTTP 状态。
 
 2026-08-10：后台、登录、改密和错误页增加跟随系统/浅色/深色三态主题；样式改用语义色彩变量，首屏预初始化并在浏览器本地持久化，不增加前端依赖或服务端接口。
+
+2026-08-10：明确长期纯个人模式方向；新增 17 个人工平台的个人配置、默认启用、启停门禁、默认标签合并和人工登录确认时间，加入 `ManualChannelProfile` 领域/应用/JPA 链路与 Flyway V21。
+
+2026-08-10：新增 `READY`、个人内容确认与重新编辑，Portal 主流程迁移为 `DRAFT → READY → PUBLISHED`，发布门禁接受 `READY/APPROVED/PUBLISHED`；Flyway V22 将已有 `APPROVED` 回填为 `READY`，REST `approve/reject` 与兼容状态继续保留。

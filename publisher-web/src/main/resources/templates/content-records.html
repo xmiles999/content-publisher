@@ -6,27 +6,27 @@
     <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="app-page"><div class="app-layout">
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
-    <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('内容库', '集中审核和维护已经生成的内容主稿')}"></header>
+    <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('内容库', '集中编辑、确认和维护已经生成的内容主稿')}"></header>
         <main class="page-content">
             <section class="page-header compact-page-header"><div><h2>文章主稿</h2>
-                <p>内容工作台负责创建；内容库负责编辑、审核、版本维护和移入回收站。</p></div>
+                <p>内容工作台负责创建；内容库负责编辑、确认当前版本、维护历史和移入回收站。</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/projects}">创建内容</a><a class="primary-link" th:href="@{/publishing}">进入发布中心</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
             <form class="filter-toolbar" method="get" th:action="@{/content}">
                 <div class="filter-search"><label for="content-search">搜索</label><input id="content-search" name="q" maxlength="120" th:value="${searchQuery}" placeholder="标题或摘要"></div>
-                <div class="filter-field"><label for="content-status">审核状态</label><select id="content-status" name="status"><option value="">全部状态</option><option th:each="option : ${statusOptions}" th:value="${option}" th:text="${articleStatusNames.get(option)}" th:selected="${selectedStatus == option}"></option></select></div>
+                <div class="filter-field"><label for="content-status">内容阶段</label><select id="content-status" name="status"><option value="">全部阶段</option><option th:each="option : ${statusOptions}" th:value="${option}" th:text="${articleStatusNames.get(option)}" th:selected="${selectedStatus == option}"></option></select></div>
                 <div class="filter-field"><label for="content-source">来源</label><select id="content-source" name="source"><option value="">全部来源</option><option th:each="option : ${sourceOptions}" th:value="${option}" th:text="${articleSourceNames.get(option)}" th:selected="${selectedSource == option}"></option></select></div>
                 <div class="filter-field"><label for="content-language">语言</label><input id="content-language" name="language" maxlength="20" th:value="${selectedLanguage}" placeholder="如 zh-CN"></div>
                 <div class="filter-field"><label for="content-size">每页</label><select id="content-size" name="size"><option value="20" th:selected="${articlePage.pageSize == 20}">20</option><option value="50" th:selected="${articlePage.pageSize == 50}">50</option></select></div>
                 <div class="filter-actions"><button class="primary-button" type="submit">筛选</button><a class="secondary-link" th:href="@{/content}">重置</a></div>
             </form>
-            <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>全部内容</h3><p>发布结果在发布中心维护，这里聚焦主稿质量与审核状态。</p></div><strong th:text="|${articlePage.totalItems} 条|">0 条</strong></header>
+            <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>全部内容</h3><p>发布结果在发布中心维护，这里聚焦主稿质量、版本和内容阶段。</p></div><strong th:text="|${articlePage.totalItems} 条|">0 条</strong></header>
                 <div class="empty-state" th:if="${#lists.isEmpty(articles)}">暂无内容记录，可先从内容工作台创建。</div>
-                <div class="table-wrap" th:unless="${#lists.isEmpty(articles)}"><table class="management-table"><thead><tr><th>内容</th><th>来源</th><th>审核状态</th><th>版本 / 语言</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
+                <div class="table-wrap" th:unless="${#lists.isEmpty(articles)}"><table class="management-table"><thead><tr><th>内容</th><th>来源</th><th>内容阶段</th><th>版本 / 语言</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
                     <tbody><tr th:each="article : ${articles}"><td><a class="table-title" th:href="@{/articles/{id}(id=${article.id})}" th:text="${article.title}">标题</a><small class="line-clamp-1" th:text="${article.summary}">摘要</small></td>
                         <td><span class="source-badge" th:text="${articleSourceNames.get(article.sourceType)}">主题教程</span></td><td><span class="status-pill" th:classappend="| status-${article.status.name().toLowerCase()}|" th:text="${articleStatusNames.get(article.status)}">草稿</span></td>
                         <td><strong th:text="|v${article.currentVersion}|">v1</strong><small th:text="${article.language}">zh-CN</small></td><td th:text="${article.updatedAt}">time</td>
-                        <td><div class="row-actions"><a class="quiet-button mini-button" th:href="@{/articles/{id}(id=${article.id})}">查看与审核</a>
+                        <td><div class="row-actions"><a class="quiet-button mini-button" th:href="@{/articles/{id}(id=${article.id})}">查看与编辑</a>
                             <form th:if="${canAdmin}" th:action="@{/articles/{id}/delete(id=${article.id})}" method="post" data-confirm="将内容、发布记录和关联终态任务移入回收站，确认继续？"><button class="danger-link mini-button" type="submit">移入回收站</button></form></div></td></tr></tbody></table></div>
                 <nav class="pagination" th:if="${articlePage.totalPages > 1}" aria-label="内容分页"><a th:if="${articlePage.hasPrevious()}" th:href="@{/content(q=${searchQuery},status=${selectedStatus},source=${selectedSource},language=${selectedLanguage},size=${articlePage.pageSize},page=${articlePage.previousPage()})}">上一页</a><span th:text="|第 ${articlePage.page + 1} / ${articlePage.totalPages} 页|">第 1 页</span><a th:if="${articlePage.hasNext()}" th:href="@{/content(q=${searchQuery},status=${selectedStatus},source=${selectedSource},language=${selectedLanguage},size=${articlePage.pageSize},page=${articlePage.nextPage()})}">下一页</a></nav>
             </section>

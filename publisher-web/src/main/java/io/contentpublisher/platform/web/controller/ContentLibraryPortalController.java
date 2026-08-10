@@ -8,7 +8,6 @@ import io.contentpublisher.platform.domain.Article;
 import io.contentpublisher.platform.domain.ArticleSourceType;
 import io.contentpublisher.platform.domain.ArticleStatus;
 import io.contentpublisher.platform.web.dto.ArticleSeoView;
-import io.contentpublisher.platform.web.form.RejectArticleForm;
 import io.contentpublisher.platform.web.form.UpdateArticleForm;
 import io.contentpublisher.platform.web.security.RequestActorProvider;
 import jakarta.validation.Valid;
@@ -94,9 +93,10 @@ public class ContentLibraryPortalController {
         model.addAttribute("updateArticleForm", draft.map(this::articleForm).orElseGet(() -> articleForm(article)));
         model.addAttribute("hasServerDraft", draft.isPresent());
         model.addAttribute("draftUpdatedAt", draft.map(AutomationApplicationService.ArticleDraft::updatedAt).orElse(null));
-        model.addAttribute("rejectArticleForm", new RejectArticleForm());
-        model.addAttribute("editable", article.status() == ArticleStatus.DRAFT
-                || article.status() == ArticleStatus.REJECTED);
+        model.addAttribute("editable", article.status().isEditable());
+        model.addAttribute("publishable", article.status().isPublishable());
+        model.addAttribute("reopenable", article.status() == ArticleStatus.READY
+                || article.status() == ArticleStatus.APPROVED);
         model.addAttribute("articleStatusNames", PortalLabels.articleStatusNames());
         return "article-detail";
     }
@@ -135,28 +135,22 @@ public class ContentLibraryPortalController {
         return "redirect:/articles/" + articleId;
     }
 
-    @PostMapping("/articles/{articleId}/approve")
-    public String approveArticle(@PathVariable UUID articleId, RedirectAttributes redirectAttributes) {
+    @PostMapping("/articles/{articleId}/confirm")
+    public String confirmArticle(@PathVariable UUID articleId, RedirectAttributes redirectAttributes) {
         try {
-            publishing.approveArticle(actors.currentActor(), articleId);
-            redirectAttributes.addFlashAttribute("success", "文章已审核通过");
+            publishing.confirmArticle(actors.currentActor(), articleId);
+            redirectAttributes.addFlashAttribute("success", "当前内容版本已确认，可以进入发布流程");
         } catch (ApplicationException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
         return "redirect:/articles/" + articleId;
     }
 
-    @PostMapping("/articles/{articleId}/reject")
-    public String rejectArticle(@PathVariable UUID articleId,
-                                @Valid @ModelAttribute RejectArticleForm form, BindingResult bindingResult,
-                                RedirectAttributes redirectAttributes) {
-        if (bindingResult.hasErrors()) {
-            redirectAttributes.addFlashAttribute("error", firstError(bindingResult));
-            return "redirect:/articles/" + articleId;
-        }
+    @PostMapping("/articles/{articleId}/reopen")
+    public String reopenArticle(@PathVariable UUID articleId, RedirectAttributes redirectAttributes) {
         try {
-            publishing.rejectArticle(actors.currentActor(), articleId, form.getReason());
-            redirectAttributes.addFlashAttribute("success", "文章已驳回");
+            publishing.reopenArticle(actors.currentActor(), articleId);
+            redirectAttributes.addFlashAttribute("success", "当前内容已重新进入编辑状态");
         } catch (ApplicationException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }

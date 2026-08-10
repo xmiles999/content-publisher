@@ -4,9 +4,9 @@
     <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('人工发布工作区', '复制适配内容、跳转登录并回填结果')}"></header>
-        <main class="page-content"><div class="process-rail"><div class="process-item done"><span>✓</span><div><strong>主稿审核</strong><small>发布基线已锁定</small></div></div>
+        <main class="page-content"><div class="process-rail"><div class="process-item done"><span>✓</span><div><strong>内容准备</strong><small th:text="|使用主稿 v${article.currentVersion}|">使用当前主稿</small></div></div>
             <div class="process-item done"><span>✓</span><div><strong>平台适配</strong><small th:text="${channel.contentHint()}">内容已生成</small></div></div>
-            <div class="process-item active"><span>3</span><div><strong>登录发布</strong><small>在官方创作页操作</small></div></div><div class="process-item"><span>4</span><div><strong>结果回填</strong><small>保存外链与快照</small></div></div></div>
+            <div class="process-item active"><span>3</span><div><strong>打开并发布</strong><small>在官方创作页操作</small></div></div><div class="process-item"><span>4</span><div><strong>保存结果</strong><small>留存外链与快照</small></div></div></div>
             <section class="page-header"><div><p class="section-kicker">人工发布</p><h2 th:text="|发布到 ${channel.displayName()}|">发布平台</h2><p th:text="|源内容：${article.title} · 主稿 v${article.currentVersion}|">source</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/publishing/articles/{id}(id=${article.id})}">返回文章发布</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div>
@@ -25,7 +25,7 @@
                     <div class="stack-form section-gap"><div class="field"><label>平台标题</label><input id="manual-title" th:field="*{title}" maxlength="500" required><small class="character-counter" data-count-source="#manual-title">0</small></div>
                         <div class="field"><div class="manual-tag-heading"><label>发布标签</label><button class="copy-button" type="button" data-copy-tags="#manual-publish-tags .tag" th:unless="${#lists.isEmpty(adapted.tags())}">复制标签</button></div>
                             <div id="manual-publish-tags" class="manual-tag-panel"><div class="tag-row" th:unless="${#lists.isEmpty(adapted.tags())}"><span class="tag" th:each="tag : ${adapted.tags()}" th:text="|#${tag}|">#标签</span></div><span class="manual-tag-empty" th:if="${#lists.isEmpty(adapted.tags())}">暂无生成标签</span></div>
-                            <small>来自文章生成结果，并已按当前发布平台的规则完成适配。</small></div>
+                            <small>已合并文章生成标签和该平台的个人默认标签，并按当前平台规则完成适配。</small></div>
                         <div class="field"><label>平台正文</label><textarea id="manual-content" th:field="*{content}" rows="28" maxlength="100000" required></textarea><small class="character-counter" data-count-source="#manual-content" th:attr="data-count-limit=${channel.characterLimit()}">0</small><small>系统保留完整正文，不再自动截断；超过平台建议上限时，请在发布前按平台要求调整。</small></div>
                         <div class="field"><label>发布后的文章链接</label><div class="url-validation-row"><input id="manual-external-url" th:field="*{externalUrl}" type="url" maxlength="2048" placeholder="完成发布后，将平台文章 URL 粘贴到这里" required>
                             <button class="secondary-button" type="button" data-validate-published-url th:attr="data-validation-url=@{/api/v1/publications/link-validation},data-channel-type=${channel.type()}">验证链接</button></div>
@@ -33,8 +33,12 @@
                         <label class="check-row"><span><strong>格式检查完成</strong><small>已检查标题、正文、图片、链接、标签和平台字符限制。</small></span><input type="checkbox" data-progress-check="checkedFormat" th:checked="${manualProgress.checkedFormat}"></label>
                         <div class="form-footer"><small data-progress-state>操作进度会自动保存；确认平台页面已经发布成功后再提交。</small><button class="primary-button" type="submit">确认发布并保存记录</button></div></div>
                 </section>
-                    <aside class="sticky-column"><section class="launch-card"><p class="section-kicker">官方编辑器</p><h3 th:text="${channel.displayName()}">平台</h3><p>系统不会代填或保存你的平台密码。请在官方页面登录后粘贴左侧适配内容。</p>
+                    <aside class="sticky-column"><section class="launch-card"><p class="section-kicker">官方编辑器</p><h3 th:text="${channel.displayName()}">平台</h3><p>平台登录状态由当前浏览器保存。系统不会代填或保存密码、Cookie 或 Session。</p>
                         <a class="primary-link" th:href="${channel.editorUrl()}" th:attr="target=|publisher-${channel.type()}|,data-platform-window=|publisher-${channel.type()}|" data-platform-launch data-progress-step="openedEditor">打开官方登录/发布页 ↗</a><ul class="checklist"><li>同一设备会复用该平台窗口</li><li>保持窗口打开可减少重复登录</li><li>检查图片、链接与标签</li><li>发布后复制文章外链</li></ul></section>
+                        <section class="manual-profile-summary"><div><p class="section-kicker">个人发布提示</p><h3 th:text="${manualProfile.accountLabel()}">账号别名</h3></div>
+                            <dl><div><dt>默认栏目</dt><dd th:text="${manualProfile.defaultSection != null ? manualProfile.defaultSection : '未设置'}">未设置</dd></div><div><dt>发布备注</dt><dd th:text="${manualProfile.notes != null ? manualProfile.notes : '未设置'}">未设置</dd></div><div><dt>登录确认</dt><dd th:text="${manualProfile.loginConfirmedAt != null ? manualProfile.loginConfirmedAt : '尚未人工确认'}">尚未确认</dd></div></dl>
+                            <p>登录确认仅用于个人提醒，不代表系统已检测平台会话。</p><a class="text-link" th:href="@{/channels(view='manual')} + '#manual-' + ${channel.type()}">调整平台配置</a>
+                        </section>
                         <section class="card"><div class="card-header"><div><p class="section-kicker">历史记录</p><h3>该平台记录</h3></div><span class="count-badge" th:text="${history.size()}">0</span></div><div class="empty-state" th:if="${#lists.isEmpty(history)}">首次发布到该平台。</div>
                             <div class="compact-list" th:unless="${#lists.isEmpty(history)}"><a class="compact-item" th:each="item : ${history}" th:href="${item.externalUrl}" target="_blank" rel="noopener noreferrer"><span><strong th:text="${item.adaptedTitle}">标题</strong><small th:text="${item.publishedAt}">time</small></span><span class="status-pill status-published">PUBLISHED</span></a></div></section></aside></div>
             </form>

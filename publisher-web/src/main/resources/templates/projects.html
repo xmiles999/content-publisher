@@ -6,10 +6,10 @@
     <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="app-page"><div class="app-layout">
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
-    <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('内容工作台', '从可信来源创建可审核的内容主稿')}"></header>
+    <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('内容工作台', '从可信来源创建可编辑的内容主稿')}"></header>
         <main class="page-content projects-page">
             <section class="page-header projects-page-header"><div><p class="section-kicker">内容生产</p><h2>选择内容来源</h2>
-                <p>这里只负责导入资料和创建主稿；生成后的内容统一进入内容库审核，再交由发布中心分发。</p></div>
+                <p>这里只负责导入资料和创建主稿；生成后的内容统一进入内容库编辑确认，再交由发布中心分发。</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/content}">进入内容库</a></div></section>
 
             <div class="alert error" th:if="${error}" th:text="${error}"></div>
@@ -34,7 +34,7 @@
                 </div>
 
                 <div id="source-panel-topic" class="source-panel" th:if="${activeSourcePanel == 'topic'}">
-                    <div class="source-panel-intro"><div><p class="section-kicker">主题创作</p><h3>按主题创建知识教程</h3><p>定义学习目标与目标受众，系统会生成包含步骤、示例、常见问题和总结的可审核主稿。</p></div><span class="service-badge">AI 辅助</span></div>
+                    <div class="source-panel-intro"><div><p class="section-kicker">主题创作</p><h3>按主题创建知识教程</h3><p>定义学习目标与目标受众，系统会生成包含步骤、示例、常见问题和总结的可编辑主稿。</p></div><span class="service-badge">AI 辅助</span></div>
                     <form class="stack-form" data-generation-form th:action="@{/articles/topic-generations}" th:object="${topicArticleForm}" method="post">
                         <input type="hidden" th:field="*{idempotencyKey}">
                         <div class="generation-preset-toolbar"><div><label for="topic-preset">生成预设</label><select id="topic-preset" data-generation-preset><option value="">保留当前设置</option><option th:each="preset : ${topicPresets}" th:value="${preset.id}" th:text="${preset.name}" th:attr="data-tone=${preset.tone},data-min-characters=${preset.minCharacters},data-max-characters=${preset.maxCharacters},data-max-keywords=${preset.maxKeywords},data-required-sections=${preset.requiredSections},data-article-type=${preset.articleType},data-knowledge-level=${preset.knowledgeLevel}"></option></select></div><small data-preset-state>预设只填写输出策略，主题和关键词仍由你决定。</small></div>
@@ -63,7 +63,7 @@
                         <div class="form-grid"><div class="field"><label>SEO 必选关键词</label><textarea th:field="*{keywords}" rows="2" maxlength="3200" placeholder="第一项为主关键词，其他用逗号或换行分隔"></textarea><small>建议填写网站名称或核心品类作为主关键词。</small></div><div class="field"><label>语言</label><input th:field="*{language}" maxlength="20" required></div></div>
                         <details class="advanced-settings"><summary>高级输出控制</summary><div class="form-grid three section-gap"><div class="field"><label>语气</label><input th:field="*{tone}" maxlength="50" required></div><div class="field"><label>最少字符</label><input th:field="*{minCharacters}" type="number" min="200" max="3000"></div><div class="field"><label>最多字符</label><input th:field="*{maxCharacters}" type="number" min="200" max="3000"><small>正文最多 3000 字符，建议保持精炼。</small></div></div>
                             <div class="form-grid"><div class="field"><label>SEO 关键词上限</label><input th:field="*{maxKeywords}" type="number" min="1" max="30"></div><div class="field"><label>禁用词</label><textarea th:field="*{excludedKeywords}" rows="2"></textarea></div></div><div class="field"><label>必选章节</label><textarea th:field="*{requiredSections}" rows="4"></textarea></div></details>
-                        <div class="form-footer"><small>网页只作为不可信资料来源，生成后仍需人工审核。</small><button class="primary-button" type="submit" th:disabled="${!aiEnabled}">分析网站并生成推荐文</button></div>
+                        <div class="form-footer"><small>网页只作为不可信资料来源，生成后仍需本人核对事实和链接。</small><button class="primary-button" type="submit" th:disabled="${!aiEnabled}">分析网站并生成推荐文</button></div>
                     </form>
                 </div>
             </section>

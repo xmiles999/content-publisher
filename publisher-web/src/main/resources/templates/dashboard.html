@@ -23,7 +23,7 @@
             <section class="metric-grid" aria-label="业务指标">
                 <article class="metric-card"><span>项目总数</span><strong th:text="${projectCount}">0</strong><small>已接入的 Git 仓库</small></article>
                 <article class="metric-card"><span>内容总数</span><strong th:text="${articleCount}">0</strong><small>生成并留档的文章</small></article>
-                <article class="metric-card"><span>待发布</span><strong th:text="${approvedCount}">0</strong><small>已经审核通过</small></article>
+                <article class="metric-card"><span>待发布</span><strong th:text="${readyCount}">0</strong><small>已确认当前版本</small></article>
                 <article class="metric-card"><span>API 渠道</span><strong th:text="${channelCount}">0</strong><small>已安全配置账号</small></article>
             </section>
 
@@ -33,7 +33,7 @@
                 <div class="workflow-board">
                     <article class="workflow-step"><span class="step-number">01</span><h4>导入项目</h4><p>安全读取 Git 仓库与 README，提取项目事实。</p></article>
                     <article class="workflow-step"><span class="step-number">02</span><h4>AI 生成</h4><p>通过关键词、章节、语气和长度策略生成主文章。</p></article>
-                    <article class="workflow-step"><span class="step-number">03</span><h4>编辑审核</h4><p>版本化编辑内容，审核通过后锁定发布基线。</p></article>
+                    <article class="workflow-step"><span class="step-number">03</span><h4>编辑确认</h4><p>版本化编辑内容，由本人确认当前发布基线。</p></article>
                     <article class="workflow-step"><span class="step-number">04</span><h4>适配发布</h4><p>按 Markdown、纯文本或短帖规则生成渠道版本。</p></article>
                 </div>
             </section>

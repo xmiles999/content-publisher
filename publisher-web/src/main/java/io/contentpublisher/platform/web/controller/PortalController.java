@@ -53,8 +53,11 @@ public class PortalController {
         var jobList = jobs.listJobs(actor, 20);
         model.addAttribute("projectCount", projects.countProjects(actor));
         model.addAttribute("articleCount", projects.countArticles(actor));
-        model.addAttribute("approvedCount", projects.searchArticles(actor, "", ArticleStatus.APPROVED,
-                null, "", 0, 1).totalItems());
+        long readyCount = projects.searchArticles(actor, "", ArticleStatus.READY,
+                null, "", 0, 1).totalItems()
+                + projects.searchArticles(actor, "", ArticleStatus.APPROVED,
+                null, "", 0, 1).totalItems();
+        model.addAttribute("readyCount", readyCount);
         model.addAttribute("channelCount", publishing.countAccounts(actor));
         model.addAttribute("recentArticles", articleList);
         model.addAttribute("recentJobs", jobList.stream().limit(5).toList());

@@ -7,7 +7,7 @@
         <main class="page-content">
             <div class="process-rail"><div class="process-item done"><span>✓</span><div><strong>导入项目</strong><small>仓库已读取</small></div></div>
                 <div class="process-item active"><span>2</span><div><strong>生成文章</strong><small>配置生成策略</small></div></div>
-                <div class="process-item"><span>3</span><div><strong>编辑审核</strong><small>锁定发布版本</small></div></div>
+                <div class="process-item"><span>3</span><div><strong>编辑确认</strong><small>锁定发布版本</small></div></div>
                 <div class="process-item"><span>4</span><div><strong>适配发布</strong><small>分发到各平台</small></div></div></div>
             <section class="page-header"><div><p class="section-kicker">仓库来源</p><h2 th:text="${project.name}">项目</h2><p th:text="${project.description ?: '仓库尚未提供项目描述。'}">描述</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/projects(source='git')}">返回 Git 项目</a></div></section>
@@ -39,7 +39,7 @@
                     <div class="empty-state" th:if="${#lists.isEmpty(articles)}">还没有文章主稿。</div><div class="compact-list" th:unless="${#lists.isEmpty(articles)}">
                         <a class="compact-item" th:each="article : ${articles}" th:href="@{/articles/{id}(id=${article.id})}"><span><strong th:text="${article.title}">标题</strong><small th:text="|v${article.currentVersion} · ${article.language}|">版本</small></span>
                             <span class="status-pill" th:classappend="| status-${article.status.name().toLowerCase()}|" th:text="${article.status}">DRAFT</span></a></div></section>
-                    <section class="card"><p class="section-kicker">质量控制</p><h3>输出受控</h3><ul class="checklist"><li>先识别搜索意图和主关键词</li><li>优化 SEO 标题与 Meta Description</li><li>校验关键词前置、H2/H3 与 FAQ</li><li>生成任务、源版本可追踪</li><li>发布前必须人工审核</li></ul></section></aside>
+                    <section class="card"><p class="section-kicker">质量控制</p><h3>输出受控</h3><ul class="checklist"><li>先识别搜索意图和主关键词</li><li>优化 SEO 标题与 Meta Description</li><li>校验关键词前置、H2/H3 与 FAQ</li><li>生成任务、源版本可追踪</li><li>发布前由本人确认当前版本</li></ul></section></aside>
             </div>
         </main>
     </div></div></body></html>

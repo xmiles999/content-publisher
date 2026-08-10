@@ -14,6 +14,7 @@ import io.contentpublisher.platform.application.port.ArticleRepository;
 import io.contentpublisher.platform.application.port.AuditRecorder;
 import io.contentpublisher.platform.application.port.ChannelAccountRepository;
 import io.contentpublisher.platform.application.port.JobRepository;
+import io.contentpublisher.platform.application.port.ManualChannelProfileRepository;
 import io.contentpublisher.platform.application.port.ManualPublicationRepository;
 import io.contentpublisher.platform.application.port.ProjectRepository;
 import io.contentpublisher.platform.application.port.PublicationRepository;
@@ -24,6 +25,7 @@ import io.contentpublisher.platform.infrastructure.persistence.JpaAiProviderSett
 import io.contentpublisher.platform.infrastructure.persistence.JpaArticlePersistenceAdapter;
 import io.contentpublisher.platform.infrastructure.persistence.JpaAuditRecorder;
 import io.contentpublisher.platform.infrastructure.persistence.JpaJobPersistenceAdapter;
+import io.contentpublisher.platform.infrastructure.persistence.JpaManualChannelProfilePersistenceAdapter;
 import io.contentpublisher.platform.infrastructure.persistence.JpaProjectPersistenceAdapter;
 import io.contentpublisher.platform.infrastructure.persistence.JpaPublishingPersistenceAdapter;
 import io.contentpublisher.platform.web.controller.ContentCreationPortalController;
@@ -81,6 +83,8 @@ class ArchitectureBoundaryTest {
         assertThat(interfaceTypes(JpaJobPersistenceAdapter.class)).containsExactly(JobRepository.class);
         assertThat(interfaceTypes(JpaPublishingPersistenceAdapter.class)).containsExactlyInAnyOrder(
                 ChannelAccountRepository.class, PublicationRepository.class, ManualPublicationRepository.class);
+        assertThat(interfaceTypes(JpaManualChannelProfilePersistenceAdapter.class))
+                .containsExactly(ManualChannelProfileRepository.class);
         assertThat(interfaceTypes(JpaAiProviderSettingsPersistenceAdapter.class))
                 .containsExactly(AiProviderSettingsRepository.class);
         assertThat(interfaceTypes(JpaAuditRecorder.class)).containsExactly(AuditRecorder.class);

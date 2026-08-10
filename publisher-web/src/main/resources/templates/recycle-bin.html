@@ -8,7 +8,7 @@
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('回收站', '恢复误删的内容与后台任务记录')}"></header>
         <main class="page-content">
-            <section class="page-header"><div><p class="section-kicker">数据维护</p><h2>回收站</h2><p>回收站是独立的管理员功能，不参与内容创建、审核或发布流程。</p></div>
+            <section class="page-header"><div><p class="section-kicker">数据维护</p><h2>回收站</h2><p>回收站是独立的数据维护功能，不参与内容创建、确认或发布流程。</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/content}">返回内容库</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
             <section class="card record-card recycle-bin"><div class="card-header"><div><p class="section-kicker">安全恢复</p><h3>已删除记录</h3><p>恢复内容时会同步恢复关联的发布记录和任务。</p></div><span class="count-badge" th:text="${deletedArticles.size() + deletedJobs.size()}">0</span></div>

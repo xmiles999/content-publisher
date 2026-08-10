@@ -78,7 +78,8 @@ public class PortalMonitoringController {
         long publishedRecords = value(snapshot.windowPublicationsByStatus(), PublicationStatus.PUBLISHED);
         long failedPublications = value(snapshot.windowPublicationsByStatus(), PublicationStatus.FAILED);
         long activeAccounts = value(snapshot.accountsByStatus(), ChannelAccountStatus.ACTIVE);
-        long publishableArticles = value(snapshot.articlesByStatus(), ArticleStatus.APPROVED)
+        long publishableArticles = value(snapshot.articlesByStatus(), ArticleStatus.READY)
+                + value(snapshot.articlesByStatus(), ArticleStatus.APPROVED)
                 + value(snapshot.articlesByStatus(), ArticleStatus.PUBLISHED);
 
         model.addAttribute("capturedAt", snapshot.capturedAt());
@@ -139,9 +140,11 @@ public class PortalMonitoringController {
     private List<MonitorBar> articleStatus(MonitoringSnapshot snapshot) {
         return List.of(
                 bar("草稿", value(snapshot.articlesByStatus(), ArticleStatus.DRAFT), snapshot.articleCount(), "warning"),
-                bar("已审核", value(snapshot.articlesByStatus(), ArticleStatus.APPROVED), snapshot.articleCount(), "primary"),
+                bar("可发布", value(snapshot.articlesByStatus(), ArticleStatus.READY)
+                        + value(snapshot.articlesByStatus(), ArticleStatus.APPROVED),
+                        snapshot.articleCount(), "primary"),
                 bar("已发布", value(snapshot.articlesByStatus(), ArticleStatus.PUBLISHED), snapshot.articleCount(), "success"),
-                bar("已驳回", value(snapshot.articlesByStatus(), ArticleStatus.REJECTED), snapshot.articleCount(), "danger")
+                bar("需修改", value(snapshot.articlesByStatus(), ArticleStatus.REJECTED), snapshot.articleCount(), "danger")
         );
     }
 

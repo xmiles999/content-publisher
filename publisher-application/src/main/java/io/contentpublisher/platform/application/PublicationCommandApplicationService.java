@@ -88,8 +88,8 @@ public final class PublicationCommandApplicationService {
                                                        String adaptedTitle, String adaptedContent,
                                                        ContentFormat contentFormat, String externalUrl) {
         Article article = getArticle(actor, articleId);
-        if (article.status() != ArticleStatus.APPROVED && article.status() != ArticleStatus.PUBLISHED) {
-            throw new ApplicationException("ARTICLE_NOT_APPROVED", "文章必须审核通过后才能记录发布结果");
+        if (!article.status().isPublishable()) {
+            throw new ApplicationException("ARTICLE_NOT_APPROVED", "请先确认当前内容版本，再记录发布结果");
         }
         ChannelCatalog.ChannelDefinition definition = ChannelCatalog.definition(channelType);
         if (!definition.manualAvailable()) {
@@ -112,8 +112,8 @@ public final class PublicationCommandApplicationService {
 
     public void assertPublishable(ActorContext actor, UUID articleId, UUID accountId) {
         Article article = getArticle(actor, articleId);
-        if (article.status() != ArticleStatus.APPROVED && article.status() != ArticleStatus.PUBLISHED) {
-            throw new ApplicationException("ARTICLE_NOT_APPROVED", "文章必须审核通过后才能发布");
+        if (!article.status().isPublishable()) {
+            throw new ApplicationException("ARTICLE_NOT_APPROVED", "请先确认当前内容版本，再进入发布流程");
         }
         ChannelAccount account = getAccount(actor, accountId);
         if (account.status() != ChannelAccountStatus.ACTIVE) {
@@ -159,7 +159,7 @@ public final class PublicationCommandApplicationService {
 
     public Publication publish(ActorContext actor, UUID articleId, UUID accountId, String canonicalUrl,
                                UUID publicationJobId, JobProgressReporter progress) {
-        progress.update(20, "校验发布条件", "正在核对文章审核状态、发布账号和渠道配置");
+        progress.update(20, "校验发布条件", "正在核对内容确认状态、发布账号和渠道配置");
         Publication existing = publications.findByPublicationJobId(actor.tenantId(), publicationJobId).orElse(null);
         if (existing != null) {
             if (existing.status() == PublicationStatus.PUBLISHED) {

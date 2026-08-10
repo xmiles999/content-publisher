@@ -13,6 +13,8 @@
 
 本文档描述当前代码中已经存在的 REST API。新增、删除或修改 Controller、DTO、角色要求、错误码或状态码时，必须在同一变更中更新本文档。
 
+产品长期采用纯个人模式。Portal 已使用 `READY` 和本人内容确认；REST 仍保留多租户、Viewer/Editor/Admin、`approve/reject`、`APPROVED/REJECTED` 与旧错误码作为历史兼容合同。人工平台配置和个人确认通过 Session + CSRF 的 Portal 表单实现，不新增 `/api/v1` 路径。
+
 ## 2. 通用协议
 
 ### 2.1 认证模式
@@ -29,7 +31,7 @@
 |---|---|
 | Viewer | 读取项目、文章、任务、发布记录和监控数据 |
 | Editor | Viewer 权限，加上内容创建、编辑、发布、取消任务和失败发布重试 |
-| Admin | Editor 权限，加上审核、渠道管理、软删除、恢复和 AI 设置 |
+| Admin | Editor 权限，加上兼容 REST 审核、渠道管理、软删除、恢复和 AI 设置 |
 
 ### 2.3 租户
 
@@ -123,11 +125,11 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 | GET | `/api/v1/articles/{articleId}` | Viewer/Editor/Admin | 查询当前文章 |
 | GET | `/api/v1/articles/{articleId}/versions` | Viewer/Editor/Admin | 查询不可变版本 |
 | GET | `/api/v1/articles/{articleId}/draft` | Viewer/Editor/Admin | 查询当前主体的服务端草稿；不存在返回 204 |
-| PUT | `/api/v1/articles/{articleId}` | Editor/Admin | 编辑草稿或驳回稿 |
+| PUT | `/api/v1/articles/{articleId}` | Editor/Admin | 编辑 `DRAFT` 或兼容 `REJECTED` |
 | PUT | `/api/v1/articles/{articleId}/draft` | Editor/Admin | 保存当前主体的自动保存草稿 |
 | DELETE | `/api/v1/articles/{articleId}/draft` | Editor/Admin | 删除当前主体的服务端草稿 |
-| POST | `/api/v1/articles/{articleId}/approve` | Admin | 审核通过 |
-| POST | `/api/v1/articles/{articleId}/reject` | Admin | 驳回 |
+| POST | `/api/v1/articles/{articleId}/approve` | Admin | 兼容审核通过；新 Portal 流程不调用 |
+| POST | `/api/v1/articles/{articleId}/reject` | Admin | 兼容驳回；新 Portal 流程不调用 |
 | DELETE | `/api/v1/articles/{articleId}` | Admin | 软删除文章及关联记录 |
 | POST | `/api/v1/articles/{articleId}/restore` | Admin | 从回收站恢复 |
 
@@ -142,6 +144,8 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 ```
 
 驳回原因必填，最长 500。
+
+REST 当前没有 `/confirm` 或 `/reopen` 端点。个人确认与重新编辑只通过 Portal 路由提供。`approve` 对 `READY/APPROVED/PUBLISHED` 保持幂等；对 `DRAFT/REJECTED` 仍可产生兼容 `APPROVED`。
 
 ## 5. 渠道账号
 
@@ -187,6 +191,8 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 链接校验参数为 `channelType` 与 `url`，成功返回规范化 URL 和允许域名。
 
+API 发布和批量发布接受文章状态 `READY`、兼容 `APPROVED` 或 `PUBLISHED`。`DRAFT/REJECTED` 返回兼容错误码 `ARTICLE_NOT_APPROVED`；该错误码当前业务语义是“当前内容版本尚未确认”，不是要求另一人审批。
+
 ## 7. 任务
 
 | 方法 | 路径 | 角色 | 幂等 | 说明 |
@@ -226,7 +232,48 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 生成预设包含名称、来源类型、语言、语气、长度、关键词上限、必备章节以及来源特定字段；名称在租户和来源类型内唯一。Webhook URL 最长 2048，只允许通过服务端端点策略的 HTTPS 公网地址；保存和发送测试通知时都会重新校验。测试通知只为指定端点创建 `PENDING` 投递，不会扩散到同租户其他端点。投递查询返回端点名称、通知标题、`PENDING|DELIVERED|FAILED` 状态、尝试次数、计划时间、送达时间和有限错误摘要。
 
-## 9. 工具与监控
+## 9. Portal 非 REST 操作
+
+以下端点由 Thymeleaf Portal 使用，不属于 `/api/v1`，不进入 `docs/openapi.json`：
+
+| 方法 | 路径 | 当前角色 | 说明 |
+|---|---|---|---|
+| POST | `/articles/{articleId}/confirm` | Editor/Admin | 本人确认当前版本；`DRAFT/REJECTED → READY` |
+| POST | `/articles/{articleId}/reopen` | Editor/Admin | 将 `READY/APPROVED` 重新进入 `DRAFT`；`PUBLISHED` 拒绝 |
+| POST | `/channels/manual/{channelType}/profile` | Admin | 保存纯人工平台个人配置 |
+| POST | `/channels/manual/{channelType}/login-confirmation` | Admin | 记录当前浏览器的人工登录确认时间 |
+
+LOCAL 模式使用服务端 Session 和 CSRF Token。现阶段 URL 安全规则继续由 Spring Security 中的 `/channels/**` Admin 门禁提供；这是历史角色兼容，不表示未来纯个人模式需要渠道管理员审批。
+
+内容确认和重新编辑也使用 Session/JWT 身份、CSRF 与服务端租户过滤。确认重复提交保持幂等；重新编辑会解除未发布基线锁定，但不能用于直接修改已经发布的文章。
+
+配置表单字段：
+
+| 字段 | 约束 |
+|---|---|
+| `channelType` | 必须与路径一致，且只能是目录中支持人工发布、不支持 API 的 17 个渠道 |
+| `expectedVersion` | 首次保存为 0；已有配置必须提交当前正版本 |
+| `enabled` | 是否在文章人工发布目标中启用 |
+| `accountAlias` | 可选，最长 120 |
+| `defaultTags` | 逗号或换行分隔；规范化后最多 20 项，每项最长 60 |
+| `defaultSection` | 可选，最长 200 |
+| `notes` | 可选，最长 1000 |
+| `sortOrder` | 0–1000 |
+
+登录确认只提交 `expectedVersion`。未配置时会创建默认启用配置；已配置时通过乐观锁更新时间。它只保存人工确认时间，不读取 Cookie、Session，不调用平台验证接口，也不保证第三方登录仍有效。
+
+Portal 捕获应用异常后以 Flash 消息重定向到 `/channels?view=manual#manual-{CHANNEL}`。相关稳定错误码包括：
+
+| 错误码 | 含义 |
+|---|---|
+| `MANUAL_CHANNEL_PROFILE_INVALID` | 渠道参数、标签、文本长度或排序不合法 |
+| `MANUAL_CHANNEL_PROFILE_VERSION_CONFLICT` | 配置版本过期 |
+| `MANUAL_CHANNEL_UNAVAILABLE` | 不是可配置的纯人工渠道 |
+| `MANUAL_CHANNEL_DISABLED` | 目标人工平台已停用，不能进入或完成人工发布 |
+
+人工平台配置不接受密码、Cookie、Session、验证码、恢复码或自定义平台 URL。官方入口来自 `ChannelCatalog`。
+
+## 10. 工具与监控
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|
@@ -235,7 +282,7 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 监控接口可选 `range` 参数：`24h`、`7d`、`30d`，缺省或未知值按 `24h`。响应包含项目、文章、来源、任务、发布、账号和渠道表现统计。
 
-## 10. 健康检查
+## 11. 健康检查
 
 | 路径 | 权限 | 用途 |
 |---|---|---|
@@ -245,21 +292,21 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 | `/actuator/info` | 匿名 | 应用信息 |
 | 其他 `/actuator/**` | Admin | metrics、prometheus 等管理端点 |
 
-## 11. 响应模型
+## 12. 响应模型
 
-### 11.1 任务响应
+### 12.1 任务响应
 
 核心字段包括 `id`、`type`、`status`、`attempt`、`maxAttempts`、`progressPercent`、`progressLabel`、`progressDetail`、`batchId`、`scheduledAt`、`resultResourceId`、`resultResourceType`、错误信息和时间。
 
-### 11.2 文章响应
+### 12.2 文章响应
 
-响应包含来源类型与来源信息、项目 ID、中文与英文内容、标签、关键词、语言、源版本、状态、当前版本和时间。来源类型为 `GIT`、`TOPIC` 或 `WEBSITE`。
+响应包含来源类型与来源信息、项目 ID、中文与英文内容、标签、关键词、语言、源版本、状态、当前版本和时间。来源类型为 `GIT`、`TOPIC` 或 `WEBSITE`；状态可能为 `DRAFT`、`READY`、`APPROVED`、`PUBLISHED` 或 `REJECTED`。
 
-### 11.3 渠道账号响应
+### 12.3 渠道账号响应
 
 响应包含 ID、类型、展示名称、安全地址、账号版本、启停状态、验证状态、有限验证说明和时间，不包含任何凭据。
 
-### 11.4 错误响应
+### 12.4 错误响应
 
 应用异常、参数校验、缺少请求头和数据库并发冲突使用完整错误体：
 
@@ -285,7 +332,7 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 }
 ```
 
-## 12. 错误码与 HTTP 映射
+## 13. 错误码与 HTTP 映射
 
 | HTTP | 主要错误 |
 |---:|---|
@@ -300,14 +347,17 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 错误码是兼容合同。修改错误文案通常兼容；删除或重命名错误码、字段或路径需要明确版本策略。
 
-## 13. OpenAPI 契约与当前限制
+`ARTICLE_NOT_APPROVED` 暂不重命名，避免破坏旧客户端；当前触发条件是文章不属于 `READY/APPROVED/PUBLISHED`，用户可见文案要求先确认当前内容版本。
+
+## 14. OpenAPI 契约与当前限制
 
 - `docs/openapi.json` 是由 `OpenApiContractTest` 生成并纳入版本控制的契约快照；生产默认关闭在线 `/v3/api-docs`。
 - 接口变更后先审阅代码和角色，再运行 `./scripts/openapi update`，随后必须运行 `./scripts/openapi check`。不能通过盲目更新快照掩盖意外路径或模型变化。
 - REST API 目前提供资源详情和部分统一列表；项目、文章和任务的复杂筛选主要由 Portal 页面使用应用服务完成。
 - 发布外部 API 通常不提供统一幂等能力；结果不确定时不会自动盲目重试。
 - Medium 仅支持已有合法 Integration Token 的存量账号，不能创建新账号。
+- Portal 个人确认、重新编辑和人工平台配置路由不是 REST API，不增加 OpenAPI 操作数量；`ArticleStatus` 增加 `READY` 会更新相关响应 Schema 的枚举快照。
 
-## 14. 文档同步
+## 15. 文档同步
 
 Controller 路径、Security 角色规则、DTO 字段、状态码、错误码或响应模型发生变化时，必须同步更新本文档、`FUNCTIONAL_SPEC.md`、`TECHNICAL_DEVELOPMENT.md` 和 README 中受影响的示例。

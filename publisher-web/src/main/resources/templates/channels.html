@@ -50,8 +50,32 @@
             </section>
 
             <section class="workspace-panel" th:if="${selectedChannelView == 'manual'}">
-                <header class="workspace-panel-header"><div><h3>人工发布平台</h3><p>发布时打开官方创作页，完成后回填公开链接和内容快照。</p></div><strong th:text="|${manualChannels.size()} 个平台|">0 个平台</strong></header>
-                <div class="table-wrap"><table class="management-table"><thead><tr><th>平台</th><th>区域</th><th>内容格式</th><th>长度限制</th><th>发布方式</th><th>入口</th></tr></thead><tbody><tr th:each="channel : ${manualChannels}"><td><strong th:text="${channel.displayName()}">平台</strong><small th:text="${channel.contentHint()}">说明</small></td><td th:text="${channel.region().name() == 'DOMESTIC' ? '国内' : '海外'}">国内</td><td th:text="${channel.contentFormat()}">MARKDOWN</td><td th:text="|${channel.characterLimit()} 字符|">20000 字符</td><td>人工发布</td><td><a class="text-link" th:href="${channel.editorUrl()}" target="_blank" rel="noopener noreferrer">打开创作页 ↗</a></td></tr></tbody></table></div>
+                <header class="workspace-panel-header"><div><h3>个人人工平台</h3><p>提前保存账号提示、默认标签、栏目和发布备注；发布时仍由你在官方创作页完成操作。</p></div><strong th:text="|${manualChannels.size()} 个平台|">0 个平台</strong></header>
+                <div class="manual-profile-notice"><strong>个人登录边界</strong><span>首次未配置的平台默认启用。“确认已登录”只是个人提醒，系统不会检测或保存平台密码、Cookie、Session 和恢复码，登录状态由当前浏览器负责维护。</span></div>
+                <div class="table-wrap manual-profile-table"><table class="management-table"><thead><tr><th>启用</th><th>平台</th><th>个人账号</th><th>默认设置</th><th>登录准备</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
+                    <tbody><tr th:each="channel : ${manualChannels}" th:id="|manual-${channel.channel.type()}|" th:classappend="${!channel.enabled} ? ' is-disabled'">
+                        <td data-label="启用"><span class="manual-profile-state" th:classappend="${channel.enabled} ? ' enabled' : ' disabled'" th:text="${channel.enabled ? '启用' : '停用'}">启用</span><small th:unless="${channel.configured}">默认状态</small></td>
+                        <td data-label="平台"><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'DOMESTIC' ? '国内' : '海外'} · ${channel.channel.contentFormat()} · ${channel.channel.characterLimit()} 字符|">平台要求</small></td>
+                        <td data-label="个人账号"><strong th:text="${channel.accountLabel()}">未填写账号别名</strong><small>仅作本地识别，不用于自动登录</small></td>
+                        <td data-label="默认设置"><strong th:text="${channel.defaultSettingLabel()}">未设置默认值</strong><small th:if="${channel.notes != null}" th:text="${channel.notes}">备注</small><small th:unless="${channel.notes != null}">发布时可继续调整</small></td>
+                        <td data-label="登录准备"><span class="manual-profile-state confirmed" th:if="${channel.loginConfirmedAt != null}">已人工确认登录</span><span class="manual-profile-state pending" th:unless="${channel.loginConfirmedAt != null}">尚未确认登录</span><small th:if="${channel.loginConfirmedAt != null}" th:text="${channel.loginConfirmedAt}">时间</small><small th:unless="${channel.loginConfirmedAt != null}">不代表实际会话检测</small></td>
+                        <td data-label="更新时间"><span th:text="${channel.updatedAt != null ? channel.updatedAt : '尚未保存配置'}">时间</span><small th:text="|配置版本 v${channel.version}|">v0</small></td>
+                        <td data-label="操作"><details class="table-action-menu"><summary>配置</summary><div class="account-action-panel manual-profile-form">
+                            <a class="primary-link" th:href="${channel.channel.editorUrl()}" th:attr="target=|publisher-${channel.channel.type()}|,data-platform-window=|publisher-${channel.channel.type()}|" data-platform-launch rel="noopener noreferrer">打开官方登录/创作页 ↗</a>
+                            <form th:if="${canAdmin}" class="stack-form compact-form" th:action="@{/channels/manual/{type}/profile(type=${channel.channel.type()})}" method="post">
+                                <input type="hidden" name="channelType" th:value="${channel.channel.type()}"><input type="hidden" name="expectedVersion" th:value="${channel.version}">
+                                <label class="check-row manual-profile-toggle"><span><strong>在发布工作区启用</strong><small>停用后不会出现在文章的人工发布列表中。</small></span><input type="checkbox" name="enabled" value="true" th:checked="${channel.enabled}"></label>
+                                <div class="form-grid"><div class="field"><label th:for="|manual-alias-${channel.channel.type()}|">个人账号别名</label><input th:id="|manual-alias-${channel.channel.type()}|" name="accountAlias" maxlength="120" th:value="${channel.accountAlias}" placeholder="例如：个人技术号"></div><div class="field"><label th:for="|manual-sort-${channel.channel.type()}|">排序</label><input th:id="|manual-sort-${channel.channel.type()}|" name="sortOrder" type="number" min="0" max="1000" th:value="${channel.sortOrder}" required></div></div>
+                                <div class="field"><label th:for="|manual-tags-${channel.channel.type()}|">默认标签</label><input th:id="|manual-tags-${channel.channel.type()}|" name="defaultTags" maxlength="1220" th:value="${channel.defaultTagsText}" placeholder="Java, Spring, 架构"><small>使用逗号或换行分隔，最多 20 个；发布时会与文章标签合并。</small></div>
+                                <div class="field"><label th:for="|manual-section-${channel.channel.type()}|">默认分类 / 栏目</label><input th:id="|manual-section-${channel.channel.type()}|" name="defaultSection" maxlength="200" th:value="${channel.defaultSection}" placeholder="例如：后端开发"></div>
+                                <div class="field"><label th:for="|manual-notes-${channel.channel.type()}|">发布备注</label><textarea th:id="|manual-notes-${channel.channel.type()}|" name="notes" rows="4" maxlength="1000" th:text="${channel.notes}" placeholder="记录封面比例、转载声明、专栏选择等个人操作提示"></textarea></div>
+                                <button class="secondary-button" type="submit">保存个人配置</button>
+                            </form>
+                            <form th:if="${canAdmin and channel.enabled}" th:action="@{/channels/manual/{type}/login-confirmation(type=${channel.channel.type()})}" method="post"><input type="hidden" name="expectedVersion" th:value="${channel.version}"><button class="secondary-button" type="submit">确认当前浏览器已登录</button></form>
+                            <small class="manual-profile-security">仅记录确认时间，不读取跨域会话，也不保存任何登录秘密。</small>
+                        </div></details></td>
+                    </tr></tbody>
+                </table></div>
             </section>
         </main>
     </div>

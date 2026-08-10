@@ -39,8 +39,8 @@ public final class ArticleEditorialApplicationService {
                                  String titleEn, String summaryEn, String markdownEn, List<String> tagsEn,
                                  List<String> keywordsEn) {
         Article article = getArticle(actor, articleId);
-        if (article.status() == ArticleStatus.APPROVED || article.status() == ArticleStatus.PUBLISHED) {
-            throw new ApplicationException("ARTICLE_STATE_CONFLICT", "审核通过或已发布文章不能直接修改");
+        if (!article.status().isEditable()) {
+            throw new ApplicationException("ARTICLE_STATE_CONFLICT", "已确认或已发布文章不能直接修改，请先重新进入编辑");
         }
         if (article.currentVersion() != expectedVersion) {
             throw new ApplicationException("ARTICLE_VERSION_CONFLICT", "文章已被其他请求修改，请刷新后重试");
@@ -85,12 +85,37 @@ public final class ArticleEditorialApplicationService {
 
     public Article approveArticle(ActorContext actor, UUID articleId) {
         Article article = getArticle(actor, articleId);
-        if (article.status() == ArticleStatus.APPROVED || article.status() == ArticleStatus.PUBLISHED) return article;
+        if (article.status().isConfirmedBaseline()) return article;
         if (article.status() != ArticleStatus.DRAFT && article.status() != ArticleStatus.REJECTED) {
             throw new ApplicationException("ARTICLE_STATE_CONFLICT", "只有草稿或已驳回文章可以审核通过");
         }
         Article saved = updateArticleStatus(article, ArticleStatus.APPROVED, actor.subject());
         auditRecorder.record(actor, "ARTICLE_APPROVED", "ARTICLE", articleId, Map.of());
+        return saved;
+    }
+
+    public Article confirmArticle(ActorContext actor, UUID articleId) {
+        Article article = getArticle(actor, articleId);
+        if (article.status().isConfirmedBaseline()) return article;
+        if (!article.status().isEditable()) {
+            throw new ApplicationException("ARTICLE_STATE_CONFLICT", "只有可编辑内容可以确认");
+        }
+        Article saved = updateArticleStatus(article, ArticleStatus.READY, actor.subject());
+        auditRecorder.record(actor, "ARTICLE_CONTENT_CONFIRMED", "ARTICLE", articleId, Map.of());
+        return saved;
+    }
+
+    public Article reopenArticle(ActorContext actor, UUID articleId) {
+        Article article = getArticle(actor, articleId);
+        if (article.status().isEditable()) return article;
+        if (article.status() == ArticleStatus.PUBLISHED) {
+            throw new ApplicationException("ARTICLE_STATE_CONFLICT", "已发布文章不能直接重新编辑");
+        }
+        if (article.status() != ArticleStatus.READY && article.status() != ArticleStatus.APPROVED) {
+            throw new ApplicationException("ARTICLE_STATE_CONFLICT", "当前内容状态不能重新进入编辑");
+        }
+        Article saved = updateArticleStatus(article, ArticleStatus.DRAFT, actor.subject());
+        auditRecorder.record(actor, "ARTICLE_EDITING_REOPENED", "ARTICLE", articleId, Map.of());
         return saved;
     }
 

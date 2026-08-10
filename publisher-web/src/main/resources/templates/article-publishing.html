@@ -7,15 +7,15 @@
         <main class="page-content">
             <section class="page-header"><div><h2 th:text="${article.title}">文章标题</h2><p th:text="|主稿 v${article.currentVersion} · ${article.language} · ${articleStatusName}|">版本信息</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/articles/{id}(id=${article.id})}">查看主稿</a><a class="secondary-link" th:href="@{/publishing}">返回发布中心</a></div></section>
-            <div class="alert warning" th:if="${article.status.name() != 'APPROVED' and article.status.name() != 'PUBLISHED'}">文章尚未审核通过，请先返回内容库完成审核。</div>
+            <div class="alert warning" th:unless="${publishable}">当前版本尚未确认。请返回主稿检查并确认当前内容后再发布。</div>
 
             <div class="content-aside-grid">
                 <div>
                     <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>人工发布</h3><p>生成平台所需格式，完成发布后回填公开链接。</p></div><strong th:text="|${manualTargets.size()} 个平台|">0 个平台</strong></header>
                         <div class="manual-channel-list"><div class="manual-channel-row" th:each="channel : ${manualTargets}">
-                            <span><strong th:text="${channel.displayName()}">平台</strong><small th:text="|${channel.region().name() == 'OVERSEAS' ? '国外 / 英文版' : '国内 / 中文版'} · ${channel.contentFormat()} · ${channel.contentHint()}|">平台要求</small></span>
-                            <a class="text-link" th:if="${canEdit and (article.status.name() == 'APPROVED' or article.status.name() == 'PUBLISHED')}" th:href="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.type()})}">准备发布</a>
-                            <span class="muted-action" th:unless="${canEdit and (article.status.name() == 'APPROVED' or article.status.name() == 'PUBLISHED')}" th:text="${canEdit} ? '等待审核' : '只读'">等待审核</span>
+                            <span><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'OVERSEAS' ? '国外 / 英文版' : '国内 / 中文版'} · ${channel.channel.contentFormat()} · ${channel.accountLabel()}|">平台要求</small><small th:if="${channel.loginConfirmedAt != null}" th:text="|当前浏览器登录已人工确认于 ${channel.loginConfirmedAt}|">登录确认</small><small th:unless="${channel.loginConfirmedAt != null}">尚未人工确认当前浏览器登录状态</small></span>
+                            <a class="text-link" th:if="${canEdit and publishable}" th:href="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.channel.type()})}">准备发布</a>
+                            <span class="muted-action" th:unless="${canEdit and publishable}" th:text="${canEdit} ? '等待确认当前内容' : '只读'">等待确认当前内容</span>
                         </div></div>
                     </section>
 
@@ -35,7 +35,7 @@
                                 <label class="publish-account check-row" th:each="account : ${channelAccounts}" th:classappend="${!publicationPreflights.get(account.id).ready} ? ' preflight-blocked'"><span><strong th:text="${account.displayName}">账号</strong><small th:text="|${channelNames.get(account.type)} · ${channelRegions.get(account.type).name() == 'OVERSEAS' ? '国外/英文' : '国内/中文'}|">平台</small><small class="preflight-state" th:classappend="${publicationPreflights.get(account.id).ready} ? ' ready' : ' blocked'" th:text="${publicationPreflights.get(account.id).message}">预检结果</small></span><input type="checkbox" th:field="*{channelAccountIds}" th:value="${account.id}" th:disabled="${!publicationPreflights.get(account.id).ready}"></label>
                             </div></div><div class="field"><label>原文链接（可选）</label><input th:field="*{canonicalUrl}" type="url" maxlength="2048" placeholder="https://example.com/original"></div>
                             <div class="field"><label>计划发布时间（可选，本地时区）</label><input data-schedule-local th:field="*{scheduledAt}" type="datetime-local"><input type="hidden" th:field="*{scheduledAtOffset}"><input type="hidden" th:field="*{timeZone}"><small data-schedule-state>留空立即进入队列；最长可预约一年。</small></div>
-                            <button class="primary-button" type="submit" th:disabled="${readyChannelAccountCount == 0 or (article.status.name() != 'APPROVED' and article.status.name() != 'PUBLISHED')}">提交发布任务</button>
+                            <button class="primary-button" type="submit" th:disabled="${readyChannelAccountCount == 0 or !publishable}">提交发布任务</button>
                         </form>
                         <div class="publish-reference"><h4>发布依据</h4><ul><li th:text="|内容版本 v${article.currentVersion}|">内容版本</li><li th:text="|内容语言 ${article.language}|">语言</li><li>渠道适配不修改内容库主稿</li></ul></div>
                     </section>

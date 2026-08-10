@@ -4,13 +4,18 @@ import io.contentpublisher.platform.application.AutomationApplicationService.Not
 import io.contentpublisher.platform.application.AutomationApplicationService.NotificationItem;
 import io.contentpublisher.platform.application.port.AutomationRepository;
 import io.contentpublisher.platform.application.port.JobRepository;
+import io.contentpublisher.platform.application.port.ManualChannelProfileRepository;
+import io.contentpublisher.platform.domain.ChannelType;
 import io.contentpublisher.platform.domain.Job;
 import io.contentpublisher.platform.domain.JobPayload;
 import io.contentpublisher.platform.domain.JobStatus;
 import io.contentpublisher.platform.domain.JobType;
+import io.contentpublisher.platform.domain.ManualChannelProfile;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -18,12 +23,14 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {
@@ -47,6 +54,15 @@ class PostgresPersistenceIntegrationTest {
 
     @Autowired JobRepository jobs;
     @Autowired AutomationRepository automation;
+    @Autowired ManualChannelProfileRepository manualChannelProfiles;
+    @Autowired JdbcTemplate jdbc;
+
+    @Test
+    void shouldApplyPersonalContentConfirmationMigration() {
+        assertThat(jdbc.queryForObject(
+                "select count(*) from flyway_schema_history where version = '22' and success = true",
+                Long.class)).isEqualTo(1L);
+    }
 
     @Test
     void shouldRunAllMigrationsAndClaimScheduledJobOnlyOnceAcrossWorkers() throws Exception {
@@ -118,6 +134,53 @@ class PostgresPersistenceIntegrationTest {
         assertThat(automation.findCalendar(tenant, now.minusSeconds(60), now.plusSeconds(60))).isEmpty();
         assertThat(automation.findChannelChecksDue(now, 10)).isEmpty();
         assertThat(automation.findActions(tenant, now.minusSeconds(900))).isNotNull();
+    }
+
+    @Test
+    void shouldPersistAndOptimisticallyUpdateManualChannelProfilesPerTenant() {
+        Instant createdAt = Instant.parse("2026-08-10T09:00:00Z");
+        ManualChannelProfile original = new ManualChannelProfile(UUID.randomUUID(), "postgres-personal",
+                ChannelType.CSDN, true, "个人 CSDN", List.of("java", "spring"), "后端开发",
+                "发布前选择原创", 20, null, 1, "owner", "owner", createdAt, createdAt);
+
+        ManualChannelProfile saved = manualChannelProfiles.save(original);
+
+        assertThat(manualChannelProfiles.findByChannel("postgres-personal", ChannelType.CSDN))
+                .contains(saved);
+        assertThat(manualChannelProfiles.findAll("postgres-personal"))
+                .extracting(ManualChannelProfile::channelType)
+                .containsExactly(ChannelType.CSDN);
+        assertThat(manualChannelProfiles.findByChannel("other-tenant", ChannelType.CSDN)).isEmpty();
+
+        Instant updatedAt = createdAt.plusSeconds(60);
+        ManualChannelProfile update = new ManualChannelProfile(saved.id(), saved.tenantId(),
+                saved.channelType(), false, saved.accountAlias(), saved.defaultTags(), saved.defaultSection(),
+                saved.notes(), 30, updatedAt, 2, saved.createdBy(), "owner", saved.createdAt(), updatedAt);
+        assertThat(manualChannelProfiles.updateIfVersionMatches(update, 1))
+                .get().satisfies(profile -> {
+                    assertThat(profile.enabled()).isFalse();
+                    assertThat(profile.version()).isEqualTo(2);
+                    assertThat(profile.loginConfirmedAt()).isEqualTo(updatedAt);
+                });
+
+        ManualChannelProfile stale = new ManualChannelProfile(saved.id(), saved.tenantId(),
+                saved.channelType(), true, saved.accountAlias(), saved.defaultTags(), saved.defaultSection(),
+                saved.notes(), 40, updatedAt, 3, saved.createdBy(), "owner", saved.createdAt(),
+                updatedAt.plusSeconds(60));
+        assertThat(manualChannelProfiles.updateIfVersionMatches(stale, 1)).isEmpty();
+    }
+
+    @Test
+    void shouldEnforceOneManualProfilePerTenantAndChannel() {
+        Instant now = Instant.parse("2026-08-10T09:30:00Z");
+        manualChannelProfiles.save(new ManualChannelProfile(UUID.randomUUID(), "postgres-unique",
+                ChannelType.JUEJIN, true, null, List.of(), null, null, 10, null, 1,
+                "owner", "owner", now, now));
+
+        assertThatThrownBy(() -> manualChannelProfiles.save(new ManualChannelProfile(UUID.randomUUID(),
+                "postgres-unique", ChannelType.JUEJIN, true, null, List.of(), null, null, 20,
+                null, 1, "owner", "owner", now, now)))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private Job pending(String idempotencyKey, Instant scheduledAt) {

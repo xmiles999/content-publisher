@@ -14,6 +14,7 @@ import io.contentpublisher.platform.application.PublishingApplicationService;
 import io.contentpublisher.platform.application.RecordManagementApplicationService;
 import io.contentpublisher.platform.application.PlatformContentAdapter;
 import io.contentpublisher.platform.application.MonitoringApplicationService;
+import io.contentpublisher.platform.application.ManualChannelProfileApplicationService;
 import io.contentpublisher.platform.application.port.ArticleRepository;
 import io.contentpublisher.platform.application.port.AutomationRepository;
 import io.contentpublisher.platform.application.port.AiEndpointPolicy;
@@ -28,6 +29,7 @@ import io.contentpublisher.platform.application.port.JobRepository;
 import io.contentpublisher.platform.application.port.ChannelAccountRepository;
 import io.contentpublisher.platform.application.port.PublicationRepository;
 import io.contentpublisher.platform.application.port.ManualPublicationRepository;
+import io.contentpublisher.platform.application.port.ManualChannelProfileRepository;
 import io.contentpublisher.platform.application.port.CredentialVault;
 import io.contentpublisher.platform.application.port.ChannelEndpointPolicy;
 import io.contentpublisher.platform.application.port.ChannelPublisher;
@@ -110,6 +112,12 @@ public class InfrastructureConfiguration {
     @Bean
     PlatformContentAdapter platformContentAdapter() {
         return new PlatformContentAdapter();
+    }
+
+    @Bean
+    ManualChannelProfileApplicationService manualChannelProfileApplicationService(
+            ManualChannelProfileRepository profiles, Clock clock) {
+        return new ManualChannelProfileApplicationService(profiles, clock);
     }
 
     @Bean

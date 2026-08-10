@@ -75,9 +75,10 @@ final class PortalLabels {
     private static Map<ArticleStatus, String> articleStatuses() {
         var names = new EnumMap<ArticleStatus, String>(ArticleStatus.class);
         names.put(ArticleStatus.DRAFT, "草稿");
-        names.put(ArticleStatus.APPROVED, "已审核");
+        names.put(ArticleStatus.READY, "可发布");
+        names.put(ArticleStatus.APPROVED, "可发布（兼容）");
         names.put(ArticleStatus.PUBLISHED, "已发布");
-        names.put(ArticleStatus.REJECTED, "已驳回");
+        names.put(ArticleStatus.REJECTED, "需修改（兼容）");
         return Map.copyOf(names);
     }
 

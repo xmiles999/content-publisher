@@ -19,6 +19,7 @@ import io.contentpublisher.platform.domain.ContentOrigin;
 import io.contentpublisher.platform.domain.JobPayload;
 import io.contentpublisher.platform.domain.Project;
 import io.contentpublisher.platform.domain.ProjectStatus;
+import io.contentpublisher.platform.domain.TopicBrief;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -400,7 +401,7 @@ class LocalSecurityIntegrationTest {
     }
 
     @Test
-    void shouldEditAndApproveArticleThroughManagementPortal() throws Exception {
+    void shouldEditAndConfirmArticleThroughPersonalPortal() throws Exception {
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         UUID projectId = UUID.randomUUID();
         projects.save(new Project(projectId, "tenant-local", "https://github.com/example/portal.git", "portal",
@@ -441,13 +442,55 @@ class LocalSecurityIntegrationTest {
             assertThat(saved.keywords()).containsExactly("企业级内容平台教程", "多渠道发布方案");
         });
 
-        mockMvc.perform(post("/articles/" + articleId + "/approve").session(session).with(csrf()))
+        mockMvc.perform(post("/articles/" + articleId + "/confirm").session(session).with(csrf()))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/articles/" + articleId));
 
         mockMvc.perform(get("/articles/" + articleId).session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("已审核")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("可发布")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("重新编辑")));
+
+        mockMvc.perform(post("/articles/" + articleId + "/reopen").session(session).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/articles/" + articleId));
+
+        assertThat(articles.findArticleById("tenant-local", articleId))
+                .get().extracting(Article::status).isEqualTo(ArticleStatus.DRAFT);
+    }
+
+    @Test
+    void shouldAllowEditorToConfirmPersonalContent() throws Exception {
+        UUID editorId = UUID.randomUUID();
+        String editorUsername = "editor-content-confirm";
+        String editorPassword = "Editor-password-002!";
+        Instant now = Instant.parse("2026-08-10T11:00:00Z");
+        UUID articleId = UUID.randomUUID();
+        jdbcTemplate.update("insert into local_users (id, tenant_id, username, password_hash, enabled, "
+                        + "created_at, updated_at, must_change_password) values (?, ?, ?, ?, true, ?, ?, false)",
+                editorId, "tenant-local", editorUsername, passwordEncoder.encode(editorPassword), now, now);
+        jdbcTemplate.update("insert into local_user_roles (user_id, role) values (?, 'EDITOR')", editorId);
+        Article article = new Article(articleId, "tenant-local",
+                ContentOrigin.topic(new TopicBrief("Editor 个人确认", "确认摘要", "个人作者",
+                        "KNOWLEDGE_GUIDE", "INTERMEDIATE", List.of("个人"), null)),
+                null, "Editor 个人确认", "确认摘要", "# 确认正文", List.of("个人"),
+                "zh-CN", "editor-confirm", 1, ArticleStatus.DRAFT, editorUsername, editorUsername, now, now);
+        articles.saveWithVersion(article, new ArticleVersion("tenant-local", articleId, 1, article.title(),
+                article.summary(), article.markdown(), article.keywords(), editorUsername, now));
+        try {
+            var login = mockMvc.perform(formLogin().user(editorUsername).password(editorPassword))
+                    .andExpect(status().is3xxRedirection()).andReturn();
+            MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
+
+            mockMvc.perform(post("/articles/" + articleId + "/confirm").session(session).with(csrf()))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/articles/" + articleId));
+
+            assertThat(articles.findArticleById("tenant-local", articleId))
+                    .get().extracting(Article::status).isEqualTo(ArticleStatus.READY);
+        } finally {
+            jdbcTemplate.update("delete from local_users where id = ?", editorId);
+        }
     }
 
     @Test
@@ -556,14 +599,41 @@ class LocalSecurityIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("DEV 主账号")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("X 主账号")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("2 个渠道")));
+        mockMvc.perform(post("/channels/manual/XIAOHONGSHU/profile").session(session).with(csrf())
+                        .param("channelType", "XIAOHONGSHU")
+                        .param("expectedVersion", "0")
+                        .param("enabled", "true")
+                        .param("accountAlias", "个人小红书")
+                        .param("defaultTags", "个人默认, Java")
+                        .param("defaultSection", "技术分享")
+                        .param("notes", "发布前检查封面比例")
+                        .param("sortOrder", "10"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/channels?view=manual#manual-XIAOHONGSHU"));
+        mockMvc.perform(post("/channels/manual/XIAOHONGSHU/login-confirmation").session(session).with(csrf())
+                        .param("expectedVersion", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/channels?view=manual#manual-XIAOHONGSHU"));
         mockMvc.perform(get("/channels?view=manual").session(session)).andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("打开创作页")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("打开官方登录/创作页")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("个人小红书")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("已人工确认登录")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("name=\"password\""))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("name=\"cookie\""))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("name=\"session\""))));
         mockMvc.perform(get("/articles/" + articleId + "/manual/XIAOHONGSHU").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("打开官方登录/发布页")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("发布标签")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("#java")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("#发布")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("#个人默认")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("个人小红书")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "登录确认仅用于个人提醒，不代表系统已检测平台会话")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("PLAIN_TEXT")));
 
         mockMvc.perform(post("/articles/" + articleId + "/manual/XIAOHONGSHU").session(session).with(csrf())
@@ -576,6 +646,29 @@ class LocalSecurityIntegrationTest {
 
         assertThat(manualPublications.findByArticle("tenant-local", articleId)).singleElement()
                 .satisfies(item -> assertThat(item.adaptedTitle()).isEqualTo("小红书发布标题"));
+        mockMvc.perform(post("/channels/manual/XIAOHONGSHU/profile").session(session).with(csrf())
+                        .param("channelType", "XIAOHONGSHU")
+                        .param("expectedVersion", "2")
+                        .param("accountAlias", "个人小红书")
+                        .param("defaultTags", "个人默认, Java")
+                        .param("defaultSection", "技术分享")
+                        .param("notes", "发布前检查封面比例")
+                        .param("sortOrder", "10"))
+                .andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/articles/" + articleId + "/manual/XIAOHONGSHU").session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "该人工平台已停用，请先在渠道管理中启用")));
+        mockMvc.perform(post("/channels/manual/XIAOHONGSHU/profile").session(session).with(csrf())
+                        .param("channelType", "XIAOHONGSHU")
+                        .param("expectedVersion", "3")
+                        .param("enabled", "true")
+                        .param("accountAlias", "个人小红书")
+                        .param("defaultTags", "个人默认, Java")
+                        .param("defaultSection", "技术分享")
+                        .param("notes", "发布前检查封面比例")
+                        .param("sortOrder", "10"))
+                .andExpect(status().is3xxRedirection());
         mockMvc.perform(get("/publishing?tab=coverage").session(session)).andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("文章 / 渠道覆盖分析")));
         mockMvc.perform(get("/publishing?tab=records").session(session)).andExpect(status().isOk())
@@ -586,6 +679,38 @@ class LocalSecurityIntegrationTest {
                 .andExpect(jsonPath("$[0].articleId").value(articleId.toString()))
                 .andExpect(jsonPath("$[0].method").value("MANUAL"))
                 .andExpect(jsonPath("$[0].channelType").value("XIAOHONGSHU"));
+    }
+
+    @Test
+    void shouldPreventEditorFromChangingManualChannelProfiles() throws Exception {
+        UUID editorId = UUID.randomUUID();
+        String editorUsername = "editor-manual-profile";
+        String editorPassword = "Editor-password-001!";
+        Instant now = Instant.parse("2026-08-10T10:00:00Z");
+        jdbcTemplate.update("insert into local_users (id, tenant_id, username, password_hash, enabled, "
+                        + "created_at, updated_at, must_change_password) values (?, ?, ?, ?, true, ?, ?, false)",
+                editorId, "tenant-local", editorUsername, passwordEncoder.encode(editorPassword), now, now);
+        jdbcTemplate.update("insert into local_user_roles (user_id, role) values (?, 'EDITOR')", editorId);
+        try {
+            var login = mockMvc.perform(formLogin().user(editorUsername).password(editorPassword))
+                    .andExpect(status().is3xxRedirection()).andReturn();
+            MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
+
+            mockMvc.perform(get("/channels?view=manual").session(session))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("个人人工平台")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("保存个人配置"))));
+            mockMvc.perform(post("/channels/manual/JUEJIN/profile").session(session).with(csrf())
+                            .param("channelType", "JUEJIN")
+                            .param("expectedVersion", "0")
+                            .param("enabled", "true")
+                            .param("sortOrder", "30"))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/access-denied"));
+        } finally {
+            jdbcTemplate.update("delete from local_users where id = ?", editorId);
+        }
     }
 
     @Test
@@ -604,7 +729,7 @@ class LocalSecurityIntegrationTest {
                 "Viewer project", "main", "viewer123", List.of("Java"), "MIT", ProjectStatus.READY,
                 "admin", "admin", now, now));
         Article article = new Article(articleId, "tenant-local", projectId, null, "Viewer 可读文章", "只读摘要",
-                "# 只读正文", List.of("Viewer"), "zh-CN", "viewer123", 1, ArticleStatus.APPROVED,
+                "# 只读正文", List.of("Viewer"), "zh-CN", "viewer123", 1, ArticleStatus.READY,
                 "admin", "admin", now, now);
         articles.saveWithVersion(article, new ArticleVersion("tenant-local", articleId, 1, article.title(),
                 article.summary(), article.markdown(), article.keywords(), "admin", now));
@@ -625,6 +750,13 @@ class LocalSecurityIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(content().string(org.hamcrest.Matchers.not(
                             org.hamcrest.Matchers.containsString("添加发布账号"))));
+            mockMvc.perform(post("/channels/manual/CSDN/profile").session(session).with(csrf())
+                            .param("channelType", "CSDN")
+                            .param("expectedVersion", "0")
+                            .param("enabled", "true")
+                            .param("sortOrder", "20"))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/access-denied"));
             mockMvc.perform(get("/articles/" + articleId).session(session))
                     .andExpect(status().isOk())
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("readonly")))

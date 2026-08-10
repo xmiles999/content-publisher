@@ -137,7 +137,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
     @Transactional(readOnly = true)
     public List<ActionItem> findActions(String tenantId, Instant staleBefore) {
         List<ActionItem> items = new ArrayList<>();
-        addCount(items, "REVIEW", "WARNING", "待审核文章", "草稿或驳回稿等待处理", "/content",
+        addCount(items, "REVIEW", "WARNING", "待确认内容", "草稿或兼容需修改内容等待本人处理", "/content",
                 "select count(*) from articles where tenant_id=? and deleted_at is null and status in ('DRAFT','REJECTED')",
                 tenantId);
         addCount(items, "FAILED_JOB", "ERROR", "失败任务", "已耗尽重试或需要人工判断", "/jobs?status=FAILED",
@@ -452,7 +452,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                   + (select count(*) from notifications
                      where tenant_id=? and acknowledged_at is null and resolved_at is null) action_count,
                   (select count(*) from articles
-                     where tenant_id=? and deleted_at is null and status='APPROVED') pending_publication_count,
+                     where tenant_id=? and deleted_at is null and status in ('READY','APPROVED'))
+                    pending_publication_count,
                   (select count(*) from jobs
                      where tenant_id=? and deleted_at is null
                        and status in ('PENDING','RUNNING','RETRY_WAIT','FAILED')) job_attention_count
