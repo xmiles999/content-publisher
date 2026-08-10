@@ -4,6 +4,7 @@ import io.contentpublisher.platform.application.ApplicationException;
 import io.contentpublisher.platform.web.controller.ContentCreationPortalController;
 import io.contentpublisher.platform.web.controller.ContentLibraryPortalController;
 import io.contentpublisher.platform.web.controller.JobPortalController;
+import io.contentpublisher.platform.web.controller.AutomationPortalController;
 import io.contentpublisher.platform.web.controller.PortalAiSettingsController;
 import io.contentpublisher.platform.web.controller.PortalPublishingController;
 import io.contentpublisher.platform.web.controller.RecycleBinPortalController;
@@ -17,6 +18,7 @@ import org.springframework.web.servlet.ModelAndView;
 @ControllerAdvice(assignableTypes = {
         ContentCreationPortalController.class,
         ContentLibraryPortalController.class,
+        AutomationPortalController.class,
         JobPortalController.class,
         RecycleBinPortalController.class,
         PortalPublishingController.class,
@@ -35,6 +37,8 @@ public class PortalExceptionHandler {
 
     private ModelAndView error(String code, String message) {
         ModelAndView view = new ModelAndView("portal-error");
+        view.setStatus(org.springframework.http.HttpStatus.BAD_REQUEST);
+        view.addObject("status", 400);
         view.addObject("code", code);
         view.addObject("message", message);
         return view;

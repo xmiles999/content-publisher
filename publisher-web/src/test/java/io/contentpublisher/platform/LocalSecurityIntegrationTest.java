@@ -1,12 +1,14 @@
 package io.contentpublisher.platform;
 
 import io.contentpublisher.platform.application.port.ArticleRepository;
+import io.contentpublisher.platform.application.port.AutomationRepository;
 import io.contentpublisher.platform.application.port.ProjectRepository;
 import io.contentpublisher.platform.application.port.ManualPublicationRepository;
 import io.contentpublisher.platform.application.port.ChannelAccountRepository;
 import io.contentpublisher.platform.application.port.CredentialVault;
 import io.contentpublisher.platform.application.port.JobRepository;
 import io.contentpublisher.platform.application.AiSettingsApplicationService;
+import io.contentpublisher.platform.application.AutomationApplicationService.NotificationEndpoint;
 import io.contentpublisher.platform.domain.Article;
 import io.contentpublisher.platform.domain.ArticleStatus;
 import io.contentpublisher.platform.domain.ArticleVersion;
@@ -70,6 +72,7 @@ class LocalSecurityIntegrationTest {
     @Autowired ChannelAccountRepository channelAccounts;
     @Autowired CredentialVault credentialVault;
     @Autowired JobRepository jobRepository;
+    @Autowired AutomationRepository automationRepository;
 
     @Test
     void shouldRenderLoginAndCreateAuthenticatedTenantSession() throws Exception {
@@ -125,7 +128,87 @@ class LocalSecurityIntegrationTest {
         mockMvc.perform(get("/automation").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("服务端生成预设")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("通知 Webhook")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("通知 Webhook")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<fieldset")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("简体中文")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Git 项目")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-compact")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-account-panel")));
+    }
+
+    @Test
+    void shouldKeepInvalidAutomationPresetInputAndShowFieldError() throws Exception {
+        MockHttpSession session = login();
+
+        mockMvc.perform(post("/automation/presets").session(session).with(csrf())
+                        .param("name", "字符范围错误预设")
+                        .param("sourceType", "TOPIC")
+                        .param("language", "zh-CN")
+                        .param("tone", "专业、克制")
+                        .param("minCharacters", "1800")
+                        .param("maxCharacters", "800")
+                        .param("maxKeywords", "8"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("最大字符数不能小于最小字符数")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"字符范围错误预设\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Whitelabel Error Page"))));
+    }
+
+    @Test
+    void shouldRenderTenantWebhookStateWithoutExposingFullUrl() throws Exception {
+        MockHttpSession session = login();
+        UUID endpointId = UUID.randomUUID();
+        String secretUrl = "https://8.8.8.8/internal/team?token=sensitive-token";
+        automationRepository.saveNotificationEndpoint(new NotificationEndpoint(
+                endpointId, "tenant-local", "集成测试端点", secretUrl,
+                false, "admin", Instant.now(), Instant.now()));
+        try {
+            mockMvc.perform(get("/automation").session(session))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("https://8.8.8.8/••••")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("sensitive-token"))));
+
+            mockMvc.perform(post("/automation/notification-endpoints/" + endpointId + "/status")
+                            .session(session).with(csrf()).param("enabled", "true"))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/automation#notification-endpoints"));
+            assertThat(automationRepository.findNotificationEndpoint("tenant-local", endpointId))
+                    .get().extracting(NotificationEndpoint::enabled).isEqualTo(true);
+
+            mockMvc.perform(post("/automation/notification-endpoints/" + endpointId + "/test")
+                            .session(session).with(csrf()))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/automation#webhook-deliveries"));
+            assertThat(automationRepository.findRecentWebhookDeliveries("tenant-local", 100))
+                    .anySatisfy(delivery -> {
+                        assertThat(delivery.endpointId()).isEqualTo(endpointId);
+                        assertThat(delivery.status()).isEqualTo("PENDING");
+                        assertThat(delivery.notificationTitle()).isEqualTo("Webhook 测试通知");
+                    });
+
+            mockMvc.perform(get("/automation").session(session))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("等待投递")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("sensitive-token"))));
+        } finally {
+            automationRepository.deleteNotificationEndpoint("tenant-local", endpointId);
+        }
+    }
+
+    @Test
+    void shouldRenderChineseNotFoundPageWithCorrectStatus() throws Exception {
+        MockHttpSession session = login();
+
+        mockMvc.perform(get("/missing-page-" + UUID.randomUUID()).session(session))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("请求的页面不存在")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("noindex,nofollow")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-history-back")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Whitelabel Error Page"))));
     }
 
     @Test

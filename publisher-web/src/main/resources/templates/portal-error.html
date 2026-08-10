@@ -3,8 +3,9 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title>操作失败 · Content Publisher</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <link rel="stylesheet" th:href="@{/assets/app.css}"></head>
+    <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="dashboard-page"><main class="message-shell"><section class="message-card">
-    <span class="message-code" th:text="${code}">错误</span><p class="eyebrow dark">请求失败</p><h1>无法完成当前操作</h1>
-    <p th:text="${message}">请求处理失败。</p><a class="primary-link" th:href="@{/projects}">返回项目中心</a>
+    <span class="message-code" th:text="${status != null ? status : code}">错误</span><p class="eyebrow dark">请求失败</p><h1>无法完成当前操作</h1>
+    <p th:text="${message}">请求处理失败。</p><small class="message-path" th:if="${requestPath != null and !#strings.isEmpty(requestPath)}" th:text="${requestPath}">/path</small>
+    <div class="message-actions"><a class="primary-link" th:href="@{/}">返回总览</a><button class="secondary-button" type="button" data-history-back>返回上一页</button></div>
 </section></main></body></html>

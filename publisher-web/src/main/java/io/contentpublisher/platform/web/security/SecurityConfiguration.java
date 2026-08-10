@@ -65,7 +65,7 @@ public class SecurityConfiguration {
         return http
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(authorize -> {
-                    authorize.requestMatchers("/login", "/assets/**", "/actuator/health/**", "/actuator/info")
+                    authorize.requestMatchers("/login", "/error", "/assets/**", "/actuator/health/**", "/actuator/info")
                             .permitAll();
                     protectedRequests(authorize);
                 })
