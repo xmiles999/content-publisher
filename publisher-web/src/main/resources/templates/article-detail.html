@@ -16,7 +16,7 @@
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
 
             <section class="editor-action-bar" aria-label="文章操作">
-                <div><strong th:text="|版本 ${article.currentVersion}|">版本 1</strong><span th:if="${editable and canEdit}">修改后保存为新版本</span><span th:unless="${editable and canEdit}">当前版本为只读状态</span></div>
+                <div><strong th:text="|版本 ${article.currentVersion}|">版本 1</strong><span th:if="${editable and canEdit and !hasServerDraft}">修改后会自动保存草稿，确认后保存为新版本</span><span th:if="${editable and canEdit and hasServerDraft}" th:text="|已恢复服务端草稿 · ${draftUpdatedAt}|">已恢复草稿</span><span th:unless="${editable and canEdit}">当前版本为只读状态</span><small data-draft-state aria-live="polite"></small></div>
                 <div class="editor-action-buttons"><button class="primary-button" type="submit" form="article-edit-form" th:if="${editable and canEdit}">保存新版本</button><form th:if="${canAdmin and editable}" th:action="@{/articles/{id}/approve(id=${article.id})}" method="post"><button class="secondary-button" type="submit">审核通过</button></form><a class="primary-link" th:if="${article.status.name() == 'APPROVED' or article.status.name() == 'PUBLISHED'}" th:href="@{/publishing/articles/{id}(id=${article.id})}">进入发布中心</a></div>
             </section>
 
@@ -28,7 +28,8 @@
                         <button id="editor-tab-preview" type="button" role="tab" aria-selected="false" aria-controls="editor-panel-preview" data-editor-tab="preview">预览</button>
                     </nav>
 
-                    <form id="article-edit-form" class="stack-form editor-form" th:action="@{/articles/{id}/edit(id=${article.id})}" th:object="${updateArticleForm}" method="post" data-dirty-form>
+                    <form id="article-edit-form" class="stack-form editor-form" th:action="@{/articles/{id}/edit(id=${article.id})}" th:object="${updateArticleForm}" method="post" data-dirty-form
+                          th:attr="data-draft-url=@{/api/v1/articles/{id}/draft(id=${article.id})},data-has-server-draft=${hasServerDraft}">
                         <input type="hidden" th:field="*{expectedVersion}">
                         <section id="editor-panel-zh" class="editor-tab-panel" role="tabpanel" aria-labelledby="editor-tab-zh" data-editor-panel="zh">
                             <div class="field"><label for="article-title">文章标题</label><input id="article-title" th:field="*{title}" maxlength="500" required th:readonly="${!editable or !canEdit}"></div>

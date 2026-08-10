@@ -1,6 +1,7 @@
 package io.contentpublisher.platform.infrastructure.config;
 
 import io.contentpublisher.platform.application.AiSettingsApplicationService;
+import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.ArticleEditorialApplicationService;
 import io.contentpublisher.platform.application.ChannelAccountApplicationService;
 import io.contentpublisher.platform.application.ContentGenerationApplicationService;
@@ -14,6 +15,7 @@ import io.contentpublisher.platform.application.RecordManagementApplicationServi
 import io.contentpublisher.platform.application.PlatformContentAdapter;
 import io.contentpublisher.platform.application.MonitoringApplicationService;
 import io.contentpublisher.platform.application.port.ArticleRepository;
+import io.contentpublisher.platform.application.port.AutomationRepository;
 import io.contentpublisher.platform.application.port.AiEndpointPolicy;
 import io.contentpublisher.platform.application.port.AiProviderSettingsRepository;
 import io.contentpublisher.platform.application.port.AuditRecorder;
@@ -33,6 +35,7 @@ import io.contentpublisher.platform.application.port.ChannelConnectionVerifier;
 import io.contentpublisher.platform.application.port.ChannelCredentialRefresher;
 import io.contentpublisher.platform.application.port.WebsiteInspector;
 import io.contentpublisher.platform.application.port.MonitoringQuery;
+import io.contentpublisher.platform.application.port.WebhookEndpointPolicy;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,7 +48,8 @@ import java.util.List;
 @Configuration
 @EnableScheduling
 @EnableConfigurationProperties({GitImportProperties.class, AiProperties.class, AiEndpointSecurityProperties.class,
-        SecretProperties.class, JobProperties.class, ChannelProperties.class, WebsiteImportProperties.class})
+        SecretProperties.class, JobProperties.class, ChannelProperties.class, WebsiteImportProperties.class,
+        AutomationProperties.class})
 public class InfrastructureConfiguration {
     @Bean
     Clock clock() {
@@ -66,6 +70,12 @@ public class InfrastructureConfiguration {
     @Bean
     HttpClient websiteHttpClient(WebsiteImportProperties properties) {
         return HttpClient.newBuilder().connectTimeout(properties.timeout())
+                .followRedirects(HttpClient.Redirect.NEVER).build();
+    }
+
+    @Bean
+    HttpClient webhookHttpClient(AutomationProperties properties) {
+        return HttpClient.newBuilder().connectTimeout(properties.webhookTimeout())
                 .followRedirects(HttpClient.Redirect.NEVER).build();
     }
 
@@ -170,6 +180,15 @@ public class InfrastructureConfiguration {
     @Bean
     MonitoringApplicationService monitoringApplicationService(MonitoringQuery monitoring, Clock clock) {
         return new MonitoringApplicationService(monitoring, clock);
+    }
+
+    @Bean
+    AutomationApplicationService automationApplicationService(AutomationRepository automation,
+                                                               ArticleRepository articles,
+                                                               AuditRecorder auditRecorder,
+                                                               WebhookEndpointPolicy webhookEndpointPolicy,
+                                                               Clock clock) {
+        return new AutomationApplicationService(automation, articles, auditRecorder, webhookEndpointPolicy, clock);
     }
 
     @Bean

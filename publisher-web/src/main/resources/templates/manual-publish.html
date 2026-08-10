@@ -10,10 +10,18 @@
             <section class="page-header"><div><p class="section-kicker">人工发布</p><h2 th:text="|发布到 ${channel.displayName()}|">发布平台</h2><p th:text="|源内容：${article.title} · 主稿 v${article.currentVersion}|">source</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/publishing/articles/{id}(id=${article.id})}">返回文章发布</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div>
-            <form th:action="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.type()})}" th:object="${manualPublicationForm}" method="post">
+            <form data-manual-progress
+                  th:attr="data-progress-url=${manualProgressUrl},
+                           data-copied-title=${manualProgress.copiedTitle},
+                           data-copied-content=${manualProgress.copiedContent},
+                           data-opened-editor=${manualProgress.openedEditor},
+                           data-checked-format=${manualProgress.checkedFormat},
+                           data-published=${manualProgress.published}"
+                  th:action="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.type()})}"
+                  th:object="${manualPublicationForm}" method="post">
                 <input type="hidden" th:field="*{contentFormat}"><div class="manual-editor-grid"><section class="card"><div class="card-header"><div><p class="section-kicker">渠道版本</p><h3>平台专用版本</h3><p>可以在发布前继续调整；最终提交时保存的是当前文本快照。</p></div><span class="format-badge" th:text="${channel.contentFormat()}">MARKDOWN</span></div>
-                    <div class="copy-toolbar"><button class="copy-button" type="button" data-copy-target="#manual-title">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content">复制正文</button>
-                        <button class="copy-button" type="button" data-copy-combined data-copy-title="#manual-title" data-copy-content="#manual-content">复制全部</button></div>
+                    <div class="copy-toolbar"><button class="copy-button" type="button" data-copy-target="#manual-title" data-progress-step="copiedTitle">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content" data-progress-step="copiedContent">复制正文</button>
+                        <button class="copy-button" type="button" data-copy-combined data-copy-title="#manual-title" data-copy-content="#manual-content" data-progress-step="copiedAll">复制全部</button></div>
                     <div class="stack-form section-gap"><div class="field"><label>平台标题</label><input id="manual-title" th:field="*{title}" maxlength="500" required><small class="character-counter" data-count-source="#manual-title">0</small></div>
                         <div class="field"><div class="manual-tag-heading"><label>发布标签</label><button class="copy-button" type="button" data-copy-tags="#manual-publish-tags .tag" th:unless="${#lists.isEmpty(adapted.tags())}">复制标签</button></div>
                             <div id="manual-publish-tags" class="manual-tag-panel"><div class="tag-row" th:unless="${#lists.isEmpty(adapted.tags())}"><span class="tag" th:each="tag : ${adapted.tags()}" th:text="|#${tag}|">#标签</span></div><span class="manual-tag-empty" th:if="${#lists.isEmpty(adapted.tags())}">暂无生成标签</span></div>
@@ -22,10 +30,11 @@
                         <div class="field"><label>发布后的文章链接</label><div class="url-validation-row"><input id="manual-external-url" th:field="*{externalUrl}" type="url" maxlength="2048" placeholder="完成发布后，将平台文章 URL 粘贴到这里" required>
                             <button class="secondary-button" type="button" data-validate-published-url th:attr="data-validation-url=@{/api/v1/publications/link-validation},data-channel-type=${channel.type()}">验证链接</button></div>
                             <small class="link-validation-state" data-published-url-state th:text="|允许域名：${#strings.listJoin(channel.publishedHosts(), '、')}|">允许域名</small></div>
-                        <div class="form-footer"><small>确认平台页面已经发布成功后再保存记录。</small><button class="primary-button" type="submit">确认发布并保存记录</button></div></div>
+                        <label class="check-row"><span><strong>格式检查完成</strong><small>已检查标题、正文、图片、链接、标签和平台字符限制。</small></span><input type="checkbox" data-progress-check="checkedFormat" th:checked="${manualProgress.checkedFormat}"></label>
+                        <div class="form-footer"><small data-progress-state>操作进度会自动保存；确认平台页面已经发布成功后再提交。</small><button class="primary-button" type="submit">确认发布并保存记录</button></div></div>
                 </section>
                     <aside class="sticky-column"><section class="launch-card"><p class="section-kicker">官方编辑器</p><h3 th:text="${channel.displayName()}">平台</h3><p>系统不会代填或保存你的平台密码。请在官方页面登录后粘贴左侧适配内容。</p>
-                        <a class="primary-link" th:href="${channel.editorUrl()}" th:attr="target=|publisher-${channel.type()}|,data-platform-window=|publisher-${channel.type()}|" data-platform-launch>打开官方登录/发布页 ↗</a><ul class="checklist"><li>同一设备会复用该平台窗口</li><li>保持窗口打开可减少重复登录</li><li>检查图片、链接与标签</li><li>发布后复制文章外链</li></ul></section>
+                        <a class="primary-link" th:href="${channel.editorUrl()}" th:attr="target=|publisher-${channel.type()}|,data-platform-window=|publisher-${channel.type()}|" data-platform-launch data-progress-step="openedEditor">打开官方登录/发布页 ↗</a><ul class="checklist"><li>同一设备会复用该平台窗口</li><li>保持窗口打开可减少重复登录</li><li>检查图片、链接与标签</li><li>发布后复制文章外链</li></ul></section>
                         <section class="card"><div class="card-header"><div><p class="section-kicker">历史记录</p><h3>该平台记录</h3></div><span class="count-badge" th:text="${history.size()}">0</span></div><div class="empty-state" th:if="${#lists.isEmpty(history)}">首次发布到该平台。</div>
                             <div class="compact-list" th:unless="${#lists.isEmpty(history)}"><a class="compact-item" th:each="item : ${history}" th:href="${item.externalUrl}" target="_blank" rel="noopener noreferrer"><span><strong th:text="${item.adaptedTitle}">标题</strong><small th:text="${item.publishedAt}">time</small></span><span class="status-pill status-published">PUBLISHED</span></a></div></section></aside></div>
             </form>

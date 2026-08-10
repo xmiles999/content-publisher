@@ -43,6 +43,12 @@ management:
       probes:
         enabled: true
 
+springdoc:
+  api-docs:
+    enabled: ${PUBLISHER_OPENAPI_ENABLED:false}
+  swagger-ui:
+    enabled: false
+
 publisher:
   jobs:
     worker-enabled: ${PUBLISHER_JOBS_WORKER_ENABLED:true}
@@ -92,6 +98,18 @@ publisher:
     encryption-key: ${PUBLISHER_CHANNELS_ENCRYPTION_KEY:}
     allowed-hosts: ${PUBLISHER_CHANNELS_ALLOWED_HOSTS:}
     timeout: ${PUBLISHER_CHANNELS_TIMEOUT:30s}
+  automation:
+    channel-health-enabled: ${PUBLISHER_CHANNEL_HEALTH_ENABLED:false}
+    channel-health-interval: ${PUBLISHER_CHANNEL_HEALTH_INTERVAL:15m}
+    channel-health-stale-after: ${PUBLISHER_CHANNEL_HEALTH_STALE_AFTER:24h}
+    channel-health-batch-size: ${PUBLISHER_CHANNEL_HEALTH_BATCH_SIZE:50}
+    webhook-enabled: ${PUBLISHER_NOTIFICATION_WEBHOOK_ENABLED:false}
+    webhook-interval: ${PUBLISHER_NOTIFICATION_WEBHOOK_INTERVAL:30s}
+    webhook-timeout: ${PUBLISHER_NOTIFICATION_WEBHOOK_TIMEOUT:10s}
+    webhook-batch-size: ${PUBLISHER_NOTIFICATION_WEBHOOK_BATCH_SIZE:50}
+    webhook-max-attempts: ${PUBLISHER_NOTIFICATION_WEBHOOK_MAX_ATTEMPTS:4}
+  metrics:
+    refresh-interval: ${PUBLISHER_METRICS_REFRESH_INTERVAL:30s}
 
 logging:
   pattern:

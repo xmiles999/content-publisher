@@ -2,6 +2,7 @@ package io.contentpublisher.platform.web.controller;
 
 import io.contentpublisher.platform.application.AiSettingsApplicationService;
 import io.contentpublisher.platform.application.ApplicationException;
+import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.JobApplicationService;
 import io.contentpublisher.platform.application.ProjectApplicationService;
 import io.contentpublisher.platform.domain.GenerationPolicy;
@@ -43,15 +44,18 @@ public class ContentCreationPortalController {
     private final RequestActorProvider actors;
     private final AiProperties aiProperties;
     private final AiSettingsApplicationService aiSettings;
+    private final AutomationApplicationService automation;
 
     public ContentCreationPortalController(ProjectApplicationService projects, JobApplicationService jobs,
                                            RequestActorProvider actors, AiProperties aiProperties,
-                                           AiSettingsApplicationService aiSettings) {
+                                           AiSettingsApplicationService aiSettings,
+                                           AutomationApplicationService automation) {
         this.projects = projects;
         this.jobs = jobs;
         this.actors = actors;
         this.aiProperties = aiProperties;
         this.aiSettings = aiSettings;
+        this.automation = automation;
     }
 
     @GetMapping("/projects")
@@ -123,6 +127,7 @@ public class ContentCreationPortalController {
         model.addAttribute("generateArticleForm", newGenerationForm());
         model.addAttribute("aiEnabled", aiEnabled());
         model.addAttribute("aiModel", aiModel());
+        model.addAttribute("projectPresets", automation.presets(actor, "PROJECT"));
         return "project-detail";
     }
 
@@ -164,6 +169,8 @@ public class ContentCreationPortalController {
         model.addAttribute("projects", projects.listProjects(actor, LIST_LIMIT));
         model.addAttribute("aiEnabled", aiEnabled());
         model.addAttribute("aiModel", aiModel());
+        model.addAttribute("topicPresets", automation.presets(actor, "TOPIC"));
+        model.addAttribute("websitePresets", automation.presets(actor, "WEBSITE"));
     }
 
     private void populateSourceForms(Model model) {

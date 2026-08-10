@@ -33,6 +33,11 @@ public class LocalAdminBootstrap implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments arguments) {
         String username = properties.bootstrapUsername().toLowerCase(Locale.ROOT);
+        if (username.isBlank() && properties.bootstrapPassword().isBlank()) {
+            Integer existingUsers = jdbcTemplate.queryForObject(
+                    "select count(*) from local_users", Integer.class);
+            if (existingUsers != null && existingUsers > 0) return;
+        }
         Integer existing = jdbcTemplate.queryForObject(
                 "select count(*) from local_users where username = ?", Integer.class, username);
         if (existing != null && existing > 0) return;

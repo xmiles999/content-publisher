@@ -135,23 +135,26 @@
                 button.textContent = label;
                 button.classList.remove('copied');
             }, 1600);
+            button.dispatchEvent(new CustomEvent('publisher:copied', {bubbles: true}));
+            return true;
         } catch (_error) {
             button.textContent = '复制失败';
+            return false;
         }
     };
-    document.querySelectorAll('[data-copy-target]').forEach(button => button.addEventListener('click', () => {
+    document.querySelectorAll('[data-copy-target]').forEach(button => button.addEventListener('click', async () => {
         const target = document.querySelector(button.dataset.copyTarget);
-        if (target) copy(target.value || target.textContent || '', button);
+        if (target) await copy(target.value || target.textContent || '', button);
     }));
-    document.querySelectorAll('[data-copy-combined]').forEach(button => button.addEventListener('click', () => {
+    document.querySelectorAll('[data-copy-combined]').forEach(button => button.addEventListener('click', async () => {
         const title = document.querySelector(button.dataset.copyTitle);
         const content = document.querySelector(button.dataset.copyContent);
-        if (title && content) copy(`${title.value}\n\n${content.value}`, button);
+        if (title && content) await copy(`${title.value}\n\n${content.value}`, button);
     }));
-    document.querySelectorAll('[data-copy-tags]').forEach(button => button.addEventListener('click', () => {
+    document.querySelectorAll('[data-copy-tags]').forEach(button => button.addEventListener('click', async () => {
         const tags = [...document.querySelectorAll(button.dataset.copyTags)]
             .map(tag => tag.textContent.trim()).filter(Boolean);
-        if (tags.length) copy(tags.join(' '), button);
+        if (tags.length) await copy(tags.join(' '), button);
     }));
 
     const channelSelect = document.querySelector('[data-channel-select]');
@@ -208,60 +211,17 @@
         });
     });
 
-    const generationPresets = {
-        'project-quickstart': {
-            tone: '专业、清晰、面向首次使用者', minCharacters: '800', maxCharacters: '1800', maxKeywords: '10',
-            requiredSections: '项目概述\n适用场景\n安装与配置\n快速开始\n常见问题'
-        },
-        'project-architecture': {
-            tone: '专业、客观、突出架构取舍', minCharacters: '1200', maxCharacters: '2600', maxKeywords: '14',
-            requiredSections: '项目概述\n架构与模块\n核心流程\n关键技术取舍\n扩展方式\n总结'
-        },
-        'project-practices': {
-            tone: '务实、克制、面向生产环境', minCharacters: '1000', maxCharacters: '2400', maxKeywords: '12',
-            requiredSections: '适用场景\n生产配置\n安全与权限\n性能与可观测性\n常见故障\n上线检查清单'
-        },
-        'topic-tutorial': {
-            articleType: 'TUTORIAL', knowledgeLevel: 'MIXED', tone: '专业、清晰、循序渐进',
-            minCharacters: '1000', maxCharacters: '2400', maxKeywords: '12',
-            requiredSections: '学习目标\n前置知识\n分步教程\n完整示例\n常见问题\n总结'
-        },
-        'topic-practices': {
-            articleType: 'BEST_PRACTICES', knowledgeLevel: 'INTERMEDIATE', tone: '务实、客观、突出取舍',
-            minCharacters: '1000', maxCharacters: '2400', maxKeywords: '14',
-            requiredSections: '问题背景\n推荐做法\n反例与风险\n实施步骤\n检查清单\n总结'
-        },
-        'topic-troubleshooting': {
-            articleType: 'TROUBLESHOOTING', knowledgeLevel: 'INTERMEDIATE', tone: '直接、准确、便于排查',
-            minCharacters: '900', maxCharacters: '2200', maxKeywords: '12',
-            requiredSections: '问题现象\n影响范围\n排查步骤\n常见原因\n修复方法\n预防措施'
-        },
-        'website-overview': {
-            recommendationAngle: '说明网站定位、核心功能、适用人群、使用方式、优势与局限',
-            tone: '客观、克制、信息密度高', minCharacters: '700', maxCharacters: '1800', maxKeywords: '12',
-            requiredSections: '网站定位\n核心功能\n适用人群\n使用方式\n优势与局限\n总结'
-        },
-        'website-selection': {
-            recommendationAngle: '从使用门槛、核心能力、费用边界、数据与安全、适用场景进行选型评估',
-            tone: '中立、具体、突出决策依据', minCharacters: '900', maxCharacters: '2200', maxKeywords: '14',
-            requiredSections: '产品定位\n核心能力\n使用门槛\n费用与限制\n数据与安全\n适合与不适合的人群\n选型结论'
-        },
-        'website-guide': {
-            recommendationAngle: '围绕首次使用流程，说明准备工作、核心操作、常见问题和使用限制',
-            tone: '清晰、直接、面向首次使用者', minCharacters: '800', maxCharacters: '2000', maxKeywords: '10',
-            requiredSections: '使用前准备\n注册与配置\n核心操作\n常见问题\n使用限制\n总结'
-        }
-    };
     document.querySelectorAll('[data-generation-preset]').forEach(select => {
         const form = select.closest('[data-generation-form]');
         const state = form?.querySelector('[data-preset-state]');
         select.addEventListener('change', () => {
-            const preset = generationPresets[select.value];
-            if (!form || !preset) {
+            const option = select.selectedOptions[0];
+            if (!form || !select.value || !option) {
                 if (state) state.textContent = '保留当前设置。';
                 return;
             }
-            Object.entries(preset).forEach(([name, value]) => {
+            Object.entries(option.dataset).forEach(([name, value]) => {
+                if (!value) return;
                 const field = form.elements.namedItem(name);
                 if (!field) return;
                 field.value = value;
@@ -269,6 +229,170 @@
                 field.dispatchEvent(new Event('change', {bubbles: true}));
             });
             if (state) state.textContent = `${select.selectedOptions[0].textContent}预设已应用，可继续调整。`;
+        });
+    });
+
+    const csrfHeaders = root => {
+        const token = root?.querySelector('input[name="_csrf"]')?.value
+            || document.querySelector('input[name="_csrf"]')?.value;
+        return token ? {'X-CSRF-TOKEN': token} : {};
+    };
+    const splitEditorValues = value => (value || '').split(/[\n,，]+/)
+        .map(item => item.trim()).filter((item, index, values) => item && values.indexOf(item) === index);
+    const draftForm = document.querySelector('form[data-draft-url]');
+    if (draftForm) {
+        const state = document.querySelector('[data-draft-state]');
+        const storageKey = `content-publisher:draft:${draftForm.dataset.draftUrl}`;
+        let timer = null;
+        let conflict = false;
+        let submitting = false;
+        const fields = ['title', 'summary', 'markdown', 'tags', 'keywords',
+            'titleEn', 'summaryEn', 'markdownEn', 'tagsEn', 'keywordsEn'];
+        const payload = () => ({
+            baseVersion: Number(draftForm.elements.namedItem('expectedVersion')?.value || 0),
+            title: draftForm.elements.namedItem('title')?.value || '',
+            summary: draftForm.elements.namedItem('summary')?.value || '',
+            markdown: draftForm.elements.namedItem('markdown')?.value || '',
+            tags: splitEditorValues(draftForm.elements.namedItem('tags')?.value),
+            keywords: splitEditorValues(draftForm.elements.namedItem('keywords')?.value),
+            titleEn: draftForm.elements.namedItem('titleEn')?.value || '',
+            summaryEn: draftForm.elements.namedItem('summaryEn')?.value || '',
+            markdownEn: draftForm.elements.namedItem('markdownEn')?.value || '',
+            tagsEn: splitEditorValues(draftForm.elements.namedItem('tagsEn')?.value),
+            keywordsEn: splitEditorValues(draftForm.elements.namedItem('keywordsEn')?.value)
+        });
+        const restoreLocal = () => {
+            if (draftForm.dataset.hasServerDraft === 'true') return;
+            try {
+                const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
+                if (!saved?.payload || !window.confirm('检测到上次网络失败时保存在本机的编辑内容，是否恢复？')) return;
+                fields.forEach(name => {
+                    const field = draftForm.elements.namedItem(name);
+                    const value = saved.payload[name];
+                    if (!field || value == null) return;
+                    field.value = Array.isArray(value) ? value.join('\n') : value;
+                    field.dispatchEvent(new Event('input', {bubbles: true}));
+                });
+                if (state) state.textContent = '已恢复本机应急草稿，正在同步到服务端。';
+            } catch (_error) { /* Invalid or unavailable local storage is ignored. */ }
+        };
+        const saveDraft = async () => {
+            if (submitting || conflict || !draftForm.checkValidity()) return;
+            if (state) state.textContent = '草稿保存中…';
+            const bodyPayload = payload();
+            try {
+                const response = await fetch(draftForm.dataset.draftUrl, {
+                    method: 'PUT', credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/json', ...csrfHeaders(draftForm)},
+                    body: JSON.stringify(bodyPayload)
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    if (response.status === 409) {
+                        conflict = true;
+                        if (state) state.textContent = result.message || '文章已有新版本，自动保存已暂停。';
+                        return;
+                    }
+                    throw new Error(result.message || `HTTP ${response.status}`);
+                }
+                try { window.localStorage.removeItem(storageKey); } catch (_error) { /* Ignore. */ }
+                if (state) state.textContent = `草稿已保存 · ${new Date(result.updatedAt).toLocaleTimeString()}`;
+            } catch (_error) {
+                try { window.localStorage.setItem(storageKey, JSON.stringify({savedAt: Date.now(), payload: bodyPayload})); }
+                catch (_storageError) { /* Ignore. */ }
+                if (state) state.textContent = '网络异常，内容已暂存本机并将在继续编辑时重试。';
+            }
+        };
+        draftForm.addEventListener('input', () => {
+            if (conflict || submitting) return;
+            window.clearTimeout(timer);
+            if (state) state.textContent = '等待自动保存…';
+            timer = window.setTimeout(saveDraft, 900);
+        });
+        draftForm.addEventListener('submit', () => {
+            submitting = true;
+            window.clearTimeout(timer);
+            try { window.localStorage.removeItem(storageKey); } catch (_error) { /* Ignore. */ }
+        });
+        restoreLocal();
+    }
+
+    document.querySelectorAll('form[data-schedule-form]').forEach(form => {
+        const localInput = form.querySelector('input[data-schedule-local]');
+        const offsetInput = form.elements.namedItem('scheduledAtOffset');
+        const zoneInput = form.elements.namedItem('timeZone');
+        const state = form.querySelector('[data-schedule-state]');
+        const refresh = () => {
+            if (zoneInput) zoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+            if (!localInput?.value) {
+                if (offsetInput) offsetInput.value = '';
+                if (state) state.textContent = '留空立即进入队列；最长可预约一年。';
+                return;
+            }
+            const local = new Date(localInput.value);
+            if (Number.isNaN(local.getTime())) return;
+            if (offsetInput) offsetInput.value = local.toISOString();
+            if (state) state.textContent = `本地 ${local.toLocaleString()} · UTC ${local.toISOString()}`;
+        };
+        localInput?.addEventListener('input', refresh);
+        form.addEventListener('submit', refresh);
+        refresh();
+    });
+
+    document.querySelectorAll('[data-local-time]').forEach(element => {
+        const date = new Date(element.getAttribute('datetime') || '');
+        if (!Number.isNaN(date.getTime())) {
+            element.textContent = date.toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'});
+            element.title = date.toISOString();
+        }
+    });
+
+    document.querySelectorAll('form[data-manual-progress]').forEach(form => {
+        const progress = {
+            copiedTitle: form.dataset.copiedTitle === 'true',
+            copiedContent: form.dataset.copiedContent === 'true',
+            openedEditor: form.dataset.openedEditor === 'true',
+            checkedFormat: form.dataset.checkedFormat === 'true',
+            published: form.dataset.published === 'true'
+        };
+        const state = form.querySelector('[data-progress-state]');
+        const csrf = form.querySelector('input[name="_csrf"]')?.value;
+        let timer;
+        const save = async () => {
+            const headers = {'Content-Type': 'application/json'};
+            if (csrf) headers['X-CSRF-TOKEN'] = csrf;
+            if (state) state.textContent = '正在保存操作进度…';
+            try {
+                const response = await fetch(form.dataset.progressUrl, {
+                    method: 'PUT', credentials: 'same-origin', headers, body: JSON.stringify(progress)
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                if (state) state.textContent = '操作进度已保存。确认平台发布成功后再提交记录。';
+            } catch (_error) {
+                if (state) state.textContent = '进度保存失败，不影响当前页面操作；请保持页面打开后重试。';
+            }
+        };
+        const queue = () => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(save, 250);
+        };
+        form.addEventListener('publisher:copied', event => {
+            const step = event.target.dataset.progressStep;
+            if (step === 'copiedAll') {
+                progress.copiedTitle = true;
+                progress.copiedContent = true;
+            } else if (step) {
+                progress[step] = true;
+            }
+            queue();
+        });
+        form.querySelector('[data-progress-step="openedEditor"]')?.addEventListener('click', () => {
+            progress.openedEditor = true;
+            queue();
+        });
+        form.querySelector('[data-progress-check="checkedFormat"]')?.addEventListener('change', event => {
+            progress.checkedFormat = event.target.checked;
+            queue();
         });
     });
 

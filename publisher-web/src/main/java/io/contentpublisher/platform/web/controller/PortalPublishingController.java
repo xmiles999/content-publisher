@@ -1,6 +1,7 @@
 package io.contentpublisher.platform.web.controller;
 
 import io.contentpublisher.platform.application.ApplicationException;
+import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.ChannelCatalog;
 import io.contentpublisher.platform.application.JobApplicationService;
 import io.contentpublisher.platform.application.ProjectApplicationService;
@@ -39,24 +40,27 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeParseException;
 
 @Controller
 public class PortalPublishingController {
     private final PublishingApplicationService publishing;
     private final ProjectApplicationService projects;
     private final JobApplicationService jobs;
+    private final AutomationApplicationService automation;
+    private final ScheduleParser scheduleParser;
     private final RequestActorProvider actors;
 
     public PortalPublishingController(PublishingApplicationService publishing,
                                       ProjectApplicationService projects,
                                       JobApplicationService jobs,
+                                      AutomationApplicationService automation,
+                                      ScheduleParser scheduleParser,
                                       RequestActorProvider actors) {
         this.publishing = publishing;
         this.projects = projects;
         this.jobs = jobs;
+        this.automation = automation;
+        this.scheduleParser = scheduleParser;
         this.actors = actors;
     }
 
@@ -318,7 +322,8 @@ public class PortalPublishingController {
         }
         try {
             var job = jobs.submitPublication(actors.currentActor(), articleId, form.getChannelAccountId(),
-                    blankToNull(form.getCanonicalUrl()), form.getIdempotencyKey(), parseSchedule(form.getScheduledAt()));
+                    blankToNull(form.getCanonicalUrl()), form.getIdempotencyKey(),
+                    scheduleParser.parse(form.getScheduledAt(), form.getScheduledAtOffset(), form.getTimeZone()));
             return "redirect:/jobs/" + job.id();
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
@@ -337,7 +342,8 @@ public class PortalPublishingController {
         }
         try {
             var submitted = jobs.submitPublications(actors.currentActor(), articleId, form.getChannelAccountIds(),
-                    blankToNull(form.getCanonicalUrl()), form.getIdempotencyKey(), parseSchedule(form.getScheduledAt()));
+                    blankToNull(form.getCanonicalUrl()), form.getIdempotencyKey(),
+                    scheduleParser.parse(form.getScheduledAt(), form.getScheduledAtOffset(), form.getTimeZone()));
             redirectAttributes.addFlashAttribute("success", (form.getScheduledAt() == null || form.getScheduledAt().isBlank()
                     ? "已提交 " : "已定时提交 ") + submitted.size() + " 个渠道发布任务");
         } catch (ApplicationException | IllegalArgumentException exception) {
@@ -390,6 +396,12 @@ public class PortalPublishingController {
         model.addAttribute("adapted", adapted);
         model.addAttribute("history", publishing.getManualPublications(actor, articleId).stream()
                 .filter(item -> item.channelType() == channelType).toList());
+        var progress = automation.manualProgress(actor, articleId, channelType.name())
+                .orElse(new AutomationApplicationService.ManualProgress(null, actor.tenantId(), articleId,
+                        channelType.name(), actor.subject(), false, false, false, false, false, Instant.EPOCH));
+        model.addAttribute("manualProgress", progress);
+        model.addAttribute("manualProgressUrl", "/api/v1/articles/" + articleId + "/manual/"
+                + channelType.name() + "/progress");
         return "manual-publish";
     }
 
@@ -402,8 +414,11 @@ public class PortalPublishingController {
             return manualPublish(articleId, channelType, model, redirectAttributes);
         }
         try {
-            publishing.completeManualPublication(actors.currentActor(), articleId, channelType, form.getTitle(),
+            var actor = actors.currentActor();
+            publishing.completeManualPublication(actor, articleId, channelType, form.getTitle(),
                     form.getContent(), form.getContentFormat(), form.getExternalUrl());
+            automation.saveManualProgress(actor, articleId, channelType.name(),
+                    new AutomationApplicationService.ManualProgressCommand(true, true, true, true, true));
             redirectAttributes.addFlashAttribute("success", "人工发布结果已记录，内容快照和外链已留档");
             return "redirect:/publishing/articles/" + articleId;
         } catch (ApplicationException | IllegalArgumentException exception) {
@@ -465,15 +480,6 @@ public class PortalPublishingController {
 
     private String value(String value) {
         return value == null ? "" : value.trim();
-    }
-
-    private Instant parseSchedule(String value) {
-        if (value == null || value.isBlank()) return null;
-        try {
-            return LocalDateTime.parse(value.trim()).toInstant(ZoneOffset.UTC);
-        } catch (DateTimeParseException exception) {
-            throw new ApplicationException("SCHEDULED_AT_INVALID", "计划发布时间格式无效，请使用 UTC 时间", exception);
-        }
     }
 
     private record ArticleChannelKey(UUID articleId, ChannelType channelType) {

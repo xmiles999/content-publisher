@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow"><title>动作台 · Content Publisher</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
+    <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('actions')}"></aside>
+<div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('动作台', '集中处理待审核、失败任务、渠道异常和未完成发布')}"></header>
+<main class="page-content"><section class="page-header"><div><p class="section-kicker">自动化收件箱</p><h2>需要你处理的事项</h2><p>只展示可执行问题，处理完成后列表会自动收敛。</p></div></section>
+<div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
+<section class="workspace-panel"><header class="workspace-panel-header"><div><h3>待办汇总</h3><p>来自内容、任务、发布和渠道的实时聚合。</p></div><strong th:text="|${actions.size()} 类|">0 类</strong></header>
+<div class="empty-state" th:if="${#lists.isEmpty(actions)}">当前没有需要人工介入的事项。</div>
+<div class="compact-list" th:unless="${#lists.isEmpty(actions)}"><a class="compact-item" th:each="item : ${actions}" th:href="${item.targetUrl}">
+<span><strong th:text="${item.title}">待办</strong><small th:text="${item.detail}">说明</small></span><span><strong th:text="${item.count}">1</strong><span class="status-pill" th:classappend="| status-${item.severity.toLowerCase()}|" th:text="${item.severity}">WARNING</span></span></a></div></section>
+<section class="workspace-panel section-gap"><header class="workspace-panel-header"><div><h3>通知</h3><p>确认仅表示已知晓，不会隐藏仍存在的待办汇总。</p></div>
+<a class="text-link" th:href="@{/actions(history=${!showNotificationHistory})}" th:text="${showNotificationHistory} ? '只看未确认' : '查看历史'">查看历史</a></header>
+<div class="empty-state" th:if="${#lists.isEmpty(notifications)}">暂无通知。</div>
+<div class="compact-list" th:unless="${#lists.isEmpty(notifications)}"><div class="compact-item" th:each="item : ${notifications}">
+<span><strong th:text="${item.title}">通知</strong><small th:text="${item.message}">内容</small><small th:text="${item.createdAt}">时间</small></span>
+<span><a class="text-link" th:if="${item.targetUrl != null}" th:href="${item.targetUrl}">打开</a>
+<form th:if="${item.acknowledgedAt == null}" th:action="@{/actions/notifications/{id}/acknowledge(id=${item.id})}" method="post"><button class="secondary-button mini-button" type="submit">确认</button></form>
+<span class="status-pill" th:if="${item.acknowledgedAt != null}">已确认</span></span></div></div></section>
+</main></div></div></body></html>

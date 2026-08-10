@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow"><title>发布日历 · Content Publisher</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
+    <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('calendar')}"></aside>
+<div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('发布日历', '按本地时区查看未来发布任务')}"></header>
+<main class="page-content"><section class="page-header"><div><p class="section-kicker">排期</p><h2>发布日历</h2><p>服务端统一保存 UTC，页面按浏览器本地时区展示。</p></div>
+<form class="filter-bar" method="get"><label>开始<input type="date" name="from" th:value="${calendarFrom}"></label><label>结束<input type="date" name="to" th:value="${calendarTo}"></label><button class="secondary-button" type="submit">查询</button></form></section>
+<section class="workspace-panel"><header class="workspace-panel-header"><div><h3>计划任务</h3><p th:text="|${calendarFrom} 至 ${calendarTo}|">范围</p></div><strong th:text="|${calendarItems.size()} 项|">0 项</strong></header>
+<div class="empty-state" th:if="${#lists.isEmpty(calendarItems)}">所选范围没有发布任务。</div>
+<div class="table-wrap" th:unless="${#lists.isEmpty(calendarItems)}"><table class="management-table"><thead><tr><th>本地时间</th><th>UTC</th><th>文章</th><th>状态</th><th>操作</th></tr></thead>
+<tbody><tr th:each="item : ${calendarItems}"><td><time data-local-time th:attr="datetime=${item.scheduledAt}" th:text="${item.scheduledAt}">time</time></td><td class="mono" th:text="${item.scheduledAt}">UTC</td><td th:text="${item.title}">文章</td><td><span class="status-pill" th:text="${item.status}">PENDING</span></td><td><a class="text-link" th:href="@{/jobs/{id}(id=${item.jobId})}">查看任务</a></td></tr></tbody></table></div></section>
+</main></div></div></body></html>

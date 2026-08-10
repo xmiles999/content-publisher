@@ -159,6 +159,62 @@ public final class JobApplicationService {
         return saved;
     }
 
+    public Job replayFailedJob(ActorContext actor, UUID failedJobId, String idempotencyKey) {
+        validateIdempotencyKey(idempotencyKey);
+        Job failed = getJob(actor, failedJobId);
+        validateReplayCandidate(actor, failed);
+        Job existing = existingJob(actor.tenantId(), failed.type(), idempotencyKey, failed.requestHash());
+        if (existing != null) return existing;
+        Job saved = jobs.createIfWithinQuota(pendingJob(actor, failed.type(), failed.payload(), idempotencyKey,
+                        failed.requestHash(), failed.batchId(), clock.instant()), maxActiveJobsPerTenant)
+                .orElseThrow(() -> new ApplicationException("TENANT_JOB_QUOTA_EXCEEDED", "租户活跃任务数量已达到上限"));
+        auditRecorder.record(actor, "JOB_REPLAY_SUBMITTED", "JOB", saved.id(),
+                Map.of("replayOfJobId", failed.id().toString(), "jobType", failed.type().name()));
+        return saved;
+    }
+
+    public List<Job> replayFailedJobs(ActorContext actor, List<UUID> failedJobIds, String idempotencyPrefix) {
+        validateIdempotencyKey(idempotencyPrefix);
+        if (failedJobIds == null) throw new ApplicationException("INVALID_ARGUMENT", "请选择要重放的失败任务");
+        List<UUID> ids = failedJobIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty() || ids.size() > 20) {
+            throw new ApplicationException("INVALID_ARGUMENT", "批量重放数量必须在 1 到 20 条之间");
+        }
+
+        List<Job> failedJobs = ids.stream().map(id -> getJob(actor, id)).toList();
+        failedJobs.forEach(job -> validateReplayCandidate(actor, job));
+
+        LinkedHashMap<String, Job> resolved = new LinkedHashMap<>();
+        LinkedHashMap<String, Job> originals = new LinkedHashMap<>();
+        List<Job> candidates = new java.util.ArrayList<>();
+        Instant now = clock.instant();
+        for (Job failed : failedJobs) {
+            String childKey = replayBatchChildKey(idempotencyPrefix, failed.id());
+            originals.put(childKey, failed);
+            Job existing = existingJob(actor.tenantId(), failed.type(), childKey, failed.requestHash());
+            if (existing != null) {
+                resolved.put(childKey, existing);
+                continue;
+            }
+            candidates.add(pendingJob(actor, failed.type(), failed.payload(), childKey, failed.requestHash(),
+                    failed.batchId(), now));
+        }
+
+        List<Job> created = jobs.createBatchIfWithinQuota(candidates, maxActiveJobsPerTenant)
+                .orElseThrow(() -> new ApplicationException("TENANT_JOB_QUOTA_EXCEEDED",
+                        "租户活跃任务配额不足，无法重放全部失败任务"));
+        created.forEach(job -> {
+            Job original = originals.get(job.idempotencyKey());
+            resolved.put(job.idempotencyKey(), job);
+            auditRecorder.record(actor, "JOB_REPLAY_SUBMITTED", "JOB", job.id(),
+                    Map.of("replayOfJobId", original.id().toString(), "jobType", original.type().name(),
+                            "batchIdempotencyKey", idempotencyPrefix));
+        });
+        return failedJobs.stream()
+                .map(job -> resolved.get(replayBatchChildKey(idempotencyPrefix, job.id())))
+                .toList();
+    }
+
     public Job getJob(ActorContext actor, UUID jobId) {
         return jobs.findJobById(actor.tenantId(), jobId)
                 .orElseThrow(() -> new ApplicationException("JOB_NOT_FOUND", "任务不存在"));
@@ -232,6 +288,10 @@ public final class JobApplicationService {
 
     private String batchChildKey(String batchKey, UUID accountId) {
         return "publication-batch:" + hash(batchKey, accountId.toString()).substring(0, 48);
+    }
+
+    private String replayBatchChildKey(String batchKey, UUID failedJobId) {
+        return "job-replay:" + hash(batchKey, failedJobId.toString()).substring(0, 48);
     }
 
     private UUID publicationBatchId(String tenantId, String batchKey) {
@@ -319,5 +379,27 @@ public final class JobApplicationService {
 
     private String value(String value) {
         return value == null ? "" : value;
+    }
+
+    private void rejectUncertainPublicationReplay(Job failed) {
+        String code = value(failed.errorCode()).toUpperCase(java.util.Locale.ROOT);
+        String message = value(failed.errorMessage()).toUpperCase(java.util.Locale.ROOT);
+        if (code.contains("TIMEOUT") || code.contains("INTERRUPT") || code.contains("UNKNOWN")
+                || code.contains("INTERNAL") || message.contains("超时") || message.contains("中断")
+                || message.contains("结果不确定") || message.contains("TIMEOUT")) {
+            throw new ApplicationException("JOB_REPLAY_REQUIRES_MANUAL_PUBLICATION_RETRY",
+                    "该发布任务的外部结果不确定，请先到目标平台核对，再使用人工发布重试流程");
+        }
+    }
+
+    private void validateReplayCandidate(ActorContext actor, Job failed) {
+        if (failed.status() != JobStatus.FAILED) {
+            throw new ApplicationException("JOB_NOT_REPLAYABLE", "只有失败任务可以重新执行");
+        }
+        if (failed.type() == JobType.PUBLISH_ARTICLE) {
+            rejectUncertainPublicationReplay(failed);
+            JobPayload.PublishArticle payload = (JobPayload.PublishArticle) failed.payload();
+            publishing.assertPublishable(actor, payload.articleId(), payload.channelAccountId());
+        }
     }
 }

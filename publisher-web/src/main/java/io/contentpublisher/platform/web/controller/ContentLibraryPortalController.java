@@ -1,6 +1,7 @@
 package io.contentpublisher.platform.web.controller;
 
 import io.contentpublisher.platform.application.ApplicationException;
+import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.ProjectApplicationService;
 import io.contentpublisher.platform.application.PublishingApplicationService;
 import io.contentpublisher.platform.domain.Article;
@@ -31,13 +32,16 @@ import static io.contentpublisher.platform.web.controller.PortalFormSupport.spli
 public class ContentLibraryPortalController {
     private final ProjectApplicationService projects;
     private final PublishingApplicationService publishing;
+    private final AutomationApplicationService automation;
     private final RequestActorProvider actors;
 
     public ContentLibraryPortalController(ProjectApplicationService projects,
                                           PublishingApplicationService publishing,
+                                          AutomationApplicationService automation,
                                           RequestActorProvider actors) {
         this.projects = projects;
         this.publishing = publishing;
+        this.automation = automation;
         this.actors = actors;
     }
 
@@ -86,7 +90,10 @@ public class ContentLibraryPortalController {
             model.addAttribute("comparisonTo", versions.stream()
                     .filter(version -> version.versionNumber() == targetVersion).findFirst().orElse(null));
         }
-        model.addAttribute("updateArticleForm", articleForm(article));
+        var draft = automation.getDraft(actor, articleId);
+        model.addAttribute("updateArticleForm", draft.map(this::articleForm).orElseGet(() -> articleForm(article)));
+        model.addAttribute("hasServerDraft", draft.isPresent());
+        model.addAttribute("draftUpdatedAt", draft.map(AutomationApplicationService.ArticleDraft::updatedAt).orElse(null));
         model.addAttribute("rejectArticleForm", new RejectArticleForm());
         model.addAttribute("editable", article.status() == ArticleStatus.DRAFT
                 || article.status() == ArticleStatus.REJECTED);
@@ -120,6 +127,7 @@ public class ContentLibraryPortalController {
                     form.getSummary(), form.getMarkdown(), splitValues(form.getTags()), splitValues(form.getKeywords()),
                     form.getTitleEn(), form.getSummaryEn(), form.getMarkdownEn(), splitValues(form.getTagsEn()),
                     splitValues(form.getKeywordsEn()));
+            automation.deleteDraft(actors.currentActor(), articleId);
             redirectAttributes.addFlashAttribute("success", "文章已保存为新版本");
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
@@ -168,6 +176,22 @@ public class ContentLibraryPortalController {
         form.setMarkdownEn(article.markdownEn());
         form.setTagsEn(String.join("\n", article.tagsEn()));
         form.setKeywordsEn(String.join("\n", article.keywordsEn()));
+        return form;
+    }
+
+    private UpdateArticleForm articleForm(AutomationApplicationService.ArticleDraft draft) {
+        UpdateArticleForm form = new UpdateArticleForm();
+        form.setExpectedVersion(draft.baseVersion());
+        form.setTitle(draft.title());
+        form.setSummary(draft.summary());
+        form.setMarkdown(draft.markdown());
+        form.setTags(String.join("\n", draft.tags()));
+        form.setKeywords(String.join("\n", draft.keywords()));
+        form.setTitleEn(draft.titleEn());
+        form.setSummaryEn(draft.summaryEn());
+        form.setMarkdownEn(draft.markdownEn());
+        form.setTagsEn(String.join("\n", draft.tagsEn()));
+        form.setKeywordsEn(String.join("\n", draft.keywordsEn()));
         return form;
     }
 

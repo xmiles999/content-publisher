@@ -37,6 +37,10 @@
            th:attr="aria-current=${active == 'content' ? 'page' : null}">
             <span class="nav-icon" aria-hidden="true">▤</span><span>内容库</span>
         </a>
+        <a th:href="@{/actions}" th:classappend="${active == 'actions'} ? ' active'"
+           th:attr="aria-current=${active == 'actions' ? 'page' : null}">
+            <span class="nav-icon" aria-hidden="true">!</span><span>动作台</span>
+        </a>
 
         <h2 class="sidebar-section-title">发布管理</h2>
         <div class="sidebar-nav-group" data-sidebar-group="publishing"
@@ -54,6 +58,8 @@
                    th:attr="aria-current=${active == 'publishing' and selectedTab == 'records' ? 'page' : null}">发布记录</a>
                 <a th:href="@{/channels}" th:classappend="${active == 'channels'} ? ' active'"
                    th:attr="aria-current=${active == 'channels' ? 'page' : null}">渠道管理</a>
+                <a th:href="@{/calendar}" th:classappend="${active == 'calendar'} ? ' active'"
+                   th:attr="aria-current=${active == 'calendar' ? 'page' : null}">发布日历</a>
             </div>
         </div>
 
@@ -80,6 +86,10 @@
         <a th:if="${canAdmin}" th:href="@{/settings/ai}" th:classappend="${active == 'ai'} ? ' active'"
            th:attr="aria-current=${active == 'ai' ? 'page' : null}">
             <span class="nav-icon" aria-hidden="true">✦</span><span>AI 服务</span>
+        </a>
+        <a th:if="${canAdmin}" th:href="@{/automation}" th:classappend="${active == 'automation'} ? ' active'"
+           th:attr="aria-current=${active == 'automation' ? 'page' : null}">
+            <span class="nav-icon" aria-hidden="true">⚙</span><span>自动化设置</span>
         </a>
     </nav>
 
