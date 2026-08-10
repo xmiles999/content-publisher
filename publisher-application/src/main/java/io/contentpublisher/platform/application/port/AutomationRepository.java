@@ -6,9 +6,11 @@ import io.contentpublisher.platform.application.AutomationApplicationService.Cal
 import io.contentpublisher.platform.application.AutomationApplicationService.ChannelCheckTarget;
 import io.contentpublisher.platform.application.AutomationApplicationService.GenerationPreset;
 import io.contentpublisher.platform.application.AutomationApplicationService.ManualProgress;
+import io.contentpublisher.platform.application.AutomationApplicationService.NavigationCounts;
 import io.contentpublisher.platform.application.AutomationApplicationService.NotificationEndpoint;
 import io.contentpublisher.platform.application.AutomationApplicationService.NotificationItem;
 import io.contentpublisher.platform.application.AutomationApplicationService.WebhookDelivery;
+import io.contentpublisher.platform.application.AutomationApplicationService.WebhookDeliveryStatus;
 
 import java.time.Instant;
 import java.util.List;
@@ -29,14 +31,19 @@ public interface AutomationRepository {
     boolean acknowledgeNotification(String tenantId, UUID notificationId, String subject, Instant now);
     List<NotificationEndpoint> findNotificationEndpoints(String tenantId);
     List<NotificationEndpoint> findEnabledNotificationEndpoints(String tenantId);
+    Optional<NotificationEndpoint> findNotificationEndpoint(String tenantId, UUID endpointId);
     NotificationEndpoint saveNotificationEndpoint(NotificationEndpoint endpoint);
+    boolean updateNotificationEndpointEnabled(String tenantId, UUID endpointId, boolean enabled, Instant now);
     boolean deleteNotificationEndpoint(String tenantId, UUID endpointId);
     void prepareWebhookDeliveries(Instant now, int limit);
+    boolean prepareWebhookDelivery(String tenantId, UUID notificationId, UUID endpointId, Instant now);
     List<WebhookDelivery> findWebhookDeliveriesDue(Instant now, int limit);
+    List<WebhookDeliveryStatus> findRecentWebhookDeliveries(String tenantId, int limit);
     void markWebhookDeliverySucceeded(UUID deliveryId, Instant deliveredAt);
     void markWebhookDeliveryFailed(UUID deliveryId, int attempts, Instant nextAttemptAt, String errorSummary,
                                    boolean exhausted, Instant now);
     Optional<ManualProgress> findManualProgress(String tenantId, UUID articleId, String channelType, String subject);
     ManualProgress saveManualProgress(ManualProgress progress);
     List<ChannelCheckTarget> findChannelChecksDue(Instant checkedBefore, int limit);
+    NavigationCounts navigationCounts(String tenantId, Instant staleBefore);
 }

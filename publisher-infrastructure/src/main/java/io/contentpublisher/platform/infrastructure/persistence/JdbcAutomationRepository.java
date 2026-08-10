@@ -8,9 +8,11 @@ import io.contentpublisher.platform.application.AutomationApplicationService.Cal
 import io.contentpublisher.platform.application.AutomationApplicationService.ChannelCheckTarget;
 import io.contentpublisher.platform.application.AutomationApplicationService.GenerationPreset;
 import io.contentpublisher.platform.application.AutomationApplicationService.ManualProgress;
+import io.contentpublisher.platform.application.AutomationApplicationService.NavigationCounts;
 import io.contentpublisher.platform.application.AutomationApplicationService.NotificationEndpoint;
 import io.contentpublisher.platform.application.AutomationApplicationService.NotificationItem;
 import io.contentpublisher.platform.application.AutomationApplicationService.WebhookDelivery;
+import io.contentpublisher.platform.application.AutomationApplicationService.WebhookDeliveryStatus;
 import io.contentpublisher.platform.application.port.AutomationRepository;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -245,6 +247,13 @@ public class JdbcAutomationRepository implements AutomationRepository {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<NotificationEndpoint> findNotificationEndpoint(String tenantId, UUID endpointId) {
+        return jdbc.query("select * from notification_endpoints where tenant_id=? and id=?",
+                (rs, row) -> endpoint(rs), tenantId, endpointId).stream().findFirst();
+    }
+
+    @Override
     public NotificationEndpoint saveNotificationEndpoint(NotificationEndpoint endpoint) {
         int updated = jdbc.update("""
                 update notification_endpoints set webhook_url=?, enabled=?, updated_at=?
@@ -259,6 +268,14 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 timestamp(endpoint.updatedAt()));
         return findNotificationEndpoints(endpoint.tenantId()).stream()
                 .filter(item -> item.displayName().equals(endpoint.displayName())).findFirst().orElseThrow();
+    }
+
+    @Override
+    public boolean updateNotificationEndpointEnabled(String tenantId, UUID endpointId, boolean enabled, Instant now) {
+        return jdbc.update("""
+                update notification_endpoints set enabled=?, updated_at=?
+                where tenant_id=? and id=?
+                """, enabled, timestamp(now), tenantId, endpointId) == 1;
     }
 
     @Override
@@ -297,6 +314,24 @@ public class JdbcAutomationRepository implements AutomationRepository {
     }
 
     @Override
+    public boolean prepareWebhookDelivery(String tenantId, UUID notificationId, UUID endpointId, Instant now) {
+        try {
+            return jdbc.update("""
+                    insert into notification_webhook_deliveries(
+                        id, notification_id, endpoint_id, tenant_id, status, attempts, next_attempt_at,
+                        created_at, updated_at)
+                    select ?, n.id, e.id, n.tenant_id, 'PENDING', 0, ?, ?, ?
+                    from notifications n
+                    join notification_endpoints e on e.tenant_id=n.tenant_id
+                    where n.tenant_id=? and n.id=? and e.id=? and e.enabled=true
+                    """, UUID.randomUUID(), timestamp(now), timestamp(now), timestamp(now),
+                    tenantId, notificationId, endpointId) == 1;
+        } catch (DuplicateKeyException ignored) {
+            return false;
+        }
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<WebhookDelivery> findWebhookDeliveriesDue(Instant now, int limit) {
         return jdbc.query("""
@@ -306,7 +341,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 join notification_endpoints e on e.id=d.endpoint_id and e.tenant_id=d.tenant_id
                 join notifications n on n.id=d.notification_id and n.tenant_id=d.tenant_id
                 where d.status='PENDING' and d.next_attempt_at<=? and e.enabled=true
-                  and n.acknowledged_at is null and n.resolved_at is null
+                  and (n.type='WEBHOOK_TEST'
+                    or (n.acknowledged_at is null and n.resolved_at is null))
                 order by d.next_attempt_at, d.created_at
                 limit ?
                 """, (rs, row) -> new WebhookDelivery(uuid(rs, "id"), uuid(rs, "notification_id"),
@@ -314,6 +350,27 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 rs.getString("type"), rs.getString("severity"), rs.getString("title"), rs.getString("message"),
                 rs.getString("target_url"), instant(rs, "created_at"), rs.getInt("attempts")),
                 timestamp(now), limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WebhookDeliveryStatus> findRecentWebhookDeliveries(String tenantId, int limit) {
+        return jdbc.query("""
+                select d.id, d.notification_id, d.endpoint_id, d.tenant_id, e.display_name,
+                       n.title, d.status, d.attempts, d.next_attempt_at, d.delivered_at,
+                       d.last_error, d.created_at, d.updated_at
+                from notification_webhook_deliveries d
+                join notification_endpoints e on e.id=d.endpoint_id and e.tenant_id=d.tenant_id
+                join notifications n on n.id=d.notification_id and n.tenant_id=d.tenant_id
+                where d.tenant_id=?
+                order by d.updated_at desc, d.created_at desc
+                limit ?
+                """, (rs, row) -> new WebhookDeliveryStatus(
+                uuid(rs, "id"), uuid(rs, "notification_id"), uuid(rs, "endpoint_id"),
+                rs.getString("tenant_id"), rs.getString("display_name"), rs.getString("title"),
+                rs.getString("status"), rs.getInt("attempts"), instant(rs, "next_attempt_at"),
+                instantNullable(rs, "delivered_at"), rs.getString("last_error"),
+                instant(rs, "created_at"), instant(rs, "updated_at")), tenantId, limit);
     }
 
     @Override
@@ -375,6 +432,35 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 order by last_verified_at nulls first, updated_at limit ?
                 """, (rs, row) -> new ChannelCheckTarget(rs.getString("tenant_id"), uuid(rs, "id"),
                 rs.getString("verification_status")), timestamp(checkedBefore), limit);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public NavigationCounts navigationCounts(String tenantId, Instant staleBefore) {
+        return jdbc.queryForObject("""
+                select
+                  (select count(*) from articles
+                     where tenant_id=? and deleted_at is null and status in ('DRAFT','REJECTED'))
+                  + (select count(*) from jobs
+                     where tenant_id=? and deleted_at is null and status='FAILED')
+                  + (select count(*) from jobs
+                     where tenant_id=? and deleted_at is null and status='RUNNING' and locked_at<?)
+                  + (select count(*) from manual_publication_progress
+                     where tenant_id=? and published=false)
+                  + (select count(*) from channel_accounts
+                     where tenant_id=? and (status='DISABLED' or verification_status='FAILED'))
+                  + (select count(*) from notifications
+                     where tenant_id=? and acknowledged_at is null and resolved_at is null) action_count,
+                  (select count(*) from articles
+                     where tenant_id=? and deleted_at is null and status='APPROVED') pending_publication_count,
+                  (select count(*) from jobs
+                     where tenant_id=? and deleted_at is null
+                       and status in ('PENDING','RUNNING','RETRY_WAIT','FAILED')) job_attention_count
+                """, (rs, row) -> new NavigationCounts(
+                rs.getLong("action_count"), rs.getLong("pending_publication_count"),
+                rs.getLong("job_attention_count")),
+                tenantId, tenantId, tenantId, timestamp(staleBefore), tenantId, tenantId, tenantId,
+                tenantId, tenantId);
     }
 
     private ArticleDraft draft(java.sql.ResultSet rs) throws java.sql.SQLException {

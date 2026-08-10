@@ -125,6 +125,13 @@ public final class AutomationApplicationService {
         return repository.findNotificationEndpoints(actor.tenantId());
     }
 
+    public List<WebhookDeliveryStatus> recentWebhookDeliveries(ActorContext actor, int limit) {
+        if (limit < 1 || limit > 100) {
+            throw new ApplicationException("INVALID_ARGUMENT", "Webhook 投递记录查询数量无效");
+        }
+        return repository.findRecentWebhookDeliveries(actor.tenantId(), limit);
+    }
+
     public NotificationEndpoint saveNotificationEndpoint(ActorContext actor, String displayName, String webhookUrl) {
         String url = limited(webhookUrl, 2048, true);
         webhookEndpointPolicy.validate(url);
@@ -136,10 +143,57 @@ public final class AutomationApplicationService {
         return endpoint;
     }
 
+    public NotificationEndpoint updateNotificationEndpointEnabled(ActorContext actor, UUID endpointId,
+                                                                  boolean enabled) {
+        Instant now = clock.instant();
+        if (!repository.updateNotificationEndpointEnabled(actor.tenantId(), endpointId, enabled, now)) {
+            throw new ApplicationException("NOTIFICATION_ENDPOINT_NOT_FOUND", "通知端点不存在");
+        }
+        NotificationEndpoint endpoint = repository.findNotificationEndpoint(actor.tenantId(), endpointId)
+                .orElseThrow(() -> new ApplicationException(
+                        "NOTIFICATION_ENDPOINT_NOT_FOUND", "通知端点不存在"));
+        audit.record(actor, enabled ? "NOTIFICATION_ENDPOINT_ENABLED" : "NOTIFICATION_ENDPOINT_DISABLED",
+                "NOTIFICATION_ENDPOINT", endpointId, Map.of("displayName", endpoint.displayName()));
+        return endpoint;
+    }
+
+    public WebhookDeliveryStatus queueWebhookTest(ActorContext actor, UUID endpointId) {
+        NotificationEndpoint endpoint = repository.findNotificationEndpoint(actor.tenantId(), endpointId)
+                .orElseThrow(() -> new ApplicationException(
+                        "NOTIFICATION_ENDPOINT_NOT_FOUND", "通知端点不存在"));
+        if (!endpoint.enabled()) {
+            throw new ApplicationException("NOTIFICATION_ENDPOINT_DISABLED", "请先启用通知端点再发送测试通知");
+        }
+        webhookEndpointPolicy.validate(endpoint.webhookUrl());
+        Instant now = clock.instant();
+        UUID testId = UUID.randomUUID();
+        NotificationItem notification = repository.saveNotification(new NotificationItem(
+                UUID.randomUUID(), actor.tenantId(), "WEBHOOK_TEST", "INFO",
+                "webhook-test:" + endpointId + ":" + testId,
+                "Webhook 测试通知", "这是一条由管理员主动发起的连通性测试通知。",
+                "/automation", null, null, now, now, now));
+        if (!repository.prepareWebhookDelivery(actor.tenantId(), notification.id(), endpointId, now)) {
+            throw new ApplicationException("WEBHOOK_TEST_PREPARE_FAILED", "测试通知进入投递队列失败");
+        }
+        audit.record(actor, "NOTIFICATION_ENDPOINT_TEST_QUEUED", "NOTIFICATION_ENDPOINT", endpointId,
+                Map.of("notificationId", notification.id().toString()));
+        return repository.findRecentWebhookDeliveries(actor.tenantId(), 20).stream()
+                .filter(delivery -> delivery.notificationId().equals(notification.id())
+                        && delivery.endpointId().equals(endpointId))
+                .findFirst()
+                .orElseThrow(() -> new ApplicationException(
+                        "WEBHOOK_TEST_PREPARE_FAILED", "测试通知进入投递队列失败"));
+    }
+
     public void deleteNotificationEndpoint(ActorContext actor, UUID endpointId) {
         if (!repository.deleteNotificationEndpoint(actor.tenantId(), endpointId)) {
             throw new ApplicationException("NOTIFICATION_ENDPOINT_NOT_FOUND", "通知端点不存在");
         }
+        audit.record(actor, "NOTIFICATION_ENDPOINT_DELETED", "NOTIFICATION_ENDPOINT", endpointId, Map.of());
+    }
+
+    public NavigationCounts navigationCounts(ActorContext actor) {
+        return repository.navigationCounts(actor.tenantId(), clock.instant().minus(Duration.ofMinutes(15)));
     }
 
     public Optional<ManualProgress> manualProgress(ActorContext actor, UUID articleId, String channelType) {
@@ -289,6 +343,11 @@ public final class AutomationApplicationService {
                                    String acknowledgedBy, Instant resolvedAt, Instant createdAt, Instant updatedAt) {}
     public record NotificationEndpoint(UUID id, String tenantId, String displayName, String webhookUrl,
                                        boolean enabled, String createdBy, Instant createdAt, Instant updatedAt) {}
+    public record WebhookDeliveryStatus(UUID id, UUID notificationId, UUID endpointId, String tenantId,
+                                        String endpointName, String notificationTitle, String status, int attempts,
+                                        Instant nextAttemptAt, Instant deliveredAt, String lastError,
+                                        Instant createdAt, Instant updatedAt) {}
+    public record NavigationCounts(long actionCount, long pendingPublicationCount, long jobAttentionCount) {}
     public record ManualProgressCommand(boolean copiedTitle, boolean copiedContent, boolean openedEditor,
                                         boolean checkedFormat, boolean published) {}
     public record ManualProgress(UUID id, String tenantId, UUID articleId, String channelType, String actorSubject,

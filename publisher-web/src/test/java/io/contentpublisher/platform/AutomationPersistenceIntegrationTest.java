@@ -179,6 +179,63 @@ class AutomationPersistenceIntegrationTest {
                 .containsEntry("last_error", "timeout");
     }
 
+    @Test
+    void shouldManageTenantScopedWebhookEndpointAndTargetedDelivery() {
+        String tenant = "automation-webhook-management";
+        NotificationItem notification = automation.saveNotification(new NotificationItem(
+                UUID.randomUUID(), tenant, "WEBHOOK_TEST", "INFO", "delivery:targeted",
+                "指定端点测试", "测试通知正文", "/automation", null, null, NOW, NOW, NOW));
+        NotificationEndpoint disabled = new NotificationEndpoint(
+                UUID.randomUUID(), tenant, "disabled", "https://hooks.example.com/disabled",
+                false, "tester", NOW, NOW);
+        NotificationEndpoint secondary = endpoint(tenant, "secondary", NOW);
+        automation.saveNotificationEndpoint(disabled);
+        automation.saveNotificationEndpoint(secondary);
+
+        assertThat(automation.findNotificationEndpoint(tenant, disabled.id())).isPresent();
+        assertThat(automation.findNotificationEndpoint("other-tenant", disabled.id())).isEmpty();
+        assertThat(automation.prepareWebhookDelivery(tenant, notification.id(), disabled.id(), NOW)).isFalse();
+        assertThat(automation.updateNotificationEndpointEnabled(
+                "other-tenant", disabled.id(), true, NOW.plusSeconds(1))).isFalse();
+        assertThat(automation.updateNotificationEndpointEnabled(
+                tenant, disabled.id(), true, NOW.plusSeconds(1))).isTrue();
+        assertThat(automation.prepareWebhookDelivery(
+                tenant, notification.id(), disabled.id(), NOW.plusSeconds(2))).isTrue();
+        automation.prepareWebhookDeliveries(NOW.plusSeconds(3), 50);
+
+        assertThat(automation.findRecentWebhookDeliveries(tenant, 10)).singleElement().satisfies(delivery -> {
+            assertThat(delivery.endpointId()).isEqualTo(disabled.id());
+            assertThat(delivery.notificationId()).isEqualTo(notification.id());
+            assertThat(delivery.endpointName()).isEqualTo("disabled");
+            assertThat(delivery.status()).isEqualTo("PENDING");
+            assertThat(delivery.attempts()).isZero();
+        });
+
+        assertThat(automation.deleteNotificationEndpoint(tenant, disabled.id())).isTrue();
+        assertThat(automation.findRecentWebhookDeliveries(tenant, 10)).isEmpty();
+    }
+
+    @Test
+    void shouldCalculateTenantScopedNavigationCounts() {
+        String tenant = "automation-navigation-counts";
+        Article approved = article(tenant, "navigation-approved");
+        Article draft = article(tenant, "navigation-draft");
+        jdbc.update("update articles set status='DRAFT' where tenant_id=? and id=?", tenant, draft.id());
+        automation.saveManualProgress(progress(tenant, approved.id(), "editor", false, NOW));
+        automation.saveNotification(notification(tenant, "navigation:open", "开放通知", NOW));
+        channelAccounts.save(account(tenant, NOW.minusSeconds(3600), ChannelVerificationStatus.FAILED));
+        jobs.save(job(tenant, JobStatus.FAILED, null, "failed"));
+        jobs.save(job(tenant, JobStatus.RUNNING, NOW.minusSeconds(1800), "stale-running"));
+
+        var counts = automation.navigationCounts(tenant, NOW.minusSeconds(900));
+        assertThat(counts.actionCount()).isEqualTo(6);
+        assertThat(counts.pendingPublicationCount()).isEqualTo(1);
+        assertThat(counts.jobAttentionCount()).isEqualTo(2);
+        assertThat(automation.navigationCounts("other-tenant", NOW.minusSeconds(900)))
+                .isEqualTo(new io.contentpublisher.platform.application.AutomationApplicationService.NavigationCounts(
+                        0, 0, 0));
+    }
+
     private Article article(String tenant, String suffix) {
         Project project = new Project(UUID.randomUUID(), tenant,
                 "https://github.com/contentpublisher/" + suffix + ".git", suffix, "automation test",
@@ -228,5 +285,16 @@ class AutomationPersistenceIntegrationTest {
                 "c".repeat(64), 1, ChannelAccountStatus.ACTIVE, verificationStatus,
                 verificationStatus == ChannelVerificationStatus.FAILED ? "failed" : "ok",
                 verifiedAt, "tester", "tester", NOW.minusSeconds(172800), NOW);
+    }
+
+    private Job job(String tenant, JobStatus status, Instant lockedAt, String suffix) {
+        return new Job(UUID.randomUUID(), tenant, "tester", JobType.PUBLISH_ARTICLE, status,
+                new JobPayload.PublishArticle(UUID.randomUUID(), UUID.randomUUID(), null),
+                "navigation-" + suffix, "d".repeat(64), status == JobStatus.FAILED ? 1 : 0,
+                4, status == JobStatus.RUNNING ? 40 : 0,
+                status == JobStatus.RUNNING ? "执行中" : "执行失败", "",
+                null, NOW, lockedAt, lockedAt == null ? null : "worker",
+                null, status == JobStatus.FAILED ? "FAILED" : null,
+                status == JobStatus.FAILED ? "测试失败" : null, NOW, NOW);
     }
 }

@@ -1,22 +1,105 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title>自动化设置 · Content Publisher</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('automation')}"></aside>
+    <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script>
+</head>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
 <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('自动化设置', '管理生成预设与无秘密通知 Webhook')}"></header>
-<main class="page-content"><div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
-<section class="page-header"><div><p class="section-kicker">生成策略</p><h2>服务端生成预设</h2><p>预设按租户保存，内容表单从服务端读取，不再依赖浏览器硬编码。</p></div></section>
-<section class="workspace-panel"><header class="workspace-panel-header"><div><h3>新增或更新预设</h3><p>同一来源和名称会安全更新，不创建重复记录。</p></div></header>
-<form class="stack-form" th:action="@{/automation/presets}" method="post"><div class="form-grid three"><div class="field"><label>名称</label><input name="name" maxlength="120" required></div><div class="field"><label>来源</label><select name="sourceType"><option value="PROJECT">Git 项目</option><option value="TOPIC">主题教程</option><option value="WEBSITE">网站推荐</option></select></div><div class="field"><label>语言（可选）</label><input name="language" maxlength="20"></div></div>
-<div class="field"><label>语气</label><input name="tone" maxlength="100" required></div><div class="form-grid three"><div class="field"><label>最小字符</label><input name="minCharacters" type="number" min="200" max="3000" value="800" required></div><div class="field"><label>最大字符</label><input name="maxCharacters" type="number" min="200" max="3000" value="1800" required></div><div class="field"><label>关键词上限</label><input name="maxKeywords" type="number" min="1" max="30" value="10" required></div></div>
-<div class="field"><label>必须章节</label><textarea name="requiredSections" rows="4" maxlength="2200"></textarea></div><div class="form-grid three"><div class="field"><label>文章类型</label><input name="articleType" maxlength="40"></div><div class="field"><label>知识层级</label><input name="knowledgeLevel" maxlength="40"></div><div class="field"><label>模型（可选）</label><input name="model" maxlength="200"></div></div><div class="field"><label>推荐角度</label><textarea name="recommendationAngle" rows="3" maxlength="2000"></textarea></div><button class="primary-button" type="submit">保存预设</button></form></section>
-<section class="workspace-panel section-gap"><header class="workspace-panel-header"><div><h3>当前预设</h3><p>内置预设只读，自定义预设可删除。</p></div></header>
-<div class="table-wrap"><table class="management-table"><thead><tr><th>来源</th><th>名称</th><th>篇幅</th><th>语气</th><th>操作</th></tr></thead><tbody>
-    <tr th:each="preset : ${generationPresets}"><td th:text="${preset.sourceType}">PROJECT</td><td th:text="${preset.name}">预设</td><td th:text="|${preset.minCharacters}–${preset.maxCharacters}|">800</td><td th:text="${preset.tone}">语气</td><td><span th:if="${preset.builtin}">内置</span><form th:unless="${preset.builtin}" th:action="@{/automation/presets/{id}/delete(id=${preset.id})}" method="post" data-confirm="删除这个生成预设？"><button class="danger-link" type="submit">删除</button></form></td></tr>
-</tbody></table></div></section>
-<section class="workspace-panel section-gap"><header class="workspace-panel-header"><div><h3>通知 Webhook</h3><p>仅允许公网 HTTPS；不会发送凭据、正文草稿或客户数据。</p></div></header>
-<form class="filter-bar" th:action="@{/automation/notification-endpoints}" method="post"><label>显示名称<input name="displayName" maxlength="120" required></label><label>Webhook URL<input name="webhookUrl" type="url" maxlength="2048" placeholder="https://hooks.example.com/publisher" required></label><button class="primary-button" type="submit">保存端点</button></form>
-<div class="compact-list section-gap"><div class="compact-item" th:each="endpoint : ${notificationEndpoints}"><span><strong th:text="${endpoint.displayName}">端点</strong><small th:text="${endpoint.webhookUrl}">URL</small></span><form th:action="@{/automation/notification-endpoints/{id}/delete(id=${endpoint.id})}" method="post" data-confirm="删除这个通知端点？"><button class="danger-link" type="submit">删除</button></form></div><div class="empty-state" th:if="${#lists.isEmpty(notificationEndpoints)}">尚未配置通知端点。</div></div></section>
+<main class="page-content">
+    <div class="alert error" th:if="${error}" th:text="${error}"></div>
+    <div class="alert success" th:if="${success}" th:text="${success}"></div>
+
+    <section class="page-header"><div><p class="section-kicker">生成策略</p><h2>服务端生成预设</h2>
+        <p>预设按租户保存，内容表单从服务端读取，不再依赖浏览器硬编码。</p></div></section>
+
+    <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>新增或更新预设</h3>
+        <p>同一来源和名称会安全更新，不创建重复记录。</p></div></header>
+        <form class="stack-form automation-preset-form" th:action="@{/automation/presets}" method="post"
+              th:object="${automationPresetForm}">
+            <fieldset class="form-section"><legend>基础策略</legend>
+                <div class="form-grid three">
+                    <div class="field"><label for="preset-name">名称</label><input id="preset-name" th:field="*{name}" maxlength="120" required aria-describedby="preset-name-help">
+                        <small id="preset-name-help">用于在内容创建页快速识别该策略。</small><small class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></small></div>
+                    <div class="field"><label for="preset-source">来源</label><select id="preset-source" th:field="*{sourceType}">
+                        <option value="PROJECT">Git 项目</option><option value="TOPIC">主题教程</option><option value="WEBSITE">网站推荐</option></select>
+                        <small>决定该预设出现在哪一类生成表单中。</small><small class="field-error" th:if="${#fields.hasErrors('sourceType')}" th:errors="*{sourceType}"></small></div>
+                    <div class="field"><label for="preset-language">输出语言</label><select id="preset-language" th:field="*{language}">
+                        <option value="zh-CN">简体中文</option><option value="en-US">英语</option><option value="bilingual">中英双语</option><option value="">跟随内容表单</option></select>
+                        <small>选择“跟随内容表单”时不覆盖创建页设置。</small><small class="field-error" th:if="${#fields.hasErrors('language')}" th:errors="*{language}"></small></div>
+                </div>
+                <div class="field"><label for="preset-tone">内容语气</label><input id="preset-tone" th:field="*{tone}" maxlength="100" required placeholder="例如：专业、克制、突出关键取舍">
+                    <small>描述表达方式，不要在这里写入完整 Prompt。</small><small class="field-error" th:if="${#fields.hasErrors('tone')}" th:errors="*{tone}"></small></div>
+            </fieldset>
+
+            <fieldset class="form-section"><legend>篇幅与结构</legend>
+                <div class="form-grid three">
+                    <div class="field"><label for="preset-min">最小字符</label><input id="preset-min" th:field="*{minCharacters}" type="number" min="200" max="3000" required>
+                        <small class="field-error" th:if="${#fields.hasErrors('minCharacters')}" th:errors="*{minCharacters}"></small></div>
+                    <div class="field"><label for="preset-max">最大字符</label><input id="preset-max" th:field="*{maxCharacters}" type="number" min="200" max="3000" required>
+                        <small class="field-error" th:if="${#fields.hasErrors('maxCharacters')}" th:errors="*{maxCharacters}"></small></div>
+                    <div class="field"><label for="preset-keywords">关键词上限</label><input id="preset-keywords" th:field="*{maxKeywords}" type="number" min="1" max="30" required>
+                        <small class="field-error" th:if="${#fields.hasErrors('maxKeywords')}" th:errors="*{maxKeywords}"></small></div>
+                </div>
+                <div class="field"><label for="preset-sections">必须章节</label><textarea id="preset-sections" th:field="*{requiredSections}" rows="5" maxlength="2200" placeholder="每行一个章节，例如：&#10;问题背景&#10;实施步骤&#10;检查清单"></textarea>
+                    <small>按行填写，生成时会作为结构约束。</small><small class="field-error" th:if="${#fields.hasErrors('requiredSections')}" th:errors="*{requiredSections}"></small></div>
+            </fieldset>
+
+            <fieldset class="form-section"><legend>来源细节与模型</legend>
+                <div class="form-grid three">
+                    <div class="field"><label for="preset-article-type">文章类型</label><input id="preset-article-type" th:field="*{articleType}" maxlength="40" placeholder="TUTORIAL">
+                        <small>主题教程可填写教程、实践或排障类型。</small><small class="field-error" th:if="${#fields.hasErrors('articleType')}" th:errors="*{articleType}"></small></div>
+                    <div class="field"><label for="preset-level">知识层级</label><input id="preset-level" th:field="*{knowledgeLevel}" maxlength="40" placeholder="INTERMEDIATE">
+                        <small>用于控制对背景知识的解释深度。</small><small class="field-error" th:if="${#fields.hasErrors('knowledgeLevel')}" th:errors="*{knowledgeLevel}"></small></div>
+                    <div class="field"><label for="preset-model">指定模型（可选）</label><input id="preset-model" th:field="*{model}" maxlength="200" placeholder="留空使用 AI 服务默认模型">
+                        <small>仅在确有模型差异时覆盖系统设置。</small><small class="field-error" th:if="${#fields.hasErrors('model')}" th:errors="*{model}"></small></div>
+                </div>
+                <div class="field"><label for="preset-angle">推荐角度</label><textarea id="preset-angle" th:field="*{recommendationAngle}" rows="3" maxlength="2000" placeholder="例如：从使用门槛、费用边界、数据安全和适用场景进行评估"></textarea>
+                    <small>主要用于网站推荐类内容，避免使用营销夸张表述。</small><small class="field-error" th:if="${#fields.hasErrors('recommendationAngle')}" th:errors="*{recommendationAngle}"></small></div>
+            </fieldset>
+            <div class="form-footer"><small>所有字段仍会在服务端再次校验。</small><button class="primary-button" type="submit">保存预设</button></div>
+        </form>
+    </section>
+
+    <section class="workspace-panel section-gap"><header class="workspace-panel-header"><div><h3>当前预设</h3><p>内置预设只读，自定义预设可删除。</p></div>
+        <strong th:text="|${generationPresets.size()} 个|">0 个</strong></header>
+        <div class="empty-state" th:if="${#lists.isEmpty(generationPresets)}">尚无生成预设，可先创建一个租户自定义策略。</div>
+        <div class="table-wrap" th:unless="${#lists.isEmpty(generationPresets)}"><table class="management-table"><thead><tr><th>来源</th><th>名称</th><th>篇幅</th><th>语气</th><th>操作</th></tr></thead><tbody>
+            <tr th:each="preset : ${generationPresets}"><td th:text="${presetSourceNames.get(preset.sourceType)}">Git 项目</td><td><strong th:text="${preset.name}">预设</strong><small th:if="${preset.language != null}" th:text="${preset.language}">zh-CN</small></td><td th:text="|${preset.minCharacters}–${preset.maxCharacters}|">800–1800</td><td th:text="${preset.tone}">语气</td><td><span class="status-pill status-active" th:if="${preset.builtin}">内置</span><form class="inline-action-form" th:unless="${preset.builtin}" th:action="@{/automation/presets/{id}/delete(id=${preset.id})}" method="post" data-confirm="删除这个生成预设？"><button class="danger-link mini-button" type="submit">删除</button></form></td></tr>
+        </tbody></table></div>
+    </section>
+
+    <section id="notification-endpoints" class="workspace-panel section-gap"><header class="workspace-panel-header"><div><h3>通知 Webhook</h3><p>仅允许公网 HTTPS；页面隐藏路径和查询参数，不会发送凭据、正文草稿或客户数据。</p></div></header>
+        <form class="filter-bar webhook-create-form" th:action="@{/automation/notification-endpoints}" method="post">
+            <label>显示名称<input name="displayName" maxlength="120" required placeholder="例如：运维告警群"></label>
+            <label>Webhook URL<input name="webhookUrl" type="url" maxlength="2048" placeholder="https://hooks.example.com/publisher" required></label>
+            <button class="primary-button" type="submit">保存端点</button>
+        </form>
+        <div class="compact-list section-gap webhook-endpoint-list">
+            <article class="compact-item webhook-endpoint" th:each="item : ${notificationEndpoints}">
+                <div class="webhook-endpoint-copy"><div><strong th:text="${item.endpoint.displayName}">端点</strong>
+                    <span class="status-pill" th:classappend="${item.endpoint.enabled} ? ' status-active' : ' status-disabled'" th:text="${item.endpoint.enabled ? '已启用' : '已停用'}">已启用</span></div>
+                    <small th:text="${item.maskedUrl}">https://hooks.example.com/••••</small>
+                    <small th:if="${item.lastDelivery != null}" th:text="|最近投递：${webhookStatusNames.get(item.lastDelivery.status)} · ${item.lastDelivery.updatedAt}|">最近投递</small>
+                    <small th:if="${item.lastDelivery == null}">尚无投递记录</small></div>
+                <div class="row-actions webhook-actions">
+                    <form th:action="@{/automation/notification-endpoints/{id}/status(id=${item.endpoint.id})}" method="post"><input type="hidden" name="enabled" th:value="${!item.endpoint.enabled}"><button class="secondary-button mini-button" type="submit" th:text="${item.endpoint.enabled ? '停用' : '启用'}">停用</button></form>
+                    <form th:action="@{/automation/notification-endpoints/{id}/test(id=${item.endpoint.id})}" method="post"><button class="secondary-button mini-button" type="submit" th:disabled="${!item.endpoint.enabled}">发送测试</button></form>
+                    <form th:action="@{/automation/notification-endpoints/{id}/delete(id=${item.endpoint.id})}" method="post" data-confirm="删除这个通知端点及其投递记录？"><button class="danger-link mini-button" type="submit">删除</button></form>
+                </div>
+            </article>
+            <div class="empty-state" th:if="${#lists.isEmpty(notificationEndpoints)}">尚未配置通知端点。添加后可先发送测试通知确认连通性。</div>
+        </div>
+    </section>
+
+    <section id="webhook-deliveries" class="workspace-panel section-gap"><header class="workspace-panel-header"><div><h3>最近投递</h3><p>用于确认排队、送达和最终失败状态；失败详情限制为安全摘要。</p></div><strong th:text="|${webhookDeliveries.size()} 条|">0 条</strong></header>
+        <div class="empty-state" th:if="${#lists.isEmpty(webhookDeliveries)}">尚无 Webhook 投递记录。</div>
+        <div class="table-wrap" th:unless="${#lists.isEmpty(webhookDeliveries)}"><table class="management-table webhook-delivery-table"><thead><tr><th>端点</th><th>通知</th><th>状态</th><th>尝试</th><th>更新时间</th><th>结果摘要</th></tr></thead><tbody>
+            <tr th:each="delivery : ${webhookDeliveries}"><td th:text="${delivery.endpointName}">端点</td><td th:text="${delivery.notificationTitle}">通知</td>
+                <td><span class="status-pill" th:classappend="| status-${delivery.status.toLowerCase()}|" th:text="${webhookStatusNames.get(delivery.status)}">等待投递</span></td>
+                <td th:text="${delivery.attempts}">0</td><td th:text="${delivery.updatedAt}">time</td><td><span th:if="${delivery.lastError != null}" class="record-error" th:text="${delivery.lastError}">失败摘要</span><span th:if="${delivery.lastError == null and delivery.deliveredAt != null}" th:text="|送达于 ${delivery.deliveredAt}|">已送达</span><span th:if="${delivery.lastError == null and delivery.deliveredAt == null}">等待调度器处理</span></td></tr>
+        </tbody></table></div>
+    </section>
 </main></div></div></body></html>

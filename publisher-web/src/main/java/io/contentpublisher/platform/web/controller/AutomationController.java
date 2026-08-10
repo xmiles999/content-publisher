@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -105,6 +106,24 @@ public class AutomationController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/automation/notification-endpoints/{endpointId}")
+    public AutomationApplicationService.NotificationEndpoint updateNotificationEndpoint(
+            @PathVariable UUID endpointId, @RequestBody NotificationEndpointStatusRequest request) {
+        return automation.updateNotificationEndpointEnabled(actors.currentActor(), endpointId, request.enabled());
+    }
+
+    @PostMapping("/automation/notification-endpoints/{endpointId}/test")
+    public AutomationApplicationService.WebhookDeliveryStatus testNotificationEndpoint(
+            @PathVariable UUID endpointId) {
+        return automation.queueWebhookTest(actors.currentActor(), endpointId);
+    }
+
+    @GetMapping("/automation/webhook-deliveries")
+    public List<AutomationApplicationService.WebhookDeliveryStatus> webhookDeliveries(
+            @RequestParam(defaultValue = "50") int limit) {
+        return automation.recentWebhookDeliveries(actors.currentActor(), limit);
+    }
+
     public record DraftRequest(int baseVersion, String title, String summary, String markdown, List<String> tags,
                                List<String> keywords, String titleEn, String summaryEn, String markdownEn,
                                List<String> tagsEn, List<String> keywordsEn) {}
@@ -124,4 +143,5 @@ public class AutomationController {
                                         boolean checkedFormat, boolean published) {}
 
     public record NotificationEndpointRequest(String displayName, String webhookUrl) {}
+    public record NotificationEndpointStatusRequest(boolean enabled) {}
 }
