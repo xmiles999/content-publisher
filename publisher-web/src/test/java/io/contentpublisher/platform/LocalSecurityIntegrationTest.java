@@ -119,6 +119,16 @@ class LocalSecurityIntegrationTest {
     }
 
     @Test
+    void shouldRenderAutomationSettingsWithoutTemplateErrors() throws Exception {
+        MockHttpSession session = login();
+
+        mockMvc.perform(get("/automation").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("服务端生成预设")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("通知 Webhook")));
+    }
+
+    @Test
     void shouldUseExactDatabaseAggregatesBeyondRecentListLimit() throws Exception {
         MockHttpSession session = login();
         long baseline = jdbcTemplate.queryForObject(

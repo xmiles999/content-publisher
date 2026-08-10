@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Controller
 public class AutomationPortalController {
@@ -63,9 +64,10 @@ public class AutomationPortalController {
     @GetMapping("/automation")
     public String automation(Model model) {
         var actor = actors.currentActor();
-        model.addAttribute("projectPresets", automation.presets(actor, "PROJECT"));
-        model.addAttribute("topicPresets", automation.presets(actor, "TOPIC"));
-        model.addAttribute("websitePresets", automation.presets(actor, "WEBSITE"));
+        var generationPresets = Stream.of("PROJECT", "TOPIC", "WEBSITE")
+                .flatMap(sourceType -> automation.presets(actor, sourceType).stream())
+                .toList();
+        model.addAttribute("generationPresets", generationPresets);
         model.addAttribute("notificationEndpoints", automation.notificationEndpoints(actor));
         return "automation";
     }
