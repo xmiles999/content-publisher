@@ -421,10 +421,10 @@ Adapter：
 | `PublicationController` | `/api/v1/publications` | 3 |
 | `MarkdownPreviewController` | `/api/v1/markdown` | 1 |
 | `MonitoringController` | `/api/v1/monitoring` | 1 |
-| `AutomationController` | `/api/v1` | 10 |
+| `AutomationController` | `/api/v1` | 13 |
 | `JobReplayController` | `/api/v1/job-replays` | 2 |
 
-OpenAPI 快照当前包含 45 个 REST 操作。完整路径与角色见 `API_REFERENCE.md` 和 `docs/openapi.json`。
+OpenAPI 快照当前包含 48 个 REST 操作。完整路径与角色见 `API_REFERENCE.md` 和 `docs/openapi.json`。
 
 ### 9.2 Portal Controller
 
@@ -442,7 +442,7 @@ OpenAPI 快照当前包含 45 个 REST 操作。完整路径与角色见 `API_RE
 | `JobReplayPortalController` | 失败任务重放 |
 | `PasswordController` | LOCAL 改密 |
 
-`PortalModelAdvice` 注入当前用户、租户、角色和导航状态。`PortalFormSupport` 统一表单错误处理，`PortalLabels` 统一中文标签。
+`PortalModelAdvice` 注入当前用户、租户、中文角色、导航状态和租户级真实计数；API、Actuator、静态资源与错误兜底请求不执行导航聚合。`PortalFormSupport` 统一通用表单错误处理，`AutomationPresetForm` 使用 Bean Validation 处理自动化预设字段，`PortalLabels` 统一中文标签。
 
 ### 9.3 DTO 与表单
 
@@ -459,6 +459,7 @@ Security EntryPoint、AccessDeniedHandler 和强制改密 Filter 使用最小安
 
 - `GlobalExceptionHandler` 把稳定业务错误码映射到 HTTP。
 - `PortalExceptionHandler` 把用户可见错误映射为页面。
+- `PortalErrorController` 处理 Servlet 错误分派，`ResourceNotFoundExceptionHandler` 衔接 MVC 静态资源 404；页面返回中文 `portal-error`，API 路径返回 JSON，并保留原始 4xx/5xx 状态。
 - `RequestTraceFilter` 为请求写入 Trace ID。
 - 参数校验返回字段错误列表。
 - 数据库并发冲突返回 `CONCURRENT_REQUEST_CONFLICT`，不暴露 SQL。
@@ -807,9 +808,9 @@ Git、网站、AI 和自托管渠道都执行：
 
 - Thymeleaf 服务端渲染保证业务正文不依赖客户端 JS 才出现。
 - 管理后台是私有应用，所有模板设置 `noindex,nofollow`。
-- 共享 Sidebar/Topbar 片段建立页面层级；Sidebar 使用统一线性 SVG 图标、语义化当前项和业务分组激活状态。
-- 原生 JS 提供导航折叠状态持久化、当前项滚动可见、移动端抽屉焦点约束、Escape 关闭与焦点恢复，以及复制、字数统计、脏表单提醒、局部轮询和 CSRF Header。
-- 自动化 Controller 聚合项目、主题和网站三类生成预设，模板只迭代准备好的列表，避免依赖 Thymeleaf 不提供的列表拼接工具方法。
+- 共享 Sidebar/Topbar 片段建立页面层级；Sidebar 使用统一线性 SVG 图标、语义化当前项、业务分组激活状态、真实状态计数、桌面紧凑模式和账户弹层。
+- 原生 JS 提供导航分组与紧凑模式持久化、仅导航容器内的当前项滚动、账户弹层焦点管理、移动端抽屉焦点约束、Escape 关闭与焦点恢复，以及复制、字数统计、脏表单提醒、局部轮询和 CSRF Header。
+- 自动化 Controller 聚合项目、主题和网站三类生成预设、掩码 Webhook 视图和最近投递；模板只迭代准备好的列表，避免依赖 Thymeleaf 不提供的列表拼接工具方法，也不把完整 Webhook URL 写入 DOM。
 - 编辑页提供节流自动保存、离开保护和服务端草稿恢复；创建页支持生成预设。
 - 人工发布页保存复制标题、复制正文、打开编辑器、检查格式和发布五项进度。
 - 动作台、日历和自动化设置采用完整视口工作区，不以大面积卡片堆叠替代信息层级。
@@ -851,7 +852,7 @@ Git、网站、AI 和自托管渠道都执行：
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
 | 持久化与租户 | `TenantPersistenceIntegrationTest` | Flyway、JPA、租户、审计、并发 |
-| 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、进度和投递 |
+| 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 渠道巡检/Webhook | `ChannelHealthSchedulerTest`、`SecureWebhookEndpointPolicyTest`、自动化持久化测试 | 转换通知、去重、投递状态、SSRF |
 | 时区与重放 | `ScheduleParserTest`、`JobApplicationServiceTest` | DST、单个/批量原子重放和不确定发布门禁 |
 | OpenAPI | `OpenApiContractTest` | 快照生成与差异门禁 |
@@ -993,3 +994,5 @@ Git、网站、AI 和自托管渠道都执行：
 2026-08-10：修复自动化设置页使用不存在的 Thymeleaf `#lists.concat` 导致的 HTTP 500，由 Controller 聚合三类生成预设。
 
 2026-08-10：统一左侧导航 SVG 图标、分组激活态、短视口当前项定位和移动端抽屉触控尺寸。
+
+2026-08-10：增加桌面紧凑侧栏、账户弹层和租户真实导航计数；自动化设置补充预设字段校验、Webhook 启停、指定端点测试、URL 掩码和最近投递诊断；统一后台中文错误兜底并保持 API JSON 与正确 HTTP 状态。

@@ -755,6 +755,33 @@
         }
       }
     },
+    "/api/v1/automation/notification-endpoints/{endpointId}/test" : {
+      "post" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "testNotificationEndpoint",
+        "parameters" : [ {
+          "name" : "endpointId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WebhookDeliveryStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/articles/{articleId}/restore" : {
       "post" : {
         "tags" : [ "article-controller" ],
@@ -1036,6 +1063,61 @@
         }
       }
     },
+    "/api/v1/automation/notification-endpoints/{endpointId}" : {
+      "delete" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "deleteNotificationEndpoint",
+        "parameters" : [ {
+          "name" : "endpointId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "updateNotificationEndpoint",
+        "parameters" : [ {
+          "name" : "endpointId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotificationEndpointStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NotificationEndpoint"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/publications" : {
       "get" : {
         "tags" : [ "publication-controller" ],
@@ -1286,6 +1368,37 @@
         }
       }
     },
+    "/api/v1/automation/webhook-deliveries" : {
+      "get" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "webhookDeliveries",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/WebhookDeliveryStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/articles/{articleId}/versions" : {
       "get" : {
         "tags" : [ "article-controller" ],
@@ -1322,26 +1435,6 @@
         "operationId" : "deletePreset",
         "parameters" : [ {
           "name" : "presetId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/automation/notification-endpoints/{endpointId}" : {
-      "delete" : {
-        "tags" : [ "automation-controller" ],
-        "operationId" : "deleteNotificationEndpoint",
-        "parameters" : [ {
-          "name" : "endpointId",
           "in" : "path",
           "required" : true,
           "schema" : {
@@ -2148,6 +2241,58 @@
           }
         }
       },
+      "WebhookDeliveryStatus" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "notificationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "endpointId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string"
+          },
+          "endpointName" : {
+            "type" : "string"
+          },
+          "notificationTitle" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextAttemptAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "deliveredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastError" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "RejectArticleRequest" : {
         "type" : "object",
         "properties" : {
@@ -2403,6 +2548,14 @@
           }
         },
         "required" : [ "status" ]
+      },
+      "NotificationEndpointStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          }
+        }
       },
       "PublicationRecordResponse" : {
         "type" : "object",

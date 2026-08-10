@@ -217,11 +217,14 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 | PUT | `/api/v1/articles/{articleId}/manual/{channelType}/progress` | Editor/Admin | 保存五项人工发布进度 |
 | GET | `/api/v1/automation/notification-endpoints` | Admin | 查询 Webhook 端点 |
 | POST | `/api/v1/automation/notification-endpoints` | Admin | 保存 Webhook 端点 |
+| PATCH | `/api/v1/automation/notification-endpoints/{endpointId}` | Admin | 使用 `enabled` 启用或停用端点 |
+| POST | `/api/v1/automation/notification-endpoints/{endpointId}/test` | Admin | 向指定已启用端点异步排队测试通知 |
 | DELETE | `/api/v1/automation/notification-endpoints/{endpointId}` | Admin | 删除 Webhook 端点 |
+| GET | `/api/v1/automation/webhook-deliveries?limit=50` | Admin | 查询当前租户最近 1–100 条投递状态 |
 
 人工发布进度字段为 `copiedTitle`、`copiedContent`、`openedEditor`、`checkedFormat` 和 `published`，并按租户、文章、渠道、当前主体隔离。
 
-生成预设包含名称、来源类型、语言、语气、长度、关键词上限、必备章节以及来源特定字段；名称在租户和来源类型内唯一。Webhook URL 最长 2048，只允许通过服务端端点策略的 HTTPS 公网地址。
+生成预设包含名称、来源类型、语言、语气、长度、关键词上限、必备章节以及来源特定字段；名称在租户和来源类型内唯一。Webhook URL 最长 2048，只允许通过服务端端点策略的 HTTPS 公网地址；保存和发送测试通知时都会重新校验。测试通知只为指定端点创建 `PENDING` 投递，不会扩散到同租户其他端点。投递查询返回端点名称、通知标题、`PENDING|DELIVERED|FAILED` 状态、尝试次数、计划时间、送达时间和有限错误摘要。
 
 ## 9. 工具与监控
 
