@@ -247,6 +247,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 
 - 禁止启动 Caddy 或另一套公网反向代理。
 - 应用容器必须 `10001:10001` 非 root。
+- PostgreSQL 容器必须以 Alpine 镜像内置的 `70:70` 非 root 身份运行。
 - 应用只 `expose: 8080`，不能设置宿主机 `ports`。
 - Traefik 通过 `dokploy-network` 直接连接应用。
 - PostgreSQL 只能连接内部 `backend` 网络，不对外暴露端口。
@@ -281,7 +282,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 ```text
 应用容器 User=10001:10001
 应用无宿主机 published port
-PostgreSQL 无外部端口且卷已挂载
+PostgreSQL User=70:70、无外部端口且卷已挂载
 /actuator/health/readiness = UP
 flyway_schema_history 最新成功版本 = 20
 登录/认证成功

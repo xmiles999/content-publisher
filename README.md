@@ -216,6 +216,7 @@ Docker 镜像同样必须使用“版本 + Git SHA”不可变标签，禁止正
 正式目标为 `miles-01` 的 Dokploy/Traefik。模板为 `deploy/dokploy-compose.yaml`：
 
 - 应用运行身份 `10001:10001`。
+- PostgreSQL 固定以 Alpine 镜像内置的 `70:70` 身份运行。
 - 应用只 `expose: 8080`，不配置宿主机 `ports`。
 - Traefik 通过外部 `dokploy-network` 访问应用。
 - PostgreSQL 仅位于内部 `backend` 网络并使用命名卷。
