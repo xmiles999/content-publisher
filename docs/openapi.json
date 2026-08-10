@@ -1,0 +1,2806 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "paths" : {
+    "/api/v1/channel-accounts/{accountId}" : {
+      "get" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelAccountResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "update",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateChannelAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelAccountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-accounts/{accountId}/credentials" : {
+      "put" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "rotateCredentials",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RotateChannelCredentialsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelAccountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}" : {
+      "get" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateArticleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "delete",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/manual/{channelType}/progress" : {
+      "put" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "saveManualProgress",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "channelType",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ManualProgressRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManualProgress"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/draft" : {
+      "get" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "draft",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleDraft"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "saveDraft",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DraftRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleDraft"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "deleteDraft",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/articles" : {
+      "post" : {
+        "tags" : [ "project-controller" ],
+        "operationId" : "generateArticle",
+        "parameters" : [ {
+          "name" : "projectId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/GenerateArticleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/imports" : {
+      "post" : {
+        "tags" : [ "project-controller" ],
+        "operationId" : "importProject",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ImportProjectRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{notificationId}/acknowledge" : {
+      "post" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "acknowledge",
+        "parameters" : [ {
+          "name" : "notificationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/markdown/preview" : {
+      "post" : {
+        "tags" : [ "markdown-preview-controller" ],
+        "operationId" : "preview",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MarkdownPreviewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{jobId}/restore" : {
+      "post" : {
+        "tags" : [ "job-controller" ],
+        "operationId" : "restoreJob",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{jobId}/publication-retry" : {
+      "post" : {
+        "tags" : [ "job-controller" ],
+        "operationId" : "retryPublication",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{jobId}/cancel" : {
+      "post" : {
+        "tags" : [ "job-controller" ],
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/job-replays" : {
+      "post" : {
+        "tags" : [ "job-replay-controller" ],
+        "operationId" : "replayBatch",
+        "parameters" : [ {
+          "name" : "jobIds",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/JobResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/job-replays/{jobId}" : {
+      "post" : {
+        "tags" : [ "job-replay-controller" ],
+        "operationId" : "replay",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-accounts" : {
+      "get" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ChannelAccountResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "create",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateChannelAccountRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelAccountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-accounts/{accountId}/verify" : {
+      "post" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "verify",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelAccountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automation/presets" : {
+      "post" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "savePreset",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PresetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GenerationPreset"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automation/notification-endpoints" : {
+      "get" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "notificationEndpoints",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/NotificationEndpoint"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "saveNotificationEndpoint",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotificationEndpointRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NotificationEndpoint"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/restore" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "restore",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/reject" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "reject",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RejectArticleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/publications" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "publish",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublishArticleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/publication-batches" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "publishBatch",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublishArticleBatchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicationBatchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/approve" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "approve",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/website-generations" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "generateWebsiteArticle",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateWebsiteArticleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/topic-generations" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "generateTopicArticle",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateTopicArticleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-accounts/{accountId}/status" : {
+      "patch" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "updateStatus",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateChannelAccountStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChannelAccountResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publications" : {
+      "get" : {
+        "tags" : [ "publication-controller" ],
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PublicationRecordResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publications/{publicationId}" : {
+      "get" : {
+        "tags" : [ "publication-controller" ],
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "name" : "publicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publications/link-validation" : {
+      "get" : {
+        "tags" : [ "publication-controller" ],
+        "operationId" : "validateLink",
+        "parameters" : [ {
+          "name" : "channelType",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "DEV", "WORDPRESS", "DISCOURSE", "GITHUB_DISCUSSIONS", "X", "REDDIT", "HASHNODE", "MEDIUM", "MASTODON", "GHOST", "XIAOHONGSHU", "CSDN", "JUEJIN", "ZHIHU", "CNBLOGS", "SEGMENTFAULT", "V2EX", "OSCHINA", "LINKEDIN", "WECHAT_OFFICIAL", "JIANSHU", "TOUTIAO", "BILIBILI_COLUMN", "BLOG_51CTO", "TENCENT_CLOUD", "ALIBABA_CLOUD", "HUAWEI_CLOUD" ]
+          }
+        }, {
+          "name" : "url",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}" : {
+      "get" : {
+        "tags" : [ "project-controller" ],
+        "operationId" : "getProject",
+        "parameters" : [ {
+          "name" : "projectId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProjectResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications" : {
+      "get" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "notifications",
+        "parameters" : [ {
+          "name" : "includeAcknowledged",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/NotificationItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/monitoring/summary" : {
+      "get" : {
+        "tags" : [ "monitoring-controller" ],
+        "operationId" : "summary",
+        "parameters" : [ {
+          "name" : "range",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MonitoringSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{jobId}" : {
+      "get" : {
+        "tags" : [ "job-controller" ],
+        "operationId" : "getJob",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "job-controller" ],
+        "operationId" : "deleteJob",
+        "parameters" : [ {
+          "name" : "jobId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/generation-presets" : {
+      "get" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "presets",
+        "parameters" : [ {
+          "name" : "sourceType",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/GenerationPreset"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/versions" : {
+      "get" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "versions",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ArticleVersionResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/automation/presets/{presetId}" : {
+      "delete" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "deletePreset",
+        "parameters" : [ {
+          "name" : "presetId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/automation/notification-endpoints/{endpointId}" : {
+      "delete" : {
+        "tags" : [ "automation-controller" ],
+        "operationId" : "deleteNotificationEndpoint",
+        "parameters" : [ {
+          "name" : "endpointId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "UpdateChannelAccountRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          },
+          "baseUrl" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "displayName" ]
+      },
+      "ChannelAccountResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "baseUrl" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "verificationStatus" : {
+            "type" : "string"
+          },
+          "verificationMessage" : {
+            "type" : "string"
+          },
+          "lastVerifiedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "RotateChannelCredentialsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "credentials" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "minProperties" : 1
+          }
+        },
+        "required" : [ "credentials" ]
+      },
+      "UpdateArticleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "title" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "summary" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "markdown" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 50,
+              "minLength" : 0
+            },
+            "maxItems" : 15,
+            "minItems" : 0
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 30,
+            "minItems" : 0
+          },
+          "titleEn" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "summaryEn" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "markdownEn" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "tagsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 50,
+              "minLength" : 0
+            },
+            "maxItems" : 15,
+            "minItems" : 0
+          },
+          "keywordsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 30,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "markdown", "summary", "title" ]
+      },
+      "ArticleResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "projectId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "sourceType" : {
+            "type" : "string"
+          },
+          "sourceUrl" : {
+            "type" : "string"
+          },
+          "sourceTitle" : {
+            "type" : "string"
+          },
+          "sourceDescription" : {
+            "type" : "string"
+          },
+          "targetAudience" : {
+            "type" : "string"
+          },
+          "articleType" : {
+            "type" : "string"
+          },
+          "knowledgeLevel" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "markdown" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "titleEn" : {
+            "type" : "string"
+          },
+          "summaryEn" : {
+            "type" : "string"
+          },
+          "markdownEn" : {
+            "type" : "string"
+          },
+          "tagsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywordsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "sourceRevision" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "currentVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ManualProgressRequest" : {
+        "type" : "object",
+        "properties" : {
+          "copiedTitle" : {
+            "type" : "boolean"
+          },
+          "copiedContent" : {
+            "type" : "boolean"
+          },
+          "openedEditor" : {
+            "type" : "boolean"
+          },
+          "checkedFormat" : {
+            "type" : "boolean"
+          },
+          "published" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ManualProgress" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string"
+          },
+          "articleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "channelType" : {
+            "type" : "string"
+          },
+          "actorSubject" : {
+            "type" : "string"
+          },
+          "copiedTitle" : {
+            "type" : "boolean"
+          },
+          "copiedContent" : {
+            "type" : "boolean"
+          },
+          "openedEditor" : {
+            "type" : "boolean"
+          },
+          "checkedFormat" : {
+            "type" : "boolean"
+          },
+          "published" : {
+            "type" : "boolean"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "DraftRequest" : {
+        "type" : "object",
+        "properties" : {
+          "baseVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "markdown" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "titleEn" : {
+            "type" : "string"
+          },
+          "summaryEn" : {
+            "type" : "string"
+          },
+          "markdownEn" : {
+            "type" : "string"
+          },
+          "tagsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywordsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ArticleDraft" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string"
+          },
+          "articleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "actorSubject" : {
+            "type" : "string"
+          },
+          "baseVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "markdown" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "titleEn" : {
+            "type" : "string"
+          },
+          "summaryEn" : {
+            "type" : "string"
+          },
+          "markdownEn" : {
+            "type" : "string"
+          },
+          "tagsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywordsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "GenerateArticleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "language" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "tone" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "minCharacters" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3000,
+            "minimum" : 200
+          },
+          "maxCharacters" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3000,
+            "minimum" : 200
+          },
+          "maxKeywords" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 30,
+            "minimum" : 1
+          },
+          "requiredKeywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 30,
+            "minItems" : 0
+          },
+          "excludedKeywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "requiredSections" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "language", "tone" ]
+      },
+      "JobResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "attempt" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxAttempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "progressPercent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "progressLabel" : {
+            "type" : "string"
+          },
+          "progressDetail" : {
+            "type" : "string"
+          },
+          "batchId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "scheduledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "resultResourceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "resultResourceType" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ImportProjectRequest" : {
+        "type" : "object",
+        "properties" : {
+          "gitUrl" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0
+          },
+          "branch" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "gitUrl" ]
+      },
+      "MarkdownPreviewRequest" : {
+        "type" : "object",
+        "properties" : {
+          "markdown" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "markdown" ]
+      },
+      "CreateChannelAccountRequest" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "DEV", "WORDPRESS", "DISCOURSE", "GITHUB_DISCUSSIONS", "X", "REDDIT", "HASHNODE", "MEDIUM", "MASTODON", "GHOST", "XIAOHONGSHU", "CSDN", "JUEJIN", "ZHIHU", "CNBLOGS", "SEGMENTFAULT", "V2EX", "OSCHINA", "LINKEDIN", "WECHAT_OFFICIAL", "JIANSHU", "TOUTIAO", "BILIBILI_COLUMN", "BLOG_51CTO", "TENCENT_CLOUD", "ALIBABA_CLOUD", "HUAWEI_CLOUD" ]
+          },
+          "displayName" : {
+            "type" : "string",
+            "maxLength" : 120,
+            "minLength" : 0
+          },
+          "baseUrl" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0
+          },
+          "credentials" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "minProperties" : 1
+          }
+        },
+        "required" : [ "credentials", "displayName", "type" ]
+      },
+      "PresetRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "sourceType" : {
+            "type" : "string"
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "tone" : {
+            "type" : "string"
+          },
+          "minCharacters" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxCharacters" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxKeywords" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "requiredSections" : {
+            "type" : "string"
+          },
+          "articleType" : {
+            "type" : "string"
+          },
+          "knowledgeLevel" : {
+            "type" : "string"
+          },
+          "recommendationAngle" : {
+            "type" : "string"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "promptVersion" : {
+            "type" : "string"
+          },
+          "parameterVersion" : {
+            "type" : "string"
+          }
+        }
+      },
+      "GenerationPreset" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "sourceType" : {
+            "type" : "string"
+          },
+          "language" : {
+            "type" : "string"
+          },
+          "tone" : {
+            "type" : "string"
+          },
+          "minCharacters" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxCharacters" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxKeywords" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "requiredSections" : {
+            "type" : "string"
+          },
+          "articleType" : {
+            "type" : "string"
+          },
+          "knowledgeLevel" : {
+            "type" : "string"
+          },
+          "recommendationAngle" : {
+            "type" : "string"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "promptVersion" : {
+            "type" : "string"
+          },
+          "parameterVersion" : {
+            "type" : "string"
+          },
+          "usageCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "builtin" : {
+            "type" : "boolean"
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "NotificationEndpointRequest" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string"
+          },
+          "webhookUrl" : {
+            "type" : "string"
+          }
+        }
+      },
+      "NotificationEndpoint" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "webhookUrl" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "RejectArticleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "reason" ]
+      },
+      "PublishArticleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "channelAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "canonicalUrl" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0
+          },
+          "scheduledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "channelAccountId" ]
+      },
+      "PublishArticleBatchRequest" : {
+        "type" : "object",
+        "properties" : {
+          "channelAccountIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "canonicalUrl" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0
+          },
+          "scheduledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "channelAccountIds" ]
+      },
+      "PublicationBatchResponse" : {
+        "type" : "object",
+        "properties" : {
+          "jobCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "jobs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/JobResponse"
+            }
+          }
+        }
+      },
+      "CreateWebsiteArticleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "websiteUrl" : {
+            "type" : "string",
+            "maxLength" : 2048,
+            "minLength" : 0,
+            "pattern" : "https://.+"
+          },
+          "recommendationAngle" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "audience" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 30,
+            "minItems" : 0
+          },
+          "language" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "tone" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "minCharacters" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3000,
+            "minimum" : 200
+          },
+          "maxCharacters" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3000,
+            "minimum" : 200
+          },
+          "maxKeywords" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 30,
+            "minimum" : 1
+          },
+          "excludedKeywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "requiredSections" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "audience", "language", "recommendationAngle", "tone", "websiteUrl" ]
+      },
+      "CreateTopicArticleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "topic" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          },
+          "description" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "audience" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "articleType" : {
+            "type" : "string",
+            "pattern" : "TUTORIAL|KNOWLEDGE_GUIDE|BEST_PRACTICES|TROUBLESHOOTING|CONCEPT_EXPLAINER"
+          },
+          "knowledgeLevel" : {
+            "type" : "string",
+            "pattern" : "BEGINNER|INTERMEDIATE|ADVANCED|MIXED"
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 30,
+            "minItems" : 0
+          },
+          "referenceNotes" : {
+            "type" : "string",
+            "maxLength" : 10000,
+            "minLength" : 0
+          },
+          "language" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "tone" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "minCharacters" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3000,
+            "minimum" : 200
+          },
+          "maxCharacters" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 3000,
+            "minimum" : 200
+          },
+          "maxKeywords" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 30,
+            "minimum" : 1
+          },
+          "excludedKeywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 100,
+            "minItems" : 0
+          },
+          "requiredSections" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "audience", "description", "language", "tone", "topic" ]
+      },
+      "UpdateChannelAccountStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "DISABLED" ]
+          }
+        },
+        "required" : [ "status" ]
+      },
+      "PublicationRecordResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "articleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "channelType" : {
+            "type" : "string"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "channelAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "channelAccountName" : {
+            "type" : "string"
+          },
+          "contentFormat" : {
+            "type" : "string"
+          },
+          "externalUrl" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          },
+          "publishedBy" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PublicationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "articleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "channelAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "channelType" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "canonicalUrl" : {
+            "type" : "string"
+          },
+          "externalId" : {
+            "type" : "string"
+          },
+          "externalUrl" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ProjectResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "gitUrl" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "defaultBranch" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "type" : "string"
+          },
+          "languages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "license" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "NotificationItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "tenantId" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "dedupKey" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "targetUrl" : {
+            "type" : "string"
+          },
+          "acknowledgedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "acknowledgedBy" : {
+            "type" : "string"
+          },
+          "resolvedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ChannelPerformance" : {
+        "type" : "object",
+        "properties" : {
+          "channelType" : {
+            "type" : "string",
+            "enum" : [ "DEV", "WORDPRESS", "DISCOURSE", "GITHUB_DISCUSSIONS", "X", "REDDIT", "HASHNODE", "MEDIUM", "MASTODON", "GHOST", "XIAOHONGSHU", "CSDN", "JUEJIN", "ZHIHU", "CNBLOGS", "SEGMENTFAULT", "V2EX", "OSCHINA", "LINKEDIN", "WECHAT_OFFICIAL", "JIANSHU", "TOUTIAO", "BILIBILI_COLUMN", "BLOG_51CTO", "TENCENT_CLOUD", "ALIBABA_CLOUD", "HUAWEI_CLOUD" ]
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "published" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "MonitoringSnapshot" : {
+        "type" : "object",
+        "properties" : {
+          "capturedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "windowStart" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "window" : {
+            "type" : "string",
+            "enum" : [ "HOURS_24", "DAYS_7", "DAYS_30" ]
+          },
+          "projectCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "projectActivityCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "projectsByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "articleCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "articleActivityCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "articlesByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "articlesBySource" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "jobCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "jobActivityCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "jobsByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "windowJobsByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "publicationCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "publicationActivityCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "publicationsByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "windowPublicationsByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "accountCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accountsByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "coveredChannelCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "channelPerformance" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChannelPerformance"
+            }
+          }
+        }
+      },
+      "ArticleVersionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "articleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "versionNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "markdown" : {
+            "type" : "string"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "titleEn" : {
+            "type" : "string"
+          },
+          "summaryEn" : {
+            "type" : "string"
+          },
+          "markdownEn" : {
+            "type" : "string"
+          },
+          "tagsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywordsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      }
+    }
+  }
+}

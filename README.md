@@ -1,80 +1,71 @@
 # Content Publisher
 
-Content Publisher 是一个多租户技术内容生产与多渠道分发平台。系统从 Git 仓库、结构化主题或公开网站提取受控事实，通过 OpenAI Chat Completions 兼容服务生成中英文内容，经过人工编辑和审核后，以官方 API 或合规人工流程发布到不同平台。
+Content Publisher 是一个多租户技术内容生产与多渠道分发平台。系统从 Git 仓库、结构化主题或公开网站提取受控事实，通过 OpenAI Chat Completions 兼容服务生成中英文内容，经过草稿自动保存、人工编辑和审核后，以官方 API 或合规人工流程发布到不同平台。
 
 ## 当前基线
 
 | 项目 | 内容 |
 |---|---|
 | 应用版本 | `0.1.0-SNAPSHOT` |
-| 文档基线 | 2026-07-22 |
-| Java | 17 |
-| Spring Boot | 3.5.13 |
-| 数据迁移 | Flyway V1–V18 |
+| 文档基线 | 2026-08-10 |
+| Java / 构建 | Java 17、Maven Wrapper 3.9.11 |
+| Spring Boot | 3.5.16 |
+| 数据迁移 | Flyway V1–V20 |
 | 生产数据库 | PostgreSQL |
 | 架构 | 模块化单体、领域/应用/基础设施/Web 分层 |
+| 生产交付目标 | `miles-01` Dokploy + Traefik；仓库模板不代表已经部署 |
 
-当前代码已经形成“可信来源 → 持久化生成任务 → 编辑与版本 → Admin 审核 → 发布预检 → 定时或立即发布 → 统一记录与监控”的业务闭环。
+当前代码形成“可信来源 → 持久化生成任务 → 草稿自动保存与版本 → Admin 审核 → 时区化计划 → API/人工发布 → 通知、重放、巡检与监控”的闭环。
 
 ## 已实现能力
 
 | 能力域 | 状态 | 说明 |
 |---|---|---|
-| Git 项目导入 | 已实现 | 安全 HTTPS 地址、浅克隆、资源限制、仓库事实快照 |
-| 主题内容生成 | 已实现 | 教程、指南、最佳实践、排障和概念说明 |
-| 网站推荐内容 | 已实现 | 公开 HTTPS 网站抓取、SSRF 防护和文本提取限制 |
-| AI 内容生成 | 已实现 | 租户级 OpenAI 兼容配置、中英文结构化输出、确定性校验 |
-| SEO 辅助 | 已实现 | 搜索意图、主关键词、标题摘要、H2/H3、FAQ 和质量评分 |
-| 内容库与版本 | 已实现 | 三类来源统一入库，不可变版本和 `expectedVersion` 并发控制 |
-| 审核 | 已实现 | Admin 审核通过或驳回；未审核文章禁止发布 |
-| 持久化任务 | 已实现 | 幂等、配额、进度、批次、定时、租约、退避重试、取消和恢复 |
-| API 渠道 | 已实现 | 9 个可新接入渠道，Medium 仅保留存量账号 |
-| 人工渠道 | 已实现 | 17 个平台的适配、复制、官方入口、外链回填和内容快照 |
-| 发布中心 | 已实现 | 待发布、执行批次、统一记录、覆盖矩阵和失败发布人工重试 |
-| 渠道账号 | 已实现 | 创建、资料修改、启停、连接测试、凭据轮换、X/Reddit 自动刷新 |
-| 身份与租户 | 已实现 | LOCAL 或 JWT、Viewer/Editor/Admin、`tenant_id` 隔离 |
-| 回收站 | 已实现 | Admin 软删除和恢复文章、任务及关联发布记录 |
-| 监控 | 已实现 | 项目、文章来源、任务、发布、账号和渠道表现的租户级快照 |
-| 生产模板 | 已提供 | Dockerfile、Compose、systemd、Actuator 和优雅停机 |
+| 三类内容来源 | 已实现 | Git 安全导入、结构化主题、带 SSRF 防护的公开网站抓取 |
+| AI 与 SEO 辅助 | 已实现 | 租户级 OpenAI 兼容配置、中英文结构化输出、确定性质量校验 |
+| 草稿与预设 | 已实现 | 服务端用户级草稿、浏览器自动保存、版本基线冲突检查、生成预设复用 |
+| 内容与审核 | 已实现 | 不可变版本、`expectedVersion` 并发控制、Admin 审核与驳回 |
+| 持久化任务 | 已实现 | 幂等、配额、进度、批次、定时、租约、退避、取消、恢复和通用失败重放 |
+| 发布计划 | 已实现 | 浏览器时区输入转 UTC、DST 间隙/歧义校验、发布日历 |
+| API 渠道 | 已实现 | 9 个可新接入渠道，Medium 只保留合法存量账号 |
+| 人工渠道 | 已实现 | 17 个平台，五项操作进度、适配、复制、官方入口和外链回填 |
+| 动作与通知 | 已实现 | 待办动作台、站内通知、确认、渠道失败/恢复通知 |
+| Webhook | 已实现 | 租户端点、去重投递、有限 Payload、退避重试、HTTPS/公网地址校验 |
+| 渠道巡检 | 已实现 | 按陈旧时间批量验证，状态变化时生成失败或恢复通知 |
+| 监控 | 已实现 | Portal/API 业务快照、Prometheus 低基数任务/发布/渠道 Gauge |
+| 契约与供应链 | 已实现 | OpenAPI 快照、JaCoCo、CycloneDX SBOM、OWASP 扫描、Dependabot、CI |
+| 生产交付模板 | 已提供 | 非 root 镜像、Dokploy Compose、无应用宿主端口、Traefik 网络、恢复演练脚本 |
 
 ## 文档
 
-- [完整业务说明](docs/FUNCTIONAL_SPEC.md)：角色、来源、业务规则、状态、页面、发布和验收标准。
-- [详细技术设计](docs/TECHNICAL_DEVELOPMENT.md)：技术栈、架构组件、数据流、数据库、安全、测试和扩展规则。
-- [REST API 参考](docs/API_REFERENCE.md)：31 个当前 REST 操作、DTO、角色、幂等和错误契约。
-- [配置、部署与运维](docs/OPERATIONS.md)：完整环境变量、Compose/systemd、迁移、备份、监控和回滚。
-- [内容生成与发布流程](docs/PUBLISHING_WORKFLOW.md)：面向运营和审核人员的操作步骤与平台适配矩阵。
+- [完整业务说明](docs/FUNCTIONAL_SPEC.md)
+- [详细技术设计](docs/TECHNICAL_DEVELOPMENT.md)
+- [REST API 参考](docs/API_REFERENCE.md)
+- [OpenAPI JSON 快照](docs/openapi.json)
+- [配置、Dokploy 部署与运维](docs/OPERATIONS.md)
+- [内容生成与发布流程](docs/PUBLISHING_WORKFLOW.md)
 - [环境变量模板](.env.example)
-- [企业级 AI 开源开发规范](docs/ENTERPRISE_AI_OPEN_SOURCE_DEVELOPMENT_STANDARD.md)
 
-代码、配置、迁移、接口或业务规则发生变化时，必须在同一变更中更新受影响文档。详细门禁见技术设计文档的“文档维护”章节。
+代码、配置、迁移、接口、页面或部署方式变化时，必须在同一变更中更新相关文档。
 
-## 技术栈
+## 技术栈与模块
 
 | 层面 | 采用技术 |
 |---|---|
-| 运行时 | Java 17、Eclipse Temurin 17 JRE |
-| 应用框架 | Spring Boot 3.5.13 |
-| Web | Spring MVC、Thymeleaf、Bean Validation |
-| 安全 | Spring Security、表单登录、OAuth2 Resource Server、JWT、BCrypt |
+| 运行时 | Java 17、Spring Boot 3.5.16 |
+| Web | Spring MVC、Thymeleaf、Spring Security、Springdoc |
 | 数据 | Spring Data JPA、Hibernate、PostgreSQL、Flyway |
-| 外部内容 | Eclipse JGit 7.3、Jsoup 1.18.3、CommonMark 0.24 |
-| HTTP/AI | Java HttpClient、OpenAI Chat Completions 兼容协议 |
-| 测试 | JUnit 5、AssertJ、Mockito、MockMvc、H2 PostgreSQL Compatibility Mode |
-| 运维 | Actuator、Docker、Docker Compose、systemd 模板 |
-
-具体依赖版本以根 `pom.xml` 和模块 POM 为准。
-
-## 模块结构
+| 外部内容 | Eclipse JGit、Jsoup、CommonMark、Java HttpClient |
+| 可观测性 | Actuator、Micrometer、Prometheus |
+| 测试 | JUnit 5、AssertJ、Mockito、MockMvc、H2 PostgreSQL mode、Testcontainers |
+| 交付 | Maven Wrapper、Docker、Dokploy、GitHub Actions、CycloneDX |
 
 | 模块 | 职责 |
 |---|---|
-| `publisher-domain` | 领域模型、来源、状态、生成策略；不依赖 Spring |
-| `publisher-application` | 应用用例、端口、渠道目录、内容适配、监控和统一查询 |
-| `publisher-infrastructure` | JPA、JGit、AI、网站抓取、渠道 API、加密、任务工作器 |
-| `publisher-web` | REST、Thymeleaf Portal、本地登录/JWT、DTO、错误协议和启动入口 |
-
-依赖方向：
+| `publisher-domain` | 领域模型、来源、状态和生成策略；不依赖 Spring |
+| `publisher-application` | 应用用例、端口、内容适配、任务、自动化和统一查询 |
+| `publisher-infrastructure` | JPA/JDBC、JGit、AI、网站、渠道、加密、Worker、巡检和 Webhook |
+| `publisher-web` | REST、Thymeleaf、LOCAL/JWT、安全、OpenAPI、指标和启动入口 |
 
 ```text
 publisher-web ───────────────┐
@@ -86,215 +77,189 @@ publisher-infrastructure → publisher-application → publisher-domain
 
 ## 环境要求
 
-- JDK 17。
-- Maven 3.6.3 或更高。
-- PostgreSQL；生产建议 16 或更高。
-- AI 生成需要可访问的 OpenAI Chat Completions 兼容服务。
-- Git、网站和渠道调用需要符合允许列表与公网地址策略的网络出口。
+- JDK 17；本机固定使用 `/usr/lib/jvm/java-17-openjdk-amd64`。
+- 使用仓库自带的 `./mvnw`，不依赖全局 Maven。
+- PostgreSQL；正式运行不使用 H2。
+- 本地容器化数据库和真实 PostgreSQL 集成测试需要可访问的 Docker daemon。
+- AI、Git、网站和渠道调用需要满足主机允许列表与公网地址策略。
 
-H2 只在自动化测试中使用，不作为正式运行数据库。
-
-## 构建与测试
+## 常用自动化命令
 
 ```bash
 cd /data/projects/content-publisher
-mvn clean verify
+
+./scripts/dev doctor          # 环境诊断
+./scripts/dev compose-check   # 只渲染 Compose，不要求 daemon
+./scripts/dev dev-up          # 启动本地 PostgreSQL
+./scripts/dev run             # DISABLED 模式本地运行
+./scripts/dev verify          # clean verify、测试、JaCoCo、SBOM
+./scripts/openapi check       # 校验 OpenAPI 快照
+./scripts/openapi update      # Controller 合法变化后更新快照
+./scripts/dev security        # OWASP Dependency Check；优先读取 NVD_API_KEY，否则使用每日 NVD 缓存
+./scripts/release             # 干净 Git 工作区才生成不可变 JAR/SBOM/属性/SHA-256 目录
 ```
 
-测试覆盖当前主要边界：
+真实 PostgreSQL Testcontainers 可在具备 Docker socket 权限的环境执行：
 
-- 领域与应用规则、三类内容来源。
-- AI 输出约束和 AI/网站/Git 地址安全。
-- 任务幂等、配额、调度、取消、租约、重试和进度。
-- 多租户持久化和审计。
-- LOCAL/JWT 安全、CSRF、权限和强制改密。
-- 文章版本、审核门禁、回收站。
-- 凭据加密、渠道请求、发布预检、X/Reddit OAuth 刷新。
-- 模块依赖边界和 Spring 上下文。
+```bash
+./scripts/dev integration-container
+```
+
+默认 `verify` 中的 Testcontainers 和恢复演练会在前置条件不满足时跳过；跳过不能视为真实 PostgreSQL 或恢复路径已通过。
 
 ## 本地启动
 
-先准备 PostgreSQL 数据库和用户，然后运行：
+推荐使用开发 Compose：
 
 ```bash
-DB_URL='jdbc:postgresql://127.0.0.1:5432/content_publisher' \
-DB_USERNAME='content_publisher' \
-DB_PASSWORD='replace-with-a-secret' \
-PUBLISHER_SECURITY_MODE='DISABLED' \
-PUBLISHER_JOBS_WORKER_ENABLED='false' \
-mvn -pl publisher-web -am spring-boot:run
+./scripts/dev dev-up
+./scripts/dev run
 ```
 
-健康检查：
+数据库默认监听 `127.0.0.1:55432`。健康检查：
 
 ```bash
-curl --fail http://127.0.0.1:8080/actuator/health
+curl --fail http://127.0.0.1:8080/actuator/health/readiness
 ```
 
-需要执行真实异步任务时设置：
+安全模式：
+
+- `DISABLED`：仅受控本地开发。
+- `LOCAL`：PostgreSQL 本地账号、BCrypt、Session、CSRF 和首次改密。
+- `JWT`：OIDC/JWT Bearer Token，无状态 REST。
+
+生产必须使用 `LOCAL` 或 `JWT`。LOCAL 初始化成功后必须移除环境中的初始明文密码。
+
+## 主要工作流
+
+### 内容生产
+
+1. 在 `/projects` 选择 Git、主题或网站来源。
+2. 选择或保存生成预设并提交异步任务。
+3. 在文章编辑页使用服务端草稿自动保存；正式保存时仍要求正确版本。
+4. Admin 审核通过后进入发布阶段。
+
+### API 发布
+
+- 支持立即或计划发布；页面接收 IANA 时区并转换为 UTC。
+- DST 不存在时间会被拒绝，歧义时间要求明确偏移。
+- 单批最多 20 个去重账号，任务共享批次 ID。
+- 外部结果不确定时不自动盲目重试；确认第三方未成功后再使用任务重放。
+
+### 人工发布
+
+- 工作区记录“复制标题、复制正文、打开编辑器、检查格式、已发布”五项进度。
+- 系统只提供派生内容、复制和官方入口，不保存第三方密码、Cookie 或验证码，不模拟登录。
+- 发布后回填公开 HTTPS URL，服务端校验渠道域名并保存最终快照。
+
+### 运营自动化
+
+- `/actions` 汇总待处理动作和站内通知。
+- `/calendar` 展示计划任务与发布记录。
+- `/automation` 管理生成预设和通知 Webhook。
+- 渠道巡检按配置周期运行，失败及恢复只在状态变化时通知。
+- Webhook 每个“通知 × 端点”唯一投递，失败按退避策略最多重试配置次数。
+
+## REST 与 OpenAPI
+
+REST 前缀为 `/api/v1`。接口、角色、幂等和错误合同见 [API 参考](docs/API_REFERENCE.md)。
+
+生产默认：
+
+```text
+PUBLISHER_OPENAPI_ENABLED=false
+```
+
+`docs/openapi.json` 是版本控制中的契约快照，不需要在线暴露 `/v3/api-docs`。Controller 或请求/响应模型变化后运行：
 
 ```bash
-PUBLISHER_JOBS_WORKER_ENABLED='true'
+./scripts/openapi update
+./scripts/openapi check
 ```
 
-### 安全模式
+## 配置与秘密
 
-- `DISABLED`：只允许受控本地开发。
-- `LOCAL`：PostgreSQL 本地账号、BCrypt 密码、Session 和 CSRF。
-- `JWT`：OIDC/JWT Bearer Token，无状态 REST 访问。
-
-LOCAL 模式首次启动通过 `PUBLISHER_LOCAL_ADMIN_USERNAME`、`PUBLISHER_LOCAL_ADMIN_PASSWORD` 和 `PUBLISHER_LOCAL_ADMIN_TENANT` 创建管理员。默认要求首次登录修改密码；初始化后应移除环境中的明文初始密码。
-
-## 最小 API 示例
-
-以下示例适用于 `DISABLED` 本地开发模式。生产请求必须携带有效 JWT 或 LOCAL 会话。
-
-### Git 项目导入
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/v1/projects/imports \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: import-owner-repository-20260722' \
-  -d '{"gitUrl":"https://github.com/owner/repository.git","branch":"main"}'
-```
-
-### 主题文章生成
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/v1/articles/topic-generations \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: topic-durable-jobs-20260722' \
-  -d '{
-    "topic":"持久化任务的租约与幂等",
-    "description":"说明多实例任务领取、失败恢复和重复提交控制",
-    "audience":"Java 后端开发者",
-    "articleType":"KNOWLEDGE_GUIDE",
-    "knowledgeLevel":"INTERMEDIATE",
-    "keywords":["持久化任务","幂等","任务租约"],
-    "referenceNotes":"",
-    "language":"zh-CN",
-    "tone":"专业、客观",
-    "minCharacters":800,
-    "maxCharacters":2200,
-    "maxKeywords":10,
-    "excludedKeywords":[],
-    "requiredSections":["问题背景","设计方案","失败恢复"]
-  }'
-```
-
-### 网站推荐文章生成
-
-```bash
-curl -X POST http://127.0.0.1:8080/api/v1/articles/website-generations \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: website-example-20260722' \
-  -d '{
-    "websiteUrl":"https://example.com",
-    "recommendationAngle":"面向开发者说明网站提供的能力和适用场景",
-    "audience":"技术团队",
-    "keywords":["开发工具"],
-    "language":"zh-CN",
-    "tone":"准确、克制",
-    "minCharacters":600,
-    "maxCharacters":1800,
-    "maxKeywords":8,
-    "excludedKeywords":[],
-    "requiredSections":["网站概述","适用场景","使用建议"]
-  }'
-```
-
-异步接口返回任务 ID。查询：
-
-```bash
-curl http://127.0.0.1:8080/api/v1/jobs/<job-id>
-```
-
-完整 API、请求字段和角色要求见 [REST API 参考](docs/API_REFERENCE.md)。
-
-## 内容与发布模型
-
-三类来源统一生成 `Article`：
-
-- `GIT`：关联项目和 Commit。
-- `TOPIC`：保存主题、受众、文章类型、知识级别和参考说明。
-- `WEBSITE`：保存规范化网站 URL、标题、推荐角度和受众。
-
-文章初始状态为 `DRAFT`。Editor/Admin 可以编辑草稿和驳回稿；Admin 审核后进入 `APPROVED`。成功发布至少一个渠道后进入 `PUBLISHED`。
-
-API 发布支持 DEV、WordPress、Discourse、GitHub Discussions、Twitter/X、Reddit、Hashnode、Mastodon、Ghost；Medium 只支持已有合法 Integration Token 的存量账号。
-
-人工发布支持小红书、CSDN、掘金、知乎、博客园、SegmentFault、V2EX、开源中国、LinkedIn、微信公众号、简书、今日头条、B 站专栏、51CTO 博客、腾讯云、阿里云和华为云。
-
-平台不会保存第三方密码、Cookie 或验证码，也不会模拟登录或绕过平台开放接口。
-
-## 配置
-
-`.env.example` 是变量模板，不是可以直接用于生产的秘密文件。完整变量、默认值、主密钥要求和部署差异见 [运维手册](docs/OPERATIONS.md)。
-
-两个关键主密钥：
+`.env.example` 只提供变量清单，不是生产 Secret。两个 Base64 32 字节主密钥必须独立生成、备份并限制访问：
 
 ```bash
 openssl rand -base64 32
 ```
 
-- `PUBLISHER_SECRETS_ENCRYPTION_KEY`：加密租户级 AI API Key。
-- `PUBLISHER_CHANNELS_ENCRYPTION_KEY`：加密渠道凭据。
+- `PUBLISHER_SECRETS_ENCRYPTION_KEY`：租户 AI API Key。
+- `PUBLISHER_CHANNELS_ENCRYPTION_KEY`：渠道凭据。
 
-当前没有主密钥在线迁移能力；生产主密钥不能直接替换。
+当前没有主密钥在线轮换迁移；丢失或直接替换会使历史密文不可恢复。
 
-## 部署
-
-### Docker Compose
+## 构建与不可变发布物
 
 ```bash
-install -d -m 750 /data/services/content-publisher/data
-install -m 600 .env.example /data/services/content-publisher/.env
-
-docker compose \
-  --env-file /data/services/content-publisher/.env \
-  -f /data/projects/content-publisher/deploy/compose.yaml \
-  up -d --build
+./scripts/release
 ```
 
-当前 Compose 模板按 JWT 模式设计并要求 OIDC Issuer，而且只透传部分环境变量。部署前必须阅读 [Compose 当前限制](docs/OPERATIONS.md#71-当前模板限制)，不能假定 `.env.example` 中的所有变量都会自动进入容器。
+输出目录：
 
-### systemd
+```text
+target/releases/<version>-<12位Git SHA>/
+```
 
-systemd 模板使用：
+包含：
 
-- JAR：`/data/services/content-publisher/app/content-publisher.jar`。
-- 环境文件：`/data/services/content-publisher/config/content-publisher.env`。
-- 日志：`/data/services/content-publisher/logs/application.log`。
+- `content-publisher-<release-id>.jar`
+- `content-publisher-<release-id>.cdx.json`
+- `release.properties`
+- `SHA256SUMS`
 
-完整目录创建、制品安装、`daemon-reload`、健康检查和回滚步骤见 [systemd 原生 JAR 部署](docs/OPERATIONS.md#8-systemd-原生-jar)。
+Docker 镜像同样必须使用“版本 + Git SHA”不可变标签，禁止正式版本只标记为 `latest`。
 
-## 健康与监控
+## Dokploy 部署边界
 
-- `GET /actuator/health`
-- `GET /actuator/health/liveness`
-- `GET /actuator/health/readiness`
-- Portal：`/monitoring`
-- API：`/api/v1/monitoring/summary`
+正式目标为 `miles-01` 的 Dokploy/Traefik。模板为 `deploy/dokploy-compose.yaml`：
 
-生产应监控任务积压、重试、失败发布、数据库连接、外部调用超时、磁盘和 readiness。
+- 应用运行身份 `10001:10001`。
+- 应用只 `expose: 8080`，不配置宿主机 `ports`。
+- Traefik 通过外部 `dokploy-network` 访问应用。
+- PostgreSQL 仅位于内部 `backend` 网络并使用命名卷。
+- 应用根文件系统只读，临时目录使用 tmpfs，启用 `no-new-privileges`。
+- 不包含 Caddy；不能与 Dokploy Traefik 混用第二套公网入口。
 
-## 当前限制
+实际部署前必须确认 Git/镜像交付路径、生产认证方式、管理员策略、两个主密钥、数据库备份/迁移、域名当前源站和 Cloudflare 切换授权。仅存在模板不等于已经部署。
 
-- 没有独立审核历史表；审核动作目前保存在审计日志。
-- 没有主加密密钥在线迁移。
-- 没有 UTM 策略、可视化发布日历、效果回收和 OAuth 到期提醒。
-- 没有 PostgreSQL Testcontainers 验证；集成测试当前使用 H2 PostgreSQL Compatibility Mode。
-- 没有自动生成的 OpenAPI 制品；接口清单由 Controller、DTO 和 `API_REFERENCE.md` 共同维护。
-- Compose 模板尚未完整覆盖 LOCAL 模式和所有应用环境变量。
+## 健康与指标
 
-## 文档维护
+- `/actuator/health`
+- `/actuator/health/liveness`
+- `/actuator/health/readiness`
+- `/actuator/prometheus`（Admin）
+- `/monitoring`
+- `/api/v1/monitoring/summary`
 
-本仓库把文档视为交付门禁：
+新增低基数 Gauge：
 
-1. 修改业务规则、页面或状态时更新 `FUNCTIONAL_SPEC.md`。
-2. 修改框架、模块、组件、数据流、数据库、配置、安全或测试时更新 `TECHNICAL_DEVELOPMENT.md`。
-3. 修改 Controller、DTO、角色、错误码或状态码时更新 `API_REFERENCE.md`。
-4. 修改环境变量、部署、迁移、健康检查或回滚时更新 `OPERATIONS.md`。
-5. 所有用户可见能力或启动方式变化都更新本 README。
+- `publisher.jobs.pending`
+- `publisher.jobs.retry_wait`
+- `publisher.jobs.running`
+- `publisher.jobs.failed`
+- `publisher.jobs.oldest_pending.seconds`
+- `publisher.publications.published`
+- `publisher.publications.failed`
+- `publisher.channels.verification_failed`
 
-不得提交只有代码或运行配置变化、没有任何文档同步记录的变更。
+## SEO 与索引策略
+
+本项目是认证后台而非公开内容站。全部顶层 Thymeleaf 模板必须包含：
+
+```html
+<meta name="robots" content="noindex,nofollow">
+```
+
+因此本轮自动化页面不进入搜索引擎索引；不存在面向公开搜索流量的结构化数据或站点地图需求。
+
+## 当前限制与风险
+
+- 审核事实仍使用通用审计日志，没有独立审核历史模型。
+- 主加密密钥没有版本化和在线迁移。
+- Worker 仍为单线程轮询，没有可配置并发和独立死信表。
+- PostgreSQL 锁与串行化语义需要在可用 Docker/Testcontainers 环境持续验证。
+- 浏览器端尚无完整 E2E 测试。
+- Webhook 地址虽在保存和投递前校验 DNS，但 DNS 校验与 Java HttpClient 建连间仍存在 rebinding 时间窗；生产必须配合出站网络策略。
+- UTM、效果回收、OAuth 到期提醒尚未实现。

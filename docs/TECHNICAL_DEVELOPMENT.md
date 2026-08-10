@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-07-22 |
+| 文档基线 | 2026-08-10 |
 | 适用版本 | `0.1.0-SNAPSHOT` |
 | 架构形态 | 模块化单体 |
 | 主包名 | `io.contentpublisher.platform` |
@@ -43,8 +43,8 @@
 | 技术 | 当前版本/来源 | 用途 |
 |---|---|---|
 | Java | 17 | 语言与运行时 |
-| Spring Boot Parent | 3.5.13 | 依赖管理和应用框架 |
-| Maven | 3.6.3+ | 多模块构建 |
+| Spring Boot Parent | 3.5.16 | 依赖管理和应用框架 |
+| Maven Wrapper | 3.9.11 | 多模块可复现构建 |
 | Maven Enforcer Plugin | 3.5.0 | 强制 Java 和 Maven 版本 |
 | Spring Boot Maven Plugin | 由 Boot 管理 | 可执行 JAR |
 | Eclipse Temurin | 17 JRE | Docker 运行镜像 |
@@ -59,6 +59,7 @@
 | Spring Security | 权限、Session、CSRF、Bearer Token |
 | OAuth2 Resource Server | OIDC/JWT 验证 |
 | BCrypt | LOCAL 密码哈希，强度 12 |
+| Springdoc | 2.8.17 | OpenAPI 生成；生产在线端点默认关闭 |
 | 原生 JavaScript/CSS | Portal 交互和响应式样式，无前端构建链 |
 
 ### 3.3 数据与外部内容
@@ -66,12 +67,12 @@
 | 技术 | 当前版本/来源 | 用途 |
 |---|---|---|
 | Spring Data JPA / Hibernate | Boot 管理 | ORM 和事务 |
-| PostgreSQL Driver | Boot 管理 | 生产数据库连接 |
-| Flyway Core + PostgreSQL | Boot 管理 | V1–V18 迁移 |
+| PostgreSQL Driver | 42.7.13 | 生产数据库连接 |
+| Flyway Core + PostgreSQL | Boot 管理 | V1–V20 迁移 |
 | Eclipse JGit | 7.3.0.202506031305-r | 安全浅克隆和仓库分析 |
 | Jsoup | 1.18.3 | 网站 HTML 文本提取 |
 | CommonMark | 0.24.0 | Markdown 解析与安全渲染 |
-| Jackson Databind | Boot 管理 | JSON、任务 Payload 和外部协议 |
+| Jackson Databind | 2.21.5 | JSON、任务 Payload 和外部协议 |
 | Java HttpClient | JDK 17 | AI、网站和渠道 HTTP 调用 |
 
 ### 3.4 测试与运维
@@ -83,9 +84,20 @@
 | Mockito | 外部端口替身 |
 | MockMvc / Spring Security Test | REST、安全和 CSRF |
 | H2 PostgreSQL Compatibility Mode | 自动化集成测试数据库 |
+| Testcontainers | 1.21.4 | 具备 Docker 权限时验证真实 PostgreSQL |
+| JaCoCo | 0.8.13 | 覆盖率报告 |
+| CycloneDX | 2.9.3 | 聚合 SBOM |
+| OWASP Dependency Check | 12.2.2（临时固定；13.0.0 无 NVD API Key 时存在更新缺陷） | 依赖漏洞门禁；优先使用环境变量中的 NVD Key，无 Key 时使用每日只读 NVD 缓存 |
 | Spring Boot Actuator | health、info、metrics、prometheus |
-| Docker / Compose | 容器构建与双服务模板 |
-| systemd | 原生 JAR 服务模板 |
+| Docker / Compose / Dokploy | 非 root 镜像、本地数据库和正式交付模板 |
+| GitHub Actions / Dependabot | 验证、Secret 扫描、安全扫描、发布物与依赖更新 |
+
+Spring Boot 3.5.16 的 BOM 之外，项目显式固定 Commons Lang 3.20.0、Jackson
+2.21.5、Log4j 2.26.1、pgJDBC 42.7.13 和嵌入式 Tomcat 10.1.57，以纳入对应维护
+分支已经发布的安全修复。`config/dependency-check-suppressions.xml` 只临时忽略
+`CVE-2026-66299`：该问题仅存在于完整 Tomcat 发行包的 WebSocket chat 示例，
+应用仅打包 `tomcat-embed-core`，不包含 examples Web 应用。该规则设置
+`2026-09-15` 到期门禁，并应在 Tomcat 10.1.58 或后续修复版本发布后删除。
 
 ## 4. 系统上下文
 
@@ -104,7 +116,7 @@ Spring MVC + Spring Security
         ├── OpenAI 兼容 AI / Java HttpClient
         └── 官方发布渠道 / 独立 ChannelPublisher
 
-后台 DurableJobWorker 从 PostgreSQL 领取任务并调用上述外部适配器。
+后台 DurableJobWorker 从 PostgreSQL 领取任务并调用上述外部适配器；ChannelHealthScheduler、NotificationWebhookDispatcher 和 OperationalMetrics 分别执行渠道巡检、通知投递和低基数指标刷新。
 ```
 
 系统没有消息队列。`jobs` 表同时承担队列、调度、租约、进度、结果和失败事实。
@@ -199,6 +211,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `ContentGenerationApplicationService` | Git、主题、网站三类内容生成与文章幂等保存 |
 | `ProjectApplicationService` | 项目查询和兼容门面 |
 | `JobApplicationService` | 任务提交、幂等、配额、批次、调度、取消和发布重试 |
+| `AutomationApplicationService` | 草稿、生成预设、动作台、日历、通知、Webhook 端点、投递与人工发布进度 |
 | `ArticleEditorialApplicationService` | 编辑、版本、审核、驳回和历史版本恢复 |
 | `AiSettingsApplicationService` | 租户 AI 设置、地址校验、API Key 加密和版本控制 |
 | `ChannelAccountApplicationService` | 渠道账号创建、修改、启停、验证和凭据轮换 |
@@ -226,6 +239,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | 项目与内容 | `ProjectRepository`、`RepositorySnapshotStore`、`RepositoryInspector`、`ArticleRepository` |
 | AI 与网站 | `ContentGenerator`、`WebsiteInspector`、`AiProviderSettingsRepository`、`AiEndpointPolicy` |
 | 任务与审计 | `JobRepository`、`JobProgressReporter`、`AuditRecorder`、`MonitoringQuery` |
+| 自动化 | `AutomationRepository`、`WebhookEndpointPolicy` |
 | 发布 | `ChannelAccountRepository`、`PublicationRepository`、`ManualPublicationRepository`、`ChannelPublisher` |
 | 渠道安全 | `CredentialVault`、`ChannelEndpointPolicy`、`ChannelConnectionVerifier`、`ChannelCredentialRefresher` |
 | 通用安全与渲染 | `SecretCipher`、`MarkdownRenderer` |
@@ -267,6 +281,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 - `SecretProperties`
 - `JobProperties`
 - `ChannelProperties`
+- `AutomationProperties`
 
 ### 8.2 Git
 
@@ -343,6 +358,13 @@ publisher-infrastructure → publisher-application → publisher-domain
 
 `OfficialChannelConnectionVerifier` 执行连接测试。`OfficialChannelCredentialRefresher` 为 X/Reddit 刷新 Access Token，并通过账号版本条件保存新凭据。
 
+自动化组件：
+
+- `ChannelHealthScheduler`：按陈旧阈值批量调用渠道连接验证，并在失败/恢复转换时写入去重通知。
+- `SecureWebhookEndpointPolicy`：在保存和投递前校验 HTTPS、主机和 DNS 公网地址。
+- `NotificationWebhookDispatcher`：准备“通知 × 端点”唯一投递，发送有限 JSON Payload，指数退避并限制最大尝试次数。
+- 地址校验与 Java HttpClient 建连之间仍可能存在 DNS rebinding 时间窗，生产必须配置出站网络 ACL。
+
 ### 8.7 持久化
 
 JPA Entity：
@@ -354,6 +376,7 @@ JPA Entity：
 - `PublicationEntity`、`ManualPublicationEntity`
 - `AiProviderSettingsEntity`
 - `AuditLogEntity`
+- V19/V20 自动化表由 `JdbcAutomationRepository` 通过 JDBC 显式映射，避免为轻量工作区引入额外 JPA 聚合。
 
 Adapter：
 
@@ -366,6 +389,8 @@ Adapter：
 - `JdbcMonitoringQuery`
 
 `JpaDomainMapper` 负责 Entity 与 Domain 转换。`PublisherJpaRepositories` 集中声明 Spring Data Repository。
+
+`JdbcAutomationRepository` 实现草稿、预设、通知、Webhook 端点与投递、人工发布进度、动作台、发布日历和渠道巡检查询；写操作始终携带租户/主体条件。
 
 ### 8.8 任务工作器
 
@@ -396,8 +421,10 @@ Adapter：
 | `PublicationController` | `/api/v1/publications` | 3 |
 | `MarkdownPreviewController` | `/api/v1/markdown` | 1 |
 | `MonitoringController` | `/api/v1/monitoring` | 1 |
+| `AutomationController` | `/api/v1` | 10 |
+| `JobReplayController` | `/api/v1/job-replays` | 2 |
 
-共 31 个当前业务 REST 操作。完整清单见 `API_REFERENCE.md`。
+OpenAPI 快照当前包含 45 个 REST 操作。完整路径与角色见 `API_REFERENCE.md` 和 `docs/openapi.json`。
 
 ### 9.2 Portal Controller
 
@@ -411,6 +438,8 @@ Adapter：
 | `PortalMonitoringController` | 监控大屏与局部刷新 |
 | `RecycleBinPortalController` | 软删除和恢复 |
 | `PortalAiSettingsController` | 租户 AI 设置 |
+| `AutomationPortalController` | 动作台、发布日历、生成预设和 Webhook 管理 |
+| `JobReplayPortalController` | 失败任务重放 |
 | `PasswordController` | LOCAL 改密 |
 
 `PortalModelAdvice` 注入当前用户、租户、角色和导航状态。`PortalFormSupport` 统一表单错误处理，`PortalLabels` 统一中文标签。
@@ -478,6 +507,10 @@ Git Project / TopicBrief / WebsiteBrief
 ### 10.4 编辑与审核
 
 ```text
+PUT Draft(baseVersion)
+  → 按 tenant + article + subject upsert 自动保存草稿
+  → 不创建 ArticleVersion
+
 PUT Article(expectedVersion)
   → 租户和状态检查
   → 条件更新 currentVersion
@@ -489,6 +522,8 @@ Admin approve/reject
   → 更新状态
   → 审计
 ```
+
+正式保存仍以当前文章版本为准；服务端草稿不能覆盖新版本。生成预设按租户和来源类型查询，最终请求仍经过 DTO 和领域校验。
 
 ### 10.5 API 发布
 
@@ -507,7 +542,7 @@ Admin approve/reject
   → Article PUBLISHED（成功时）
 ```
 
-外部结果不确定时不自动重试。人工重试创建新 Job 和新 Publication，不覆盖原失败记录。
+外部结果不确定时不自动重试。通用重放创建新 Job 和新 Publication，不覆盖原失败记录；批量重放先验证全部任务后在单个事务创建最多 20 个新任务。
 
 ### 10.6 人工发布
 
@@ -515,6 +550,7 @@ Admin approve/reject
 文章 + ChannelType
   → PlatformContentAdapter
   → Portal 显示派生内容
+  → 当前主体五项进度按步骤持久化
   → 用户复制并打开官方页面
   → 回填外部 HTTPS URL
   → 渠道域名校验
@@ -539,6 +575,14 @@ Admin 删除文章
 ### 10.8 监控
 
 `JdbcMonitoringQuery` 使用租户 ID 和时间窗口执行聚合查询。`MonitoringApplicationService` 用 UTC Clock 计算窗口边界，返回不可变 `MonitoringSnapshot`。
+
+### 10.9 时区计划、动作与通知
+
+- `ScheduleParser` 接收 Portal 本地日期时间、IANA 时区和可选偏移，拒绝 DST 间隙与未明确的歧义时间，再转换为 UTC `Instant`。
+- `/calendar` 按 UTC 日期窗口合并计划任务和发布事实。
+- `/actions` 查询待审核文章、失败任务、待发布文章和开放通知。
+- 通知使用租户内 `dedup_key` 唯一约束；确认和恢复状态分别保存。
+- Webhook 通过 V20 投递表保证每个通知和端点只存在一条投递事实。
 
 ## 11. 持久化任务设计
 
@@ -581,6 +625,8 @@ delay = min(initialRetryDelay × 2^(attempt - 1), maxRetryDelay)
 
 默认首次 10 秒、最大 5 分钟、最多 4 次。发布调用不在自动重试集合。
 
+人工重放适用于所有可安全重建的 `FAILED` 任务。发布结果被标记为不确定时拒绝重放；批量重放上限 20，并使用整个请求的幂等键和原子事务。
+
 ### 11.6 幂等与一致性
 
 - `jobs(tenant_id, idempotency_key)` 唯一。
@@ -604,6 +650,12 @@ delay = min(initialRetryDelay × 2^(attempt - 1), maxRetryDelay)
 | `channel_accounts` | API 渠道账号 | 租户幂等唯一、账号版本、验证结果 |
 | `publications` | API 发布事实 | 发布任务唯一、文章和账号外键、软删除 |
 | `manual_publications` | 人工发布快照 | 文章外键、软删除 |
+| `article_drafts` | 当前主体服务端草稿 | `(tenant_id, article_id, actor_subject)` 唯一 |
+| `generation_presets` | 租户生成预设 | 来源类型和名称唯一、使用次数排序 |
+| `notifications` | 去重站内通知 | 租户 `dedup_key` 唯一、确认/恢复状态 |
+| `notification_endpoints` | 租户 Webhook | 展示名称唯一 |
+| `notification_webhook_deliveries` | 通知投递状态 | `(notification_id, endpoint_id)` 唯一、到期索引 |
+| `manual_publication_progress` | 人工发布五项进度 | 租户、文章、渠道、主体唯一 |
 | `audit_logs` | 业务审计 | 租户、动作和目标索引 |
 | `local_users` | LOCAL 用户 | 用户名全局唯一、租户索引、强制改密 |
 | `local_user_roles` | LOCAL 用户角色 | `(user_id, role)` 主键，用户删除级联 |
@@ -650,6 +702,8 @@ V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `del
 | V16 | 软删除回收站 |
 | V17 | 渠道连接验证 |
 | V18 | Hashnode 地址更新 |
+| V19 | 草稿、生成预设、通知、Webhook 端点和人工发布进度 |
+| V20 | Webhook 投递去重、重试状态和到期索引 |
 
 已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。
 
@@ -664,6 +718,7 @@ V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `del
 - 账号创建返回 201。
 - 软删除和恢复返回 204。
 - 错误响应有稳定 code、Trace ID 和字段错误。
+- OpenAPI 由 `OpenApiContractTest` 生成到 `docs/openapi.json`，生产在线端点默认关闭。
 
 ### 13.2 认证与 CSRF
 
@@ -706,6 +761,8 @@ Git、网站、AI 和自托管渠道都执行：
 - DNS 解析后的回环、私网、链路本地和组播拒绝。
 - 禁止或限制重定向。
 - 实际外部调用前重复校验。
+
+通知 Webhook 使用同类策略；当前未把预解析 IP 绑定到 HttpClient 连接，因此仍要求网络层拒绝私网、回环和元数据地址。
 
 生产仍需出站网络策略，应用校验不能代替网络隔离。
 
@@ -752,6 +809,9 @@ Git、网站、AI 和自托管渠道都执行：
 - 管理后台是私有应用，所有模板设置 `noindex,nofollow`。
 - 共享 Sidebar/Topbar 片段建立页面层级。
 - 原生 JS 提供移动端导航、焦点恢复、复制、字数统计、脏表单提醒、局部轮询和 CSRF Header。
+- 编辑页提供节流自动保存、离开保护和服务端草稿恢复；创建页支持生成预设。
+- 人工发布页保存复制标题、复制正文、打开编辑器、检查格式和发布五项进度。
+- 动作台、日历和自动化设置采用完整视口工作区，不以大面积卡片堆叠替代信息层级。
 - 发布批次存在活动任务时每 5 秒刷新局部 HTML。
 - 页面应处理空、加载、错误、权限、长文本和移动端状态。
 - 关键写操作使用确认或明确按钮文案。
@@ -770,7 +830,7 @@ Git、网站、AI 和自托管渠道都执行：
 - 渠道启停、主密钥、允许主机和超时。
 - Actuator 暴露和 UTC Hibernate。
 
-完整 46 个应用环境变量、部署辅助变量、默认值和影响见 `OPERATIONS.md`。新增 `@ConfigurationProperties` 字段时必须：
+完整应用环境变量、部署辅助变量、默认值和影响见 `OPERATIONS.md`。新增 `@ConfigurationProperties` 字段时必须：
 
 1. 更新 `application.yml`。
 2. 更新 `.env.example`。
@@ -790,6 +850,11 @@ Git、网站、AI 和自托管渠道都执行：
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
 | 持久化与租户 | `TenantPersistenceIntegrationTest` | Flyway、JPA、租户、审计、并发 |
+| 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、进度和投递 |
+| 渠道巡检/Webhook | `ChannelHealthSchedulerTest`、`SecureWebhookEndpointPolicyTest`、自动化持久化测试 | 转换通知、去重、投递状态、SSRF |
+| 时区与重放 | `ScheduleParserTest`、`JobApplicationServiceTest` | DST、单个/批量原子重放和不确定发布门禁 |
+| OpenAPI | `OpenApiContractTest` | 快照生成与差异门禁 |
+| PostgreSQL/恢复 | `PostgresPersistenceIntegrationTest`、`RestoreDrillIntegrationTest` | Docker 可用时的真实数据库和隔离恢复 |
 | 安全 | `SecurityIntegrationTest`、`LocalSecurityIntegrationTest` | JWT、LOCAL、CSRF、角色、改密 |
 | 架构 | `ArchitectureBoundaryTest` | 模块依赖和入口边界 |
 | 上下文 | `PublisherApplicationTest` | Bean、Flyway、Hibernate 装配 |
@@ -798,7 +863,8 @@ Git、网站、AI 和自托管渠道都执行：
 ### 17.2 验证命令
 
 ```bash
-mvn clean verify
+./scripts/dev verify
+./scripts/openapi check
 ```
 
 ### 17.3 新增功能要求
@@ -816,22 +882,22 @@ mvn clean verify
 
 ### 17.4 当前测试缺口
 
-- 没有 PostgreSQL Testcontainers。
-- 没有真实多实例数据库锁集成测试。
+- Testcontainers 已提供，但在当前用户无 Docker socket 权限时会跳过；跳过不代表真实 PostgreSQL 通过。
+- 没有真实多实例数据库锁压力测试。
 - 没有浏览器级端到端自动化。
-- 没有自动 OpenAPI 契约测试。
-- 没有生产备份恢复自动化演练。
-
-这些缺口不能被现有 H2 测试结果掩盖。
+- 恢复演练脚本已提供，但必须使用真实备份、真实主密钥和隔离 Docker 环境实际运行。
 
 ## 18. 构建、部署与运维
 
 ### 18.1 构建
 
 - 根 Maven Reactor 构建四个模块。
-- Web 模块生成可执行 Spring Boot JAR。
-- Dockerfile 从 `publisher-web/target/publisher-web-*.jar` 构建非 root 镜像。
+- Maven Wrapper 固定构建工具；JaCoCo、CycloneDX 和 OpenAPI 契约纳入门禁。
+- Web 模块生成唯一可执行 `publisher-web/target/content-publisher.jar`。
+- Dockerfile 使用多阶段构建并生成非 root 镜像。
 - 容器工作目录为 `/data/services/content-publisher`，用户 UID 10001。
+- `scripts/release` 先拒绝脏 Git 工作区，再生成与版本-Git SHA 严格对应的不可变
+  JAR、SBOM、属性和 SHA-256 清单。
 
 ### 18.2 健康
 
@@ -842,10 +908,11 @@ mvn clean verify
 
 ### 18.3 部署模板
 
-- Compose：PostgreSQL + 应用，数据库数据绑定到 `/data/services/content-publisher/data/postgres`，Git 临时目录使用 tmpfs。
-- systemd：原生 JAR、受限用户、只读系统保护、显式可写目录和文件日志。
-
-Compose 当前按 JWT 模式设计且未透传所有应用变量。具体限制、systemd 路径、备份、迁移、健康、回滚和故障排查见 `OPERATIONS.md`。
+- `deploy/dev-compose.yaml`：仅本地 PostgreSQL。
+- `deploy/compose.yaml` 和 systemd：兼容路径，不是 `miles-01` 的正式入口。
+- `deploy/dokploy-compose.yaml`：PostgreSQL 内部网络、应用 `10001:10001`、无 published port、外部 `dokploy-network`、只读根文件系统、tmpfs 和 readiness。
+- `miles-01` 公网入口只使用 Dokploy Traefik，不包含或启动 Caddy。
+- GitHub Actions 提供 verify、安全扫描和不可变 release artifact；正式部署仍需授权的 Git/镜像交付路径。
 
 ## 19. 扩展规范
 
@@ -889,12 +956,11 @@ Compose 当前按 JWT 模式设计且未透传所有应用变量。具体限制�
 
 1. 审核事实只有通用审计，没有独立审核历史模型。
 2. 主密钥没有版本化和在线迁移。
-3. Worker 单线程轮询，没有可配置并发。
-4. 没有死信表、管理员批量重放和任务级指标告警。
-5. H2 不能完全代表 PostgreSQL 锁和串行化语义。
-6. Compose 未覆盖 LOCAL Profile 和全部环境变量。
-7. API 文档为人工维护，尚未生成 OpenAPI。
-8. 发布效果、UTM、日历和 OAuth 到期提醒未实现。
+3. Worker 单线程轮询，没有可配置并发和独立死信表。
+4. H2 不能完全代表 PostgreSQL 锁和串行化语义，Testcontainers 仍依赖可用 Docker。
+5. 没有浏览器级 E2E。
+6. Webhook DNS 校验与 HttpClient 建连之间仍有 rebinding 时间窗。
+7. 发布效果、UTM 和 OAuth 到期提醒未实现。
 
 ## 21. 文档维护门禁
 
@@ -919,4 +985,4 @@ Compose 当前按 JWT 模式设计且未透传所有应用变量。具体限制�
 
 ### 21.3 当前文档基线记录
 
-2026-07-22：按当前代码重建 README、业务说明、技术设计、API 参考、运维手册和发布流程；纠正三类内容来源、31 个 REST 操作、27 个渠道、任务取消状态、AI Key 加密落库、LOCAL Session、安全配置、数据库表和部署路径等历史不一致。此次只修改文档和全局开发规范，外部运行行为不变。
+2026-08-10：同步自动保存与预设、动作台/通知/日历、时区发布、人工进度、通用任务重放、渠道巡检、Webhook、低基数指标、Flyway V20、OpenAPI、Maven Wrapper、CI/SBOM/安全扫描、不可变发布物和 Dokploy/Traefik 部署边界。

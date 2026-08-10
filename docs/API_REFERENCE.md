@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-07-22 |
+| 文档基线 | 2026-08-10 |
 | API 前缀 | `/api/v1` |
 | 实现入口 | `publisher-web/.../controller/*Controller.java` |
 | 请求模型 | `publisher-web/.../dto/*Request.java` |
@@ -46,14 +46,15 @@
 - Git、主题和网站三类文章生成。
 - 渠道账号创建。
 - 单渠道发布、批量发布。
-- 失败发布人工重试。
+- 兼容的失败发布重试接口。
+- 单个或批量失败任务重放。
 
 键格式为 8–128 位字母、数字、点、下划线、冒号或连字符。同租户同键同请求返回原资源；同键不同请求返回 `409 IDEMPOTENCY_KEY_CONFLICT`。
 
 ### 2.5 时间、ID 与内容类型
 
 - ID 使用 UUID。
-- 时间使用 UTC ISO-8601，例如 `2026-07-22T10:30:00Z`。
+- 时间使用 UTC ISO-8601，例如 `2026-08-10T10:30:00Z`。
 - 请求和响应默认使用 `application/json`。
 - 异步提交成功返回 `202 Accepted`；项目导入、文章生成和单渠道发布返回 `Location: /api/v1/jobs/{jobId}`。
 
@@ -121,13 +122,18 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 |---|---|---|---|
 | GET | `/api/v1/articles/{articleId}` | Viewer/Editor/Admin | 查询当前文章 |
 | GET | `/api/v1/articles/{articleId}/versions` | Viewer/Editor/Admin | 查询不可变版本 |
+| GET | `/api/v1/articles/{articleId}/draft` | Viewer/Editor/Admin | 查询当前主体的服务端草稿；不存在返回 204 |
 | PUT | `/api/v1/articles/{articleId}` | Editor/Admin | 编辑草稿或驳回稿 |
+| PUT | `/api/v1/articles/{articleId}/draft` | Editor/Admin | 保存当前主体的自动保存草稿 |
+| DELETE | `/api/v1/articles/{articleId}/draft` | Editor/Admin | 删除当前主体的服务端草稿 |
 | POST | `/api/v1/articles/{articleId}/approve` | Admin | 审核通过 |
 | POST | `/api/v1/articles/{articleId}/reject` | Admin | 驳回 |
 | DELETE | `/api/v1/articles/{articleId}` | Admin | 软删除文章及关联记录 |
 | POST | `/api/v1/articles/{articleId}/restore` | Admin | 从回收站恢复 |
 
 编辑请求必须包含 `expectedVersion`。标题最长 500，摘要最长 2000，中英文 Markdown 各最长 20000；标签最多 15 项，关键词最多 30 项。没有任何英文字段时只更新中文稿；提交英文字段时服务端同时保存英文版本。
+
+草稿保存使用 `baseVersion` 而不是 `expectedVersion`，并按“租户 + 文章 + 当前主体”隔离。草稿不创建正式文章版本，也不能绕过正式保存时的版本冲突检查。正式保存成功后客户端可删除对应草稿。
 
 驳回请求：
 
@@ -188,6 +194,8 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 | GET | `/api/v1/jobs/{jobId}` | Viewer/Editor/Admin | 否 | 查询状态、进度和结果 |
 | POST | `/api/v1/jobs/{jobId}/cancel` | Editor/Admin | 资源状态幂等 | 取消未领取任务 |
 | POST | `/api/v1/jobs/{jobId}/publication-retry` | Editor/Admin | 是 | 为失败发布创建新任务 |
+| POST | `/api/v1/job-replays/{jobId}` | Editor/Admin | 是 | 通用重放单个失败任务 |
+| POST | `/api/v1/job-replays?jobIds=...` | Editor/Admin | 是 | 原子重放 1–20 个失败任务 |
 | DELETE | `/api/v1/jobs/{jobId}` | Admin | 否 | 软删除终态任务 |
 | POST | `/api/v1/jobs/{jobId}/restore` | Admin | 否 | 恢复已删除任务 |
 
@@ -195,9 +203,27 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 任务状态：`PENDING`、`RUNNING`、`RETRY_WAIT`、`SUCCEEDED`、`FAILED`、`CANCELLED`。
 
-只有未被领取的 `PENDING` 或 `RETRY_WAIT` 可以取消。只有 `FAILED` 的发布任务可以人工重试；重试创建新任务，不覆盖原失败事实。
+只有未被领取的 `PENDING` 或 `RETRY_WAIT` 可以取消。通用重放只接受 `FAILED` 任务，创建新任务并保留原失败事实；批量重放先验证全部任务，再原子创建最多 20 个新任务。发布任务在外部结果不确定时被门禁，操作者必须先核对第三方平台，系统不会盲目重放。
 
-## 8. 工具与监控
+## 8. 自动化工作区
+
+| 方法 | 路径 | 角色 | 说明 |
+|---|---|---|---|
+| GET | `/api/v1/generation-presets?sourceType=PROJECT|TOPIC|WEBSITE` | Viewer/Editor/Admin | 查询租户生成预设 |
+| POST | `/api/v1/automation/presets` | Admin | 创建或更新命名预设 |
+| DELETE | `/api/v1/automation/presets/{presetId}` | Admin | 删除预设 |
+| GET | `/api/v1/notifications?includeAcknowledged=false` | Viewer/Editor/Admin | 查询站内通知 |
+| POST | `/api/v1/notifications/{notificationId}/acknowledge` | Viewer/Editor/Admin | 确认通知 |
+| PUT | `/api/v1/articles/{articleId}/manual/{channelType}/progress` | Editor/Admin | 保存五项人工发布进度 |
+| GET | `/api/v1/automation/notification-endpoints` | Admin | 查询 Webhook 端点 |
+| POST | `/api/v1/automation/notification-endpoints` | Admin | 保存 Webhook 端点 |
+| DELETE | `/api/v1/automation/notification-endpoints/{endpointId}` | Admin | 删除 Webhook 端点 |
+
+人工发布进度字段为 `copiedTitle`、`copiedContent`、`openedEditor`、`checkedFormat` 和 `published`，并按租户、文章、渠道、当前主体隔离。
+
+生成预设包含名称、来源类型、语言、语气、长度、关键词上限、必备章节以及来源特定字段；名称在租户和来源类型内唯一。Webhook URL 最长 2048，只允许通过服务端端点策略的 HTTPS 公网地址。
+
+## 9. 工具与监控
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|
@@ -206,7 +232,7 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 监控接口可选 `range` 参数：`24h`、`7d`、`30d`，缺省或未知值按 `24h`。响应包含项目、文章、来源、任务、发布、账号和渠道表现统计。
 
-## 9. 健康检查
+## 10. 健康检查
 
 | 路径 | 权限 | 用途 |
 |---|---|---|
@@ -216,27 +242,27 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 | `/actuator/info` | 匿名 | 应用信息 |
 | 其他 `/actuator/**` | Admin | metrics、prometheus 等管理端点 |
 
-## 10. 响应模型
+## 11. 响应模型
 
-### 10.1 任务响应
+### 11.1 任务响应
 
 核心字段包括 `id`、`type`、`status`、`attempt`、`maxAttempts`、`progressPercent`、`progressLabel`、`progressDetail`、`batchId`、`scheduledAt`、`resultResourceId`、`resultResourceType`、错误信息和时间。
 
-### 10.2 文章响应
+### 11.2 文章响应
 
 响应包含来源类型与来源信息、项目 ID、中文与英文内容、标签、关键词、语言、源版本、状态、当前版本和时间。来源类型为 `GIT`、`TOPIC` 或 `WEBSITE`。
 
-### 10.3 渠道账号响应
+### 11.3 渠道账号响应
 
 响应包含 ID、类型、展示名称、安全地址、账号版本、启停状态、验证状态、有限验证说明和时间，不包含任何凭据。
 
-### 10.4 错误响应
+### 11.4 错误响应
 
 应用异常、参数校验、缺少请求头和数据库并发冲突使用完整错误体：
 
 ```json
 {
-  "timestamp": "2026-07-22T10:30:00Z",
+  "timestamp": "2026-08-10T10:30:00Z",
   "status": 409,
   "code": "IDEMPOTENCY_KEY_CONFLICT",
   "message": "幂等键已用于不同请求",
@@ -256,7 +282,7 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 }
 ```
 
-## 11. 错误码与 HTTP 映射
+## 12. 错误码与 HTTP 映射
 
 | HTTP | 主要错误 |
 |---:|---|
@@ -271,13 +297,14 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 错误码是兼容合同。修改错误文案通常兼容；删除或重命名错误码、字段或路径需要明确版本策略。
 
-## 12. 当前限制
+## 13. OpenAPI 契约与当前限制
 
-- 当前没有自动生成的 OpenAPI 文件，本文档与 Controller/DTO 共同构成接口清单。
+- `docs/openapi.json` 是由 `OpenApiContractTest` 生成并纳入版本控制的契约快照；生产默认关闭在线 `/v3/api-docs`。
+- 接口变更后先审阅代码和角色，再运行 `./scripts/openapi update`，随后必须运行 `./scripts/openapi check`。不能通过盲目更新快照掩盖意外路径或模型变化。
 - REST API 目前提供资源详情和部分统一列表；项目、文章和任务的复杂筛选主要由 Portal 页面使用应用服务完成。
 - 发布外部 API 通常不提供统一幂等能力；结果不确定时不会自动盲目重试。
 - Medium 仅支持已有合法 Integration Token 的存量账号，不能创建新账号。
 
-## 13. 文档同步
+## 14. 文档同步
 
 Controller 路径、Security 角色规则、DTO 字段、状态码、错误码或响应模型发生变化时，必须同步更新本文档、`FUNCTIONAL_SPEC.md`、`TECHNICAL_DEVELOPMENT.md` 和 README 中受影响的示例。
