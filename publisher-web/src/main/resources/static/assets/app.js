@@ -1,4 +1,49 @@
 (() => {
+    const themeStorageKey = 'content-publisher:theme';
+    const themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    const themeOrder = ['system', 'light', 'dark'];
+    const themeNames = {system: '跟随系统', light: '浅色', dark: '深色'};
+    const normalizeThemePreference = value => themeOrder.includes(value) ? value : 'system';
+    const resolveTheme = preference => preference === 'system'
+        ? (themeMedia.matches ? 'dark' : 'light')
+        : preference;
+    let themePreference = normalizeThemePreference(document.documentElement.dataset.themePreference);
+    const themeButtons = [...document.querySelectorAll('[data-theme-toggle]')];
+    const syncThemeButtons = () => {
+        const currentIndex = themeOrder.indexOf(themePreference);
+        const nextPreference = themeOrder[(currentIndex + 1) % themeOrder.length];
+        themeButtons.forEach(button => {
+            button.dataset.themePreference = themePreference;
+            button.setAttribute('aria-label', `当前外观：${themeNames[themePreference]}。切换为${themeNames[nextPreference]}`);
+            button.setAttribute('title', `当前：${themeNames[themePreference]}；点击切换为${themeNames[nextPreference]}`);
+            const label = button.querySelector('[data-theme-label]');
+            if (label) label.textContent = themeNames[themePreference];
+        });
+    };
+    const applyThemePreference = (preference, persist = false) => {
+        themePreference = normalizeThemePreference(preference);
+        document.documentElement.dataset.themePreference = themePreference;
+        document.documentElement.dataset.theme = resolveTheme(themePreference);
+        if (persist) {
+            try { window.localStorage.setItem(themeStorageKey, themePreference); }
+            catch (_error) { /* Theme switching still works without persisted state. */ }
+        }
+        syncThemeButtons();
+    };
+    themeButtons.forEach(button => button.addEventListener('click', () => {
+        const currentIndex = themeOrder.indexOf(themePreference);
+        applyThemePreference(themeOrder[(currentIndex + 1) % themeOrder.length], true);
+    }));
+    const handleSystemThemeChange = () => {
+        if (themePreference === 'system') applyThemePreference('system');
+    };
+    if (themeMedia.addEventListener) themeMedia.addEventListener('change', handleSystemThemeChange);
+    else themeMedia.addListener(handleSystemThemeChange);
+    window.addEventListener('storage', event => {
+        if (event.key === themeStorageKey) applyThemePreference(event.newValue);
+    });
+    applyThemePreference(themePreference);
+
     const body = document.body;
     const sidebar = document.querySelector('.app-sidebar');
     const sidebarOpeners = [...document.querySelectorAll('[data-sidebar-open]')];

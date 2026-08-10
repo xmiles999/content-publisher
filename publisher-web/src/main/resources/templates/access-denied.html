@@ -3,8 +3,13 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title>权限不足 · Content Publisher</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <link rel="stylesheet" th:href="@{/assets/app.css}"></head>
-<body class="dashboard-page"><main class="message-shell"><section class="message-card">
+    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
+<body class="dashboard-page">
+<button class="theme-toggle theme-toggle-floating" type="button" data-theme-toggle>
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.75v2M10 15.25v2M2.75 10h2M15.25 10h2M4.87 4.87l1.42 1.42M13.71 13.71l1.42 1.42M15.13 4.87l-1.42 1.42M6.29 13.71l-1.42 1.42"/><circle cx="10" cy="10" r="3.25"/></svg>
+    <span data-theme-label>跟随系统</span>
+</button>
+<main class="message-shell"><section class="message-card">
     <span class="message-code">403</span><p class="eyebrow dark">访问受限</p><h1>当前账号权限不足</h1>
     <p>该操作需要更高的租户角色。如需继续，请联系管理员分配 EDITOR 或 ADMIN 权限。</p>
     <a class="primary-link" th:href="@{/}">返回工作台</a>

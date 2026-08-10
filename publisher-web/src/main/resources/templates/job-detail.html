@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
     <title>任务详情 · Content Publisher</title><link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
+    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside><div class="app-main">
     <header th:replace="~{fragments/app-shell :: topbar('后台任务', '查看导入、生成或发布任务的实时状态')}"></header><main class="page-content narrow">
         <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>

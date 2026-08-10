@@ -148,6 +148,10 @@
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
     </button>
     <div><h1 th:text="${title}">页面标题</h1><p th:text="${subtitle}">页面说明</p></div>
+    <button class="theme-toggle topbar-theme-toggle" type="button" data-theme-toggle>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.75v2M10 15.25v2M2.75 10h2M15.25 10h2M4.87 4.87l1.42 1.42M13.71 13.71l1.42 1.42M15.13 4.87l-1.42 1.42M6.29 13.71l-1.42 1.42"/><circle cx="10" cy="10" r="3.25"/></svg>
+        <span data-theme-label>跟随系统</span>
+    </button>
     <div class="topbar-actions"><span class="environment-dot"></span><span>服务运行中</span></div>
 </header>
 </body>
