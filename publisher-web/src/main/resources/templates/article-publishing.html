@@ -2,7 +2,7 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title th:text="|发布 ${article.title} · Content Publisher|">文章发布</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}"><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('article-publishing')}"></aside>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('发布中心', '选择渠道并跟踪文章发布结果')}"></header>
         <main class="page-content">
             <section class="page-header"><div><h2 th:text="${article.title}">文章标题</h2><p th:text="|主稿 v${article.currentVersion} · ${article.language} · ${articleStatusName}|">版本信息</p></div>

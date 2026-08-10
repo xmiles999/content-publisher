@@ -2,7 +2,7 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
     <title>任务详情 · Content Publisher</title><link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
     <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('jobs')}"></aside><div class="app-main">
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside><div class="app-main">
     <header th:replace="~{fragments/app-shell :: topbar('后台任务', '查看导入、生成或发布任务的实时状态')}"></header><main class="page-content narrow">
         <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
         <section class="page-header"><div><p class="section-kicker">后台任务</p><h2>任务执行详情</h2><p th:text="|${jobDisplayName} · ${jobStatusLabel}|">任务状态</p></div><div class="header-actions"><a class="secondary-link" th:href="@{/jobs}">返回任务队列</a>

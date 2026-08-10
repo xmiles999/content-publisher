@@ -4,7 +4,7 @@
     <meta name="robots" content="noindex,nofollow"><title>发布日历 · Content Publisher</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
     <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('calendar')}"></aside>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
 <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('发布日历', '按本地时区查看未来发布任务')}"></header>
 <main class="page-content"><section class="page-header"><div><p class="section-kicker">排期</p><h2>发布日历</h2><p>服务端统一保存 UTC，页面按浏览器本地时区展示。</p></div>
 <form class="filter-bar" method="get"><label>开始<input type="date" name="from" th:value="${calendarFrom}"></label><label>结束<input type="date" name="to" th:value="${calendarTo}"></label><button class="secondary-button" type="submit">查询</button></form></section>

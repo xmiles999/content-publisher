@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <body>
-<aside id="app-sidebar" class="app-sidebar" th:fragment="sidebar(active)" aria-label="应用导航">
+<aside id="app-sidebar" class="app-sidebar" th:fragment="sidebar" aria-label="应用导航">
     <svg class="sidebar-icon-sprite" aria-hidden="true" focusable="false">
         <symbol id="nav-home" viewBox="0 0 20 20"><path d="M3.5 9.5 10 4l6.5 5.5"/><path d="M5.5 8.5V17h9V8.5M8 17v-5h4v5"/></symbol>
         <symbol id="nav-create" viewBox="0 0 20 20"><path d="M5 3.5h6l4 4V17H5z"/><path d="M11 3.5V8h4M8 12h4M10 10v4"/></symbol>
@@ -15,104 +15,131 @@
         <symbol id="nav-chevron" viewBox="0 0 20 20"><path d="m6 8 4 4 4-4"/></symbol>
     </svg>
     <div class="sidebar-brand">
-        <a th:href="@{/}" class="brand-lockup">
+        <a th:href="@{/}" class="brand-lockup" title="Content Publisher 总览">
             <img th:src="@{/assets/logo.svg}" alt="Content Publisher">
             <span><strong>Publisher</strong><small>内容分发中心</small></span>
         </a>
-        <button class="sidebar-close" type="button" data-sidebar-close aria-controls="app-sidebar" aria-label="关闭导航">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
-        </button>
+        <div class="sidebar-brand-actions">
+            <button class="sidebar-compact-toggle" type="button" data-sidebar-compact aria-controls="app-sidebar"
+                    aria-expanded="true" aria-label="切换为紧凑导航" title="切换侧栏宽度">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4h12v12H4zM8 4v12M11 8h3M11 12h3"/></svg>
+            </button>
+            <button class="sidebar-close" type="button" data-sidebar-close aria-controls="app-sidebar" aria-label="关闭导航">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg>
+            </button>
+        </div>
     </div>
 
     <nav class="sidebar-nav" aria-label="主导航">
         <h2 class="sidebar-section-title">工作空间</h2>
-        <a th:href="@{/}" th:classappend="${active == 'dashboard'} ? ' active'"
-           th:attr="aria-current=${active == 'dashboard' ? 'page' : null}">
-            <svg class="nav-icon" aria-hidden="true"><use href="#nav-home"></use></svg><span>总览</span>
+        <a th:href="@{/}" title="总览" th:classappend="${activeItem == 'dashboard'} ? ' active'"
+           th:attr="aria-current=${activeItem == 'dashboard' ? 'page' : null}">
+            <svg class="nav-icon" aria-hidden="true"><use href="#nav-home"></use></svg><span class="nav-label">总览</span>
         </a>
 
         <h2 class="sidebar-section-title">内容生产</h2>
         <div class="sidebar-nav-group" data-sidebar-group="content"
-             th:classappend="${active == 'projects'} ? ' expanded'"
-             th:attr="data-sidebar-active=${active == 'projects'}">
-            <div class="sidebar-nav-row"><a th:href="@{/projects}" th:classappend="${active == 'projects'} ? ' section-active'">
-                <svg class="nav-icon" aria-hidden="true"><use href="#nav-create"></use></svg><span>内容工作台</span></a>
-                <button class="sidebar-nav-toggle" type="button" data-sidebar-toggle aria-controls="sidebar-content-subnav" th:attr="aria-expanded=${active == 'projects'}" aria-label="展开或收起内容工作台子菜单"><span aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#nav-chevron"></use></svg></span></button></div>
+             th:classappend="${activeSection == 'content'} ? ' expanded'"
+             th:attr="data-sidebar-active=${activeSection == 'content'}">
+            <div class="sidebar-nav-row"><a th:href="@{/projects}" title="内容工作台"
+                    th:classappend="${activeSection == 'content'} ? ' section-active'"
+                    th:attr="aria-current=${activeItem == 'projects' ? 'page' : null}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#nav-create"></use></svg><span class="nav-label">内容工作台</span></a>
+                <button class="sidebar-nav-toggle" type="button" data-sidebar-toggle aria-controls="sidebar-content-subnav"
+                        th:attr="aria-expanded=${activeSection == 'content'}" aria-label="展开或收起内容工作台子菜单"><span aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#nav-chevron"></use></svg></span></button></div>
             <div id="sidebar-content-subnav" class="sidebar-subnav" role="group" aria-label="内容工作台子菜单">
-                <a th:href="@{/projects(source='website')}" th:classappend="${active == 'projects' and activeSourcePanel == 'website'} ? ' active'"
-                   th:attr="aria-current=${active == 'projects' and activeSourcePanel == 'website' ? 'page' : null}">网站推荐</a>
-                <a th:href="@{/projects(source='git')}" th:classappend="${active == 'projects' and activeSourcePanel == 'git'} ? ' active'"
-                   th:attr="aria-current=${active == 'projects' and activeSourcePanel == 'git' ? 'page' : null}">Git 项目</a>
-                <a th:href="@{/projects(source='topic')}" th:classappend="${active == 'projects' and activeSourcePanel == 'topic'} ? ' active'"
-                   th:attr="aria-current=${active == 'projects' and activeSourcePanel == 'topic' ? 'page' : null}">主题教程</a>
+                <a th:href="@{/projects(source='website')}" th:classappend="${activeItem == 'projects-website'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'projects-website' ? 'page' : null}">网站推荐</a>
+                <a th:href="@{/projects(source='git')}" th:classappend="${activeItem == 'projects-git'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'projects-git' ? 'page' : null}">Git 项目</a>
+                <a th:href="@{/projects(source='topic')}" th:classappend="${activeItem == 'projects-topic'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'projects-topic' ? 'page' : null}">主题教程</a>
             </div>
         </div>
-        <a th:href="@{/content}" th:classappend="${active == 'content'} ? ' active'"
-           th:attr="aria-current=${active == 'content' ? 'page' : null}">
-            <svg class="nav-icon" aria-hidden="true"><use href="#nav-library"></use></svg><span>内容库</span>
+        <a th:href="@{/content}" title="内容库" th:classappend="${activeItem == 'content'} ? ' active'"
+           th:attr="aria-current=${activeItem == 'content' ? 'page' : null}">
+            <svg class="nav-icon" aria-hidden="true"><use href="#nav-library"></use></svg><span class="nav-label">内容库</span>
         </a>
-        <a th:href="@{/actions}" th:classappend="${active == 'actions'} ? ' active'"
-           th:attr="aria-current=${active == 'actions' ? 'page' : null}">
-            <svg class="nav-icon" aria-hidden="true"><use href="#nav-actions"></use></svg><span>动作台</span>
+        <a th:href="@{/actions}" title="动作台" th:classappend="${activeItem == 'actions'} ? ' active'"
+           th:attr="aria-current=${activeItem == 'actions' ? 'page' : null}">
+            <svg class="nav-icon" aria-hidden="true"><use href="#nav-actions"></use></svg><span class="nav-label">动作台</span>
+            <span class="nav-count" th:if="${navigationCounts.actionCount > 0}" th:text="${navigationCounts.actionCount}">1</span>
         </a>
 
         <h2 class="sidebar-section-title">发布管理</h2>
         <div class="sidebar-nav-group" data-sidebar-group="publishing"
-             th:classappend="${active == 'publishing' or active == 'article-publishing' or active == 'channels' or active == 'calendar'} ? ' expanded'"
-             th:attr="data-sidebar-active=${active == 'publishing' or active == 'article-publishing' or active == 'channels' or active == 'calendar'}">
-            <div class="sidebar-nav-row"><a th:href="@{/publishing}" th:classappend="${active == 'publishing' or active == 'article-publishing' or active == 'channels' or active == 'calendar'} ? ' section-active'">
-                <svg class="nav-icon" aria-hidden="true"><use href="#nav-publish"></use></svg><span>发布中心</span></a>
-                <button class="sidebar-nav-toggle" type="button" data-sidebar-toggle aria-controls="sidebar-publishing-subnav" th:attr="aria-expanded=${active == 'publishing' or active == 'article-publishing' or active == 'channels' or active == 'calendar'}" aria-label="展开或收起发布管理子菜单"><span aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#nav-chevron"></use></svg></span></button></div>
+             th:classappend="${activeSection == 'publishing'} ? ' expanded'"
+             th:attr="data-sidebar-active=${activeSection == 'publishing'}">
+            <div class="sidebar-nav-row"><a th:href="@{/publishing}" title="发布中心"
+                    th:classappend="${activeSection == 'publishing'} ? ' section-active'"
+                    th:attr="aria-current=${activeItem == 'publishing' ? 'page' : null}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#nav-publish"></use></svg><span class="nav-label">发布中心</span></a>
+                <button class="sidebar-nav-toggle" type="button" data-sidebar-toggle aria-controls="sidebar-publishing-subnav"
+                        th:attr="aria-expanded=${activeSection == 'publishing'}" aria-label="展开或收起发布管理子菜单"><span aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#nav-chevron"></use></svg></span></button></div>
             <div id="sidebar-publishing-subnav" class="sidebar-subnav" role="group" aria-label="发布管理子菜单">
-                <a th:href="@{/publishing(tab='queue')}" th:classappend="${active == 'publishing' and selectedTab == 'queue'} ? ' active'"
-                   th:attr="aria-current=${active == 'publishing' and selectedTab == 'queue' ? 'page' : null}">待发布</a>
-                <a th:href="@{/publishing(tab='batches')}" th:classappend="${active == 'publishing' and selectedTab == 'batches'} ? ' active'"
-                   th:attr="aria-current=${active == 'publishing' and selectedTab == 'batches' ? 'page' : null}">执行批次</a>
-                <a th:href="@{/publishing(tab='records')}" th:classappend="${active == 'publishing' and selectedTab == 'records'} ? ' active'"
-                   th:attr="aria-current=${active == 'publishing' and selectedTab == 'records' ? 'page' : null}">发布记录</a>
-                <a th:href="@{/channels}" th:classappend="${active == 'channels'} ? ' active'"
-                   th:attr="aria-current=${active == 'channels' ? 'page' : null}">渠道管理</a>
-                <a th:href="@{/calendar}" th:classappend="${active == 'calendar'} ? ' active'"
-                   th:attr="aria-current=${active == 'calendar' ? 'page' : null}">发布日历</a>
+                <a th:href="@{/publishing(tab='queue')}" th:classappend="${activeItem == 'publishing-queue'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'publishing-queue' ? 'page' : null}">待发布
+                    <span class="nav-count" th:if="${navigationCounts.pendingPublicationCount > 0}" th:text="${navigationCounts.pendingPublicationCount}">1</span></a>
+                <a th:href="@{/publishing(tab='batches')}" th:classappend="${activeItem == 'publishing-batches'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'publishing-batches' ? 'page' : null}">执行批次</a>
+                <a th:href="@{/publishing(tab='records')}" th:classappend="${activeItem == 'publishing-records'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'publishing-records' ? 'page' : null}">发布记录</a>
+                <a th:href="@{/channels}" th:classappend="${activeItem == 'channels'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'channels' ? 'page' : null}">渠道管理</a>
+                <a th:href="@{/calendar}" th:classappend="${activeItem == 'calendar'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'calendar' ? 'page' : null}">发布日历</a>
             </div>
         </div>
 
         <h2 class="sidebar-section-title">运行维护</h2>
         <div class="sidebar-nav-group" data-sidebar-group="operations"
-             th:classappend="${active == 'monitoring' or active == 'jobs'} ? ' expanded'"
-             th:attr="data-sidebar-active=${active == 'monitoring' or active == 'jobs'}">
-            <div class="sidebar-nav-row"><a th:href="@{/monitoring}" th:classappend="${active == 'monitoring' or active == 'jobs'} ? ' section-active'">
-                <svg class="nav-icon" aria-hidden="true"><use href="#nav-operations"></use></svg><span>运行中心</span></a>
-                <button class="sidebar-nav-toggle" type="button" data-sidebar-toggle aria-controls="sidebar-operations-subnav" th:attr="aria-expanded=${active == 'monitoring' or active == 'jobs'}" aria-label="展开或收起运行维护子菜单"><span aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#nav-chevron"></use></svg></span></button></div>
+             th:classappend="${activeSection == 'operations'} ? ' expanded'"
+             th:attr="data-sidebar-active=${activeSection == 'operations'}">
+            <div class="sidebar-nav-row"><a th:href="@{/monitoring}" title="运行中心"
+                    th:classappend="${activeSection == 'operations'} ? ' section-active'"
+                    th:attr="aria-current=${activeItem == 'monitoring' ? 'page' : null}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#nav-operations"></use></svg><span class="nav-label">运行中心</span></a>
+                <button class="sidebar-nav-toggle" type="button" data-sidebar-toggle aria-controls="sidebar-operations-subnav"
+                        th:attr="aria-expanded=${activeSection == 'operations'}" aria-label="展开或收起运行维护子菜单"><span aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#nav-chevron"></use></svg></span></button></div>
             <div id="sidebar-operations-subnav" class="sidebar-subnav" role="group" aria-label="运行维护子菜单">
-                <a th:href="@{/monitoring}" th:classappend="${active == 'monitoring'} ? ' active'"
-                   th:attr="aria-current=${active == 'monitoring' ? 'page' : null}">监控大屏</a>
-                <a th:href="@{/jobs}" th:classappend="${active == 'jobs'} ? ' active'"
-                   th:attr="aria-current=${active == 'jobs' ? 'page' : null}">任务队列</a>
+                <a th:href="@{/monitoring}" th:classappend="${activeItem == 'monitoring'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'monitoring' ? 'page' : null}">监控大屏</a>
+                <a th:href="@{/jobs}" th:classappend="${activeItem == 'jobs'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'jobs' ? 'page' : null}">任务队列
+                    <span class="nav-count" th:if="${navigationCounts.jobAttentionCount > 0}" th:text="${navigationCounts.jobAttentionCount}">1</span></a>
             </div>
         </div>
-        <a th:if="${canAdmin}" th:href="@{/recycle-bin}" th:classappend="${active == 'recycle'} ? ' active'"
-           th:attr="aria-current=${active == 'recycle' ? 'page' : null}">
-            <svg class="nav-icon" aria-hidden="true"><use href="#nav-recycle"></use></svg><span>回收站</span>
+        <a th:if="${canAdmin}" th:href="@{/recycle-bin}" title="回收站" th:classappend="${activeItem == 'recycle'} ? ' active'"
+           th:attr="aria-current=${activeItem == 'recycle' ? 'page' : null}">
+            <svg class="nav-icon" aria-hidden="true"><use href="#nav-recycle"></use></svg><span class="nav-label">回收站</span>
         </a>
 
         <h2 class="sidebar-section-title" th:if="${canAdmin}">系统设置</h2>
-        <a th:if="${canAdmin}" th:href="@{/settings/ai}" th:classappend="${active == 'ai'} ? ' active'"
-           th:attr="aria-current=${active == 'ai' ? 'page' : null}">
-            <svg class="nav-icon" aria-hidden="true"><use href="#nav-ai"></use></svg><span>AI 服务</span>
+        <a th:if="${canAdmin}" th:href="@{/settings/ai}" title="AI 服务" th:classappend="${activeItem == 'ai'} ? ' active'"
+           th:attr="aria-current=${activeItem == 'ai' ? 'page' : null}">
+            <svg class="nav-icon" aria-hidden="true"><use href="#nav-ai"></use></svg><span class="nav-label">AI 服务</span>
         </a>
-        <a th:if="${canAdmin}" th:href="@{/automation}" th:classappend="${active == 'automation'} ? ' active'"
-           th:attr="aria-current=${active == 'automation' ? 'page' : null}">
-            <svg class="nav-icon" aria-hidden="true"><use href="#nav-automation"></use></svg><span>自动化设置</span>
+        <a th:if="${canAdmin}" th:href="@{/automation}" title="自动化设置" th:classappend="${activeItem == 'automation'} ? ' active'"
+           th:attr="aria-current=${activeItem == 'automation' ? 'page' : null}">
+            <svg class="nav-icon" aria-hidden="true"><use href="#nav-automation"></use></svg><span class="nav-label">自动化设置</span>
         </a>
     </nav>
 
     <div class="sidebar-footer">
-        <div class="account-card" th:title="|${currentUsername} · ${currentTenant}|">
-            <span class="account-avatar" th:text="${#strings.isEmpty(currentUsername) ? 'U' : #strings.substring(currentUsername,0,1).toUpperCase()}">A</span>
-            <span class="account-copy"><strong th:text="${currentUsername}">admin</strong><small th:text="${currentTenant}">local</small></span>
+        <div class="account-menu" data-account-menu>
+            <button class="account-card" type="button" data-account-toggle aria-expanded="false"
+                    aria-controls="sidebar-account-panel" aria-label="打开账户菜单">
+                <span class="account-avatar" th:text="${#strings.isEmpty(currentUsername) ? 'U' : #strings.substring(currentUsername,0,1).toUpperCase()}">A</span>
+                <span class="account-copy"><strong th:text="${currentUsername}">admin</strong><small th:text="${currentTenant}">local</small></span>
+                <svg class="account-chevron" viewBox="0 0 20 20" aria-hidden="true"><use href="#nav-chevron"></use></svg>
+            </button>
+            <div id="sidebar-account-panel" class="account-panel" data-account-panel hidden>
+                <header><strong th:text="${currentUsername}">admin</strong><small>当前登录账号</small></header>
+                <dl><div><dt>租户</dt><dd th:text="${currentTenant}">local</dd></div><div><dt>角色</dt><dd th:text="${#strings.listJoin(currentRoleNames, '、')}">管理员</dd></div></dl>
+                <div class="account-panel-actions"><a th:href="@{/change-password}">修改密码</a>
+                    <form th:action="@{/logout}" method="post"><button type="submit">退出登录</button></form></div>
+            </div>
         </div>
-        <form th:action="@{/logout}" method="post"><button class="logout-button" type="submit">退出</button></form>
     </div>
 </aside>
 

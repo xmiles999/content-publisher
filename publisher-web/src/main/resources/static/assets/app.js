@@ -4,6 +4,9 @@
     const sidebarOpeners = [...document.querySelectorAll('[data-sidebar-open]')];
     const sidebarClosers = [...document.querySelectorAll('[data-sidebar-close]')];
     const sidebarMedia = window.matchMedia('(max-width: 820px)');
+    const sidebarNav = sidebar?.querySelector('.sidebar-nav');
+    const sidebarFocusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]';
+    const sidebarTabIndexes = new Map();
     let sidebarOpener = null;
     let sidebarBackdrop = null;
 
@@ -16,6 +19,23 @@
         sidebar.insertAdjacentElement('afterend', sidebarBackdrop);
     }
 
+    const setSidebarFallbackDisabled = disabled => {
+        if (!sidebar || 'inert' in sidebar) return;
+        if (disabled) {
+            sidebar.querySelectorAll(sidebarFocusableSelector).forEach(element => {
+                if (!sidebarTabIndexes.has(element)) {
+                    sidebarTabIndexes.set(element, element.getAttribute('tabindex'));
+                }
+                element.setAttribute('tabindex', '-1');
+            });
+            return;
+        }
+        sidebarTabIndexes.forEach((tabIndex, element) => {
+            if (tabIndex === null) element.removeAttribute('tabindex');
+            else element.setAttribute('tabindex', tabIndex);
+        });
+        sidebarTabIndexes.clear();
+    };
     const syncSidebarAccessibility = () => {
         if (!sidebar) return;
         const mobileOpen = sidebarMedia.matches && body.classList.contains('sidebar-open');
@@ -23,9 +43,11 @@
         if (sidebarMedia.matches) {
             sidebar.setAttribute('aria-hidden', String(!mobileOpen));
             if ('inert' in sidebar) sidebar.inert = !mobileOpen;
+            setSidebarFallbackDisabled(!mobileOpen);
         } else {
             sidebar.removeAttribute('aria-hidden');
             if ('inert' in sidebar) sidebar.inert = false;
+            setSidebarFallbackDisabled(false);
         }
     };
     const closeSidebar = (restoreFocus = false) => {
@@ -54,7 +76,7 @@
             return;
         }
         if (event.key !== 'Tab') return;
-        const focusable = [...sidebar.querySelectorAll('a[href], button:not([disabled]), input:not([disabled])')]
+        const focusable = [...sidebar.querySelectorAll(sidebarFocusableSelector)]
             .filter(element => element.offsetParent !== null);
         if (!focusable.length) return;
         const first = focusable[0];
@@ -67,13 +89,66 @@
             first.focus();
         }
     });
+    const compactButton = document.querySelector('[data-sidebar-compact]');
+    const compactStorageKey = 'content-publisher:sidebar:compact';
+    let compactPreference = false;
+    try { compactPreference = window.localStorage.getItem(compactStorageKey) === 'true'; }
+    catch (_error) { /* Compact mode still works without persisted state. */ }
+    const syncCompactSidebar = () => {
+        const compact = Boolean(sidebar && compactButton && !sidebarMedia.matches && compactPreference);
+        body.classList.toggle('sidebar-compact', compact);
+        compactButton?.setAttribute('aria-expanded', String(!compact));
+        compactButton?.setAttribute('aria-label', compact ? '展开导航文字' : '切换为紧凑导航');
+        compactButton?.setAttribute('title', compact ? '展开侧栏' : '收起侧栏');
+    };
+    compactButton?.addEventListener('click', () => {
+        if (sidebarMedia.matches) return;
+        compactPreference = !compactPreference;
+        try { window.localStorage.setItem(compactStorageKey, String(compactPreference)); }
+        catch (_error) { /* Compact mode still works without persisted state. */ }
+        syncCompactSidebar();
+    });
+
+    const accountMenu = document.querySelector('[data-account-menu]');
+    const accountToggle = accountMenu?.querySelector('[data-account-toggle]');
+    const accountPanel = accountMenu?.querySelector('[data-account-panel]');
+    const closeAccountMenu = (restoreFocus = false) => {
+        if (!accountToggle || !accountPanel || accountPanel.hidden) return;
+        accountPanel.hidden = true;
+        accountToggle.setAttribute('aria-expanded', 'false');
+        accountMenu.classList.remove('open');
+        if (restoreFocus) accountToggle.focus();
+    };
+    const openAccountMenu = () => {
+        if (!accountToggle || !accountPanel) return;
+        accountPanel.hidden = false;
+        accountToggle.setAttribute('aria-expanded', 'true');
+        accountMenu.classList.add('open');
+        accountPanel.querySelector('a[href], button:not([disabled])')?.focus();
+    };
+    accountToggle?.addEventListener('click', () => {
+        if (accountPanel?.hidden) openAccountMenu();
+        else closeAccountMenu(false);
+    });
+    document.addEventListener('pointerdown', event => {
+        if (accountMenu && !accountMenu.contains(event.target)) closeAccountMenu(false);
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && accountPanel && !accountPanel.hidden) {
+            event.preventDefault();
+            closeAccountMenu(true);
+        }
+    });
+
     const handleSidebarViewport = () => {
         if (!sidebarMedia.matches) body.classList.remove('sidebar-open');
         syncSidebarAccessibility();
+        syncCompactSidebar();
     };
     if (sidebarMedia.addEventListener) sidebarMedia.addEventListener('change', handleSidebarViewport);
     else sidebarMedia.addListener(handleSidebarViewport);
     syncSidebarAccessibility();
+    syncCompactSidebar();
 
     const sidebarGroups = [...document.querySelectorAll('[data-sidebar-group]')];
     const activeSidebarGroup = sidebarGroups.find(group => group.dataset.sidebarActive === 'true');
@@ -105,9 +180,20 @@
         });
     });
     const activeSidebarLink = sidebar?.querySelector('a[aria-current="page"]');
-    if (activeSidebarLink) {
-        window.requestAnimationFrame(() => activeSidebarLink.scrollIntoView({block: 'nearest', inline: 'nearest'}));
+    if (activeSidebarLink && sidebarNav) {
+        window.requestAnimationFrame(() => {
+            const navRect = sidebarNav.getBoundingClientRect();
+            const linkRect = activeSidebarLink.getBoundingClientRect();
+            if (linkRect.top < navRect.top) {
+                sidebarNav.scrollTop -= navRect.top - linkRect.top;
+            } else if (linkRect.bottom > navRect.bottom) {
+                sidebarNav.scrollTop += linkRect.bottom - navRect.bottom;
+            }
+        });
     }
+
+    document.querySelectorAll('[data-history-back]').forEach(button =>
+        button.addEventListener('click', () => window.history.back()));
 
     const bindConfirmForms = (root = document) => {
         root.querySelectorAll('form[data-confirm]').forEach(form => {

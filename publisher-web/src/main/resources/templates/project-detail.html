@@ -2,7 +2,7 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title th:text="|${project.name} · Content Publisher|">项目详情</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}"><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('projects')}"></aside>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('项目详情', '确认项目事实并生成内容主稿')}"></header>
         <main class="page-content">
             <div class="process-rail"><div class="process-item done"><span>✓</span><div><strong>导入项目</strong><small>仓库已读取</small></div></div>

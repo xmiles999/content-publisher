@@ -2,7 +2,7 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title th:text="|发布到 ${channel.displayName()} · Content Publisher|">人工发布</title><link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
     <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('article-publishing')}"></aside>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('人工发布工作区', '复制适配内容、跳转登录并回填结果')}"></header>
         <main class="page-content"><div class="process-rail"><div class="process-item done"><span>✓</span><div><strong>主稿审核</strong><small>发布基线已锁定</small></div></div>
             <div class="process-item done"><span>✓</span><div><strong>平台适配</strong><small th:text="${channel.contentHint()}">内容已生成</small></div></div>

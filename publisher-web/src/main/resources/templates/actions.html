@@ -4,7 +4,7 @@
     <meta name="robots" content="noindex,nofollow"><title>动作台 · Content Publisher</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
     <link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('actions')}"></aside>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
 <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('动作台', '集中处理待审核、失败任务、渠道异常和未完成发布')}"></header>
 <main class="page-content"><section class="page-header"><div><p class="section-kicker">自动化收件箱</p><h2>需要你处理的事项</h2><p>只展示可执行问题，处理完成后列表会自动收敛。</p></div></section>
 <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>

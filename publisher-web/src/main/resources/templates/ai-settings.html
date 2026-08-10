@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
     <title>AI 服务 · Content Publisher</title><link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}"><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
-<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar('ai')}"></aside><div class="app-main">
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside><div class="app-main">
     <header th:replace="~{fragments/app-shell :: topbar('AI 服务', '租户级 OpenAI 兼容接口与安全策略')}"></header><main class="page-content narrow">
         <section class="page-header"><div><p class="section-kicker">服务配置</p><h2>OpenAI 兼容接口</h2><p>配置当前租户的内容生成服务。保存后立即生效，API Key 只以加密形式存入 PostgreSQL。</p></div><div class="header-actions"><a class="secondary-link" th:href="@{/projects}">返回内容中心</a></div></section>
         <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
