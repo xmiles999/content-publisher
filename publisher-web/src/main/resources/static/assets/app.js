@@ -104,6 +104,10 @@
             setSidebarGroupState(group, shouldExpand, true);
         });
     });
+    const activeSidebarLink = sidebar?.querySelector('a[aria-current="page"]');
+    if (activeSidebarLink) {
+        window.requestAnimationFrame(() => activeSidebarLink.scrollIntoView({block: 'nearest', inline: 'nearest'}));
+    }
 
     const bindConfirmForms = (root = document) => {
         root.querySelectorAll('form[data-confirm]').forEach(form => {

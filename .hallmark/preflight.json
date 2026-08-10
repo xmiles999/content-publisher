@@ -1,0 +1,8 @@
+{
+  "framework": "Spring MVC + Thymeleaf",
+  "font": "Inter-compatible system stack from publisher-web/src/main/resources/static/assets/app.css",
+  "palette": "Existing CSS custom properties in publisher-web/src/main/resources/static/assets/app.css",
+  "motion": "Native JavaScript, motion-cut with prefers-reduced-motion support",
+  "spacing": "Existing compact administration workspace scale",
+  "scanned": "2026-08-10"
+}

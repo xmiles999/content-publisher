@@ -223,6 +223,8 @@ class LocalSecurityIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-group=\"content\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-active=\"true\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-toggle")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("sidebar-icon-sprite")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("nav-icon")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("aria-controls=\"app-sidebar\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("aria-current=\"page\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
@@ -238,6 +240,17 @@ class LocalSecurityIntegrationTest {
         mockMvc.perform(get("/recycle-bin").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("已删除记录")));
+        var calendarHtml = mockMvc.perform(get("/calendar").session(session))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var publishingGroup = org.jsoup.Jsoup.parse(calendarHtml)
+                .selectFirst("div[data-sidebar-group=publishing]");
+        assertThat(publishingGroup).isNotNull();
+        assertThat(publishingGroup.attr("data-sidebar-active")).isEqualTo("true");
+        assertThat(publishingGroup.hasClass("expanded")).isTrue();
+        var calendarLink = publishingGroup.selectFirst("a[href='/calendar']");
+        assertThat(calendarLink).isNotNull();
+        assertThat(calendarLink.attr("aria-current")).isEqualTo("page");
     }
 
     @Test
