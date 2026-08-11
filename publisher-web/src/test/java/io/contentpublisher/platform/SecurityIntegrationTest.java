@@ -14,8 +14,8 @@ import java.util.UUID;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -217,5 +217,22 @@ class SecurityIntegrationTest {
         String encrypted = jdbcTemplate.queryForObject(
                 "select encrypted_credentials from channel_accounts where id = ?", String.class, accountId);
         assertThat(encrypted).startsWith("v1:").doesNotContain("rotated-secret-value");
+
+        mockMvc.perform(delete("/api/v1/channel-accounts/{accountId}", accountId)
+                        .queryParam("expectedVersion", "2").with(editor))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/v1/channel-accounts/{accountId}", accountId)
+                        .queryParam("expectedVersion", "2").with(admin))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/v1/channel-accounts/{accountId}", accountId).with(admin))
+                .andExpect(status().isNotFound());
+        assertThat(jdbcTemplate.queryForMap("""
+                select status, encrypted_credentials, credential_fingerprint, deleted_by, deleted_at
+                from channel_accounts where id = ?
+                """, accountId))
+                .containsEntry("status", "DISABLED")
+                .containsEntry("encrypted_credentials", "DELETED")
+                .containsEntry("credential_fingerprint", "DELETED")
+                .containsEntry("deleted_by", "admin");
     }
 }

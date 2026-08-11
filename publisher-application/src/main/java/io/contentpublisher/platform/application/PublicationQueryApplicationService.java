@@ -131,9 +131,7 @@ public final class PublicationQueryApplicationService {
     }
 
     private Map<UUID, String> accountNames(ActorContext actor) {
-        Map<UUID, String> names = new HashMap<>();
-        accounts.findAll(actor.tenantId()).forEach(account -> names.put(account.id(), account.displayName()));
-        return names;
+        return accounts.findDisplayNamesForPublicationHistory(actor.tenantId());
     }
 
     private PublicationRecord toRecord(Publication publication, String articleTitle,

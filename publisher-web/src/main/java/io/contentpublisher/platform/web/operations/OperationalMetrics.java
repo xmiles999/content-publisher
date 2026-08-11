@@ -63,7 +63,8 @@ public final class OperationalMetrics {
                     select count(*) from publications where deleted_at is null and status='FAILED'
                     """));
             set("publisher.channels.verification_failed", count("""
-                    select count(*) from channel_accounts where verification_status='FAILED'
+                    select count(*) from channel_accounts
+                    where deleted_at is null and verification_status='FAILED'
                     """));
             set("publisher.jobs.oldest_pending.seconds", oldestPendingSeconds());
         } catch (RuntimeException exception) {

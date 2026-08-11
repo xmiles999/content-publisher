@@ -603,6 +603,8 @@ class LocalSecurityIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-channel-dialog-open")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-channel-dialog")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("移除账号")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("改用人工发布")))
                 .andReturn().getResponse().getContentAsString();
         var channelsDocument = org.jsoup.Jsoup.parse(channelsHtml);
         assertThat(channelsDocument.select("details.table-action-menu > summary"))
@@ -631,6 +633,9 @@ class LocalSecurityIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("打开官方登录/创作页")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("个人小红书")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("持久浏览器会话")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "同时支持 API，可独立改用人工发布")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("DEV Community")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("name=\"password\""))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
@@ -648,6 +653,10 @@ class LocalSecurityIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "如果平台主动注销会话，请在打开的官方页面重新登录一次")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("PLAIN_TEXT")));
+        mockMvc.perform(get("/articles/" + articleId + "/manual/DEV").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("DEV Community")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("MARKDOWN")));
 
         mockMvc.perform(post("/articles/" + articleId + "/manual/XIAOHONGSHU").session(session).with(csrf())
                         .param("contentFormat", "PLAIN_TEXT")
@@ -695,8 +704,37 @@ class LocalSecurityIntegrationTest {
     }
 
     @Test
+    void shouldRequireAdminAndCsrfWhenRemovingPortalChannelAccount() throws Exception {
+        Instant now = Instant.parse("2026-08-11T06:00:00Z");
+        UUID accountId = UUID.randomUUID();
+        Map<String, String> credentials = Map.of("apiKey", "portal-delete-secret");
+        channelAccounts.save(new ChannelAccount(accountId, "tenant-local", ChannelType.DEV, "待移除 DEV 账号",
+                "https://dev.to", credentialVault.encrypt(credentials), "portal-delete-" + accountId,
+                "d".repeat(64), credentialVault.fingerprint(credentials), 1,
+                ChannelAccountStatus.ACTIVE, "admin", "admin", now, now));
+        MockHttpSession session = login();
+
+        mockMvc.perform(post("/channels/" + accountId + "/delete").session(session)
+                        .param("expectedVersion", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/access-denied"));
+        assertThat(channelAccounts.findChannelAccountById("tenant-local", accountId)).isPresent();
+
+        mockMvc.perform(post("/channels/" + accountId + "/delete").session(session).with(csrf())
+                        .param("expectedVersion", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/channels"));
+        assertThat(channelAccounts.findChannelAccountById("tenant-local", accountId)).isEmpty();
+        mockMvc.perform(get("/channels").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("待移除 DEV 账号"))));
+    }
+
+    @Test
     void shouldPreventEditorFromChangingManualChannelProfiles() throws Exception {
         UUID editorId = UUID.randomUUID();
+        UUID accountId = UUID.randomUUID();
         String editorUsername = "editor-manual-profile";
         String editorPassword = "Editor-password-001!";
         Instant now = Instant.parse("2026-08-10T10:00:00Z");
@@ -704,6 +742,11 @@ class LocalSecurityIntegrationTest {
                         + "created_at, updated_at, must_change_password) values (?, ?, ?, ?, true, ?, ?, false)",
                 editorId, "tenant-local", editorUsername, passwordEncoder.encode(editorPassword), now, now);
         jdbcTemplate.update("insert into local_user_roles (user_id, role) values (?, 'EDITOR')", editorId);
+        channelAccounts.save(new ChannelAccount(accountId, "tenant-local", ChannelType.DEV, "Editor 只读账号",
+                "https://dev.to", credentialVault.encrypt(Map.of("apiKey", "editor-readonly-secret")),
+                "editor-readonly-" + accountId, "e".repeat(64),
+                credentialVault.fingerprint(Map.of("apiKey", "editor-readonly-secret")), 1,
+                ChannelAccountStatus.ACTIVE, "admin", "admin", now, now));
         try {
             var login = mockMvc.perform(formLogin().user(editorUsername).password(editorPassword))
                     .andExpect(status().is3xxRedirection()).andReturn();
@@ -711,9 +754,19 @@ class LocalSecurityIntegrationTest {
 
             mockMvc.perform(get("/channels?view=manual").session(session))
                     .andExpect(status().isOk())
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("个人人工平台")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("人工发布平台")))
                     .andExpect(content().string(org.hamcrest.Matchers.not(
                             org.hamcrest.Matchers.containsString("保存个人配置"))));
+            mockMvc.perform(get("/channels").session(session))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("Editor 只读账号")))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("移除账号"))));
+            mockMvc.perform(post("/channels/" + accountId + "/delete").session(session).with(csrf())
+                            .param("expectedVersion", "1"))
+                    .andExpect(status().is3xxRedirection())
+                    .andExpect(redirectedUrl("/access-denied"));
+            assertThat(channelAccounts.findChannelAccountById("tenant-local", accountId)).isPresent();
             mockMvc.perform(post("/channels/manual/JUEJIN/profile").session(session).with(csrf())
                             .param("channelType", "JUEJIN")
                             .param("expectedVersion", "0")
@@ -722,6 +775,7 @@ class LocalSecurityIntegrationTest {
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl("/access-denied"));
         } finally {
+            jdbcTemplate.update("delete from channel_accounts where id = ?", accountId);
             jdbcTemplate.update("delete from local_users where id = ?", editorId);
         }
     }

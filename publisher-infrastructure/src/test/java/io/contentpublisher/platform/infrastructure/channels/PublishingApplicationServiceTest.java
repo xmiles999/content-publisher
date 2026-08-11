@@ -291,7 +291,8 @@ class PublishingApplicationServiceTest {
         ManualPublication manualPublication = new ManualPublication(UUID.randomUUID(), "tenant", fixture.article.id(),
                 ChannelType.XIAOHONGSHU, ContentFormat.PLAIN_TEXT, "标题", "正文",
                 "https://www.xiaohongshu.com/explore/example", "editor", NOW);
-        when(fixture.accounts.findAll("tenant")).thenReturn(List.of(fixture.account));
+        when(fixture.accounts.findDisplayNamesForPublicationHistory("tenant"))
+                .thenReturn(Map.of(fixture.account.id(), fixture.account.displayName()));
         when(fixture.publications.findRecentApi("tenant", 20)).thenReturn(List.of(apiPublication));
         when(fixture.manualPublications.findRecent("tenant", 20)).thenReturn(List.of(manualPublication));
 

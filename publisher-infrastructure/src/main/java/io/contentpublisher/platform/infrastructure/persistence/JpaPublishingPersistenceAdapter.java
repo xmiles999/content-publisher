@@ -14,8 +14,10 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Repository
 @Transactional
@@ -59,7 +61,8 @@ public class JpaPublishingPersistenceAdapter implements ChannelAccountRepository
                 account.verificationMessage(), account.lastVerifiedAt(), expectedVersion,
                 account.version(), account.updatedBy(), account.updatedAt());
         if (updated == 0) return Optional.empty();
-        return channelAccounts.findByTenantIdAndId(account.tenantId(), account.id()).map(mapper::channelAccount);
+        return channelAccounts.findByTenantIdAndIdAndDeletedAtIsNull(account.tenantId(), account.id())
+                .map(mapper::channelAccount);
     }
 
     @Override
@@ -69,33 +72,49 @@ public class JpaPublishingPersistenceAdapter implements ChannelAccountRepository
         if (channelAccounts.updateVerification(tenantId, accountId, status, message, checkedAt) == 0) {
             return Optional.empty();
         }
-        return channelAccounts.findByTenantIdAndId(tenantId, accountId).map(mapper::channelAccount);
+        return channelAccounts.findByTenantIdAndIdAndDeletedAtIsNull(tenantId, accountId)
+                .map(mapper::channelAccount);
+    }
+
+    @Override
+    public boolean softDeleteIfVersionMatches(String tenantId, UUID accountId, int expectedVersion,
+                                              String deletedBy, java.time.Instant deletedAt) {
+        return channelAccounts.softDeleteIfVersionMatches(tenantId, accountId, expectedVersion,
+                "deleted:" + accountId, io.contentpublisher.platform.domain.ChannelAccountStatus.DISABLED,
+                deletedBy, deletedAt) == 1;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<ChannelAccount> findChannelAccountById(String tenantId, UUID id) {
-        return channelAccounts.findByTenantIdAndId(tenantId, id).map(mapper::channelAccount);
+        return channelAccounts.findByTenantIdAndIdAndDeletedAtIsNull(tenantId, id).map(mapper::channelAccount);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<ChannelAccount> findChannelAccountByIdempotencyKey(String tenantId, String idempotencyKey) {
-        return channelAccounts.findByTenantIdAndIdempotencyKey(tenantId, idempotencyKey)
+        return channelAccounts.findByTenantIdAndIdempotencyKeyAndDeletedAtIsNull(tenantId, idempotencyKey)
                 .map(mapper::channelAccount);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<ChannelAccount> findAll(String tenantId) {
-        return channelAccounts.findAllByTenantIdOrderByCreatedAtDesc(tenantId).stream()
+        return channelAccounts.findAllByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(tenantId).stream()
                 .map(mapper::channelAccount).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
+    public Map<UUID, String> findDisplayNamesForPublicationHistory(String tenantId) {
+        return channelAccounts.findAllByTenantIdOrderByCreatedAtDesc(tenantId).stream()
+                .collect(Collectors.toUnmodifiableMap(account -> account.id, account -> account.displayName));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public long countAll(String tenantId) {
-        return channelAccounts.countByTenantId(tenantId);
+        return channelAccounts.countByTenantIdAndDeletedAtIsNull(tenantId);
     }
 
     @Override

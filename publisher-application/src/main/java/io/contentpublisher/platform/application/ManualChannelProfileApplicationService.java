@@ -99,7 +99,7 @@ public final class ManualChannelProfileApplicationService {
     }
 
     public static List<ChannelCatalog.ChannelDefinition> configurableChannels() {
-        return ChannelCatalog.manualOnly().stream()
+        return ChannelCatalog.all().stream()
                 .filter(ChannelCatalog.ChannelDefinition::manualAvailable)
                 .toList();
     }
@@ -107,7 +107,7 @@ public final class ManualChannelProfileApplicationService {
     private void requireManualChannel(ChannelType channelType) {
         if (channelType == null) throw invalid("人工平台不能为空");
         ChannelCatalog.ChannelDefinition definition = ChannelCatalog.definition(channelType);
-        if (definition.apiSupported() || !definition.manualAvailable()) {
+        if (!definition.manualAvailable()) {
             throw new ApplicationException("MANUAL_CHANNEL_UNAVAILABLE", "该渠道不支持人工平台配置");
         }
     }

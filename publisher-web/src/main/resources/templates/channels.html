@@ -10,9 +10,9 @@
 <div class="app-layout">
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main">
-        <header th:replace="~{fragments/app-shell :: topbar('渠道管理', '维护 API 账号和人工发布平台')}"></header>
+        <header th:replace="~{fragments/app-shell :: topbar('渠道管理', '按可用条件选择 API 或人工发布')}"></header>
         <main class="page-content">
-            <section class="page-header compact-page-header"><div><h2>发布渠道</h2><p>API 凭据加密保存；人工平台通过当前设备的持久浏览器资料复用登录状态。</p></div><div class="header-actions"><a class="secondary-link" th:href="@{/publishing}">返回发布中心</a></div></section>
+            <section class="page-header compact-page-header"><div><h2>发布渠道</h2><p>API 是可选增强；申请不到接口时，可在支持官方创作入口的平台改用人工发布。</p></div><div class="header-actions"><a class="secondary-link" th:href="@{/publishing}">返回发布中心</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
 
             <nav class="workspace-tabs" aria-label="渠道管理视图">
@@ -21,7 +21,7 @@
             </nav>
 
             <section class="workspace-panel" th:if="${selectedChannelView == 'api'}">
-                <header class="workspace-panel-header"><div><h3>API 发布账号</h3><p>账号状态、系统支持状态和凭据版本集中维护。</p></div><strong th:text="|${accounts.size()} 个账号|">0 个账号</strong></header>
+                <header class="workspace-panel-header"><div><h3>API 发布账号</h3><p>账号状态、系统支持状态和凭据版本集中维护；接口无法申请时，不必配置 API 账号。</p></div><strong th:text="|${accounts.size()} 个账号|">0 个账号</strong></header>
 
                 <details class="channel-create-panel" th:if="${canAdmin}" th:attr="open=${#lists.isEmpty(accounts) ? 'open' : null}">
                     <summary><span><strong>添加 API 账号</strong><small>选择渠道后按对应字段填写凭据</small></span><span aria-hidden="true">＋</span></summary>
@@ -53,10 +53,22 @@
                                     </header>
                                     <div class="account-action-panel channel-management-dialog-body">
                                         <a class="text-link" th:href="${channelDefinitions.get(account.type).applicationGuideUrl()}" target="_blank" rel="noopener noreferrer">申请说明 ↗</a>
+                                        <a class="primary-link" th:if="${channelDefinitions.get(account.type).manualAvailable()}"
+                                           th:href="|/channels?view=manual#manual-${account.type}|">改用人工发布</a>
+                                        <small th:if="${channelDefinitions.get(account.type).manualAvailable()}">人工发布不依赖此 API 账号，可直接使用当前设备的持久浏览器会话。</small>
+                                        <small th:unless="${channelDefinitions.get(account.type).manualAvailable()}">该平台需要具体站点或实例地址，当前尚未提供安全的统一人工入口。</small>
                                         <form th:if="${canAdmin and channelDefinitions.get(account.type).existingAccountOperational()}" th:action="@{/channels/{id}/verify(id=${account.id})}" method="post"><button class="primary-button" type="submit">测试连接</button></form>
                                         <form th:if="${canAdmin}" class="stack-form compact-form" th:action="@{/channels/{id}/profile(id=${account.id})}" method="post"><input type="hidden" name="expectedVersion" th:value="${account.version}"><div class="field"><label th:for="|account-name-${account.id}|">显示名称</label><input th:id="|account-name-${account.id}|" name="displayName" maxlength="120" th:value="${account.displayName}" required></div><div class="field"><label th:for="|account-url-${account.id}|">Base URL</label><input th:id="|account-url-${account.id}|" name="baseUrl" type="url" maxlength="2048" th:value="${account.baseUrl}" placeholder="固定官方 API 可留空"></div><button class="secondary-button" type="submit">保存账号信息</button></form>
                                         <form th:if="${canAdmin}" class="stack-form compact-form" th:action="@{/channels/{id}/credentials(id=${account.id})}" method="post" autocomplete="off"><input type="hidden" name="expectedVersion" th:value="${account.version}"><div class="field" th:if="${channelDefinitions.get(account.type).credentialFields().size() > 0}"><label th:for="|rotate-one-${account.id}|" th:text="${channelDefinitions.get(account.type).credentialFields().get(0).label()}">凭据 1</label><input th:id="|rotate-one-${account.id}|" name="credentialOne" type="password" maxlength="4000" autocomplete="new-password" required></div><div class="field" th:if="${channelDefinitions.get(account.type).credentialFields().size() > 1}"><label th:for="|rotate-two-${account.id}|" th:text="${channelDefinitions.get(account.type).credentialFields().get(1).label()}">凭据 2</label><input th:id="|rotate-two-${account.id}|" name="credentialTwo" type="password" maxlength="4000" autocomplete="new-password" required></div><div class="field" th:if="${channelDefinitions.get(account.type).credentialFields().size() > 2}"><label th:for="|rotate-three-${account.id}|" th:text="${channelDefinitions.get(account.type).credentialFields().get(2).label()}">凭据 3</label><input th:id="|rotate-three-${account.id}|" name="credentialThree" type="password" maxlength="4000" autocomplete="new-password" required></div><div class="field" th:if="${channelDefinitions.get(account.type).credentialFields().size() > 3}"><label th:for="|rotate-four-${account.id}|" th:text="${channelDefinitions.get(account.type).credentialFields().get(3).label()}">凭据 4</label><input th:id="|rotate-four-${account.id}|" name="credentialFour" type="password" maxlength="4000" autocomplete="new-password" required></div><div class="field" th:if="${channelDefinitions.get(account.type).credentialFields().size() > 4}"><label th:for="|rotate-five-${account.id}|" th:text="${channelDefinitions.get(account.type).credentialFields().get(4).label()}">凭据 5</label><input th:id="|rotate-five-${account.id}|" name="credentialFive" type="password" maxlength="4000" autocomplete="new-password" required></div><button class="secondary-button" type="submit">轮换凭据</button></form>
                                         <form th:if="${canAdmin}" th:action="@{/channels/{id}/status(id=${account.id})}" method="post" th:attr="data-confirm=${account.status.name() == 'ACTIVE' ? '停用后该账号不会接收新的发布任务，确认继续？' : null}"><input type="hidden" name="expectedVersion" th:value="${account.version}"><input type="hidden" name="status" th:value="${account.status.name() == 'ACTIVE' ? 'DISABLED' : 'ACTIVE'}"><button th:class="${account.status.name() == 'ACTIVE'} ? 'danger-link' : 'primary-button'" type="submit" th:text="${account.status.name() == 'ACTIVE'} ? '停用账号' : '启用账号'">停用账号</button></form>
+                                        <div class="channel-danger-zone" th:if="${canAdmin}">
+                                            <div><strong>移除 API 账号</strong><small>账号会从发布选择中消失，加密凭据会被清除；历史发布记录保留，后续使用需重新添加。</small></div>
+                                            <form th:action="@{/channels/{id}/delete(id=${account.id})}" method="post"
+                                                  data-confirm="确认移除此 API 账号？此操作会清除凭据且不能直接恢复。">
+                                                <input type="hidden" name="expectedVersion" th:value="${account.version}">
+                                                <button class="danger-link" type="submit">移除账号</button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             </dialog>
@@ -64,12 +76,12 @@
             </section>
 
             <section class="workspace-panel" th:if="${selectedChannelView == 'manual'}">
-                <header class="workspace-panel-header"><div><h3>个人人工平台</h3><p>提前保存账号提示、默认标签、栏目和发布备注；平台登录状态由专用浏览器资料持续保留。</p></div><strong th:text="|${manualChannels.size()} 个平台|">0 个平台</strong></header>
+                <header class="workspace-panel-header"><div><h3>人工发布平台</h3><p>支持官方创作入口的平台都可使用；即使平台同时支持 API，也不要求先申请或配置接口。</p></div><strong th:text="|${manualChannels.size()} 个平台|">0 个平台</strong></header>
                 <div class="manual-profile-notice"><strong>一次登录，持续复用</strong><span>使用 <code>./scripts/dev browser</code> 打开本系统，第一次在各官方平台完成登录；后续发布继续使用同一浏览器资料中的 Cookie 和站点会话。平台主动使会话失效时才需要重新登录。</span></div>
                 <div class="table-wrap manual-profile-table"><table class="management-table"><thead><tr><th>启用</th><th>平台</th><th>个人账号</th><th>默认设置</th><th>登录方式</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
                     <tbody><tr th:each="channel : ${manualChannels}" th:id="|manual-${channel.channel.type()}|" th:classappend="${!channel.enabled} ? ' is-disabled'">
                         <td data-label="启用"><span class="manual-profile-state" th:classappend="${channel.enabled} ? ' enabled' : ' disabled'" th:text="${channel.enabled ? '启用' : '停用'}">启用</span><small th:unless="${channel.configured}">默认状态</small></td>
-                        <td data-label="平台"><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'DOMESTIC' ? '国内' : '海外'} · ${channel.channel.contentFormat()} · ${channel.channel.characterLimit()} 字符|">平台要求</small></td>
+                        <td data-label="平台"><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'DOMESTIC' ? '国内' : '海外'} · ${channel.channel.contentFormat()} · ${channel.channel.characterLimit()} 字符|">平台要求</small><small th:if="${channel.channel.apiSupported()}">同时支持 API，可独立改用人工发布</small></td>
                         <td data-label="个人账号"><strong th:text="${channel.accountLabel()}">未填写账号别名</strong><small>用于识别当前个人平台账号</small></td>
                         <td data-label="默认设置"><strong th:text="${channel.defaultSettingLabel()}">未设置默认值</strong><small th:if="${channel.notes != null}" th:text="${channel.notes}">备注</small><small th:unless="${channel.notes != null}">发布时可继续调整</small></td>
                         <td data-label="登录方式"><span class="manual-profile-state confirmed">持久浏览器会话</span><small>同一设备和浏览器资料自动复用</small></td>

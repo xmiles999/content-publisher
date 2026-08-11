@@ -177,6 +177,18 @@ public final class ChannelAccountApplicationService {
         return saved;
     }
 
+    public void removeAccount(ActorContext actor, UUID accountId, int expectedVersion) {
+        ChannelAccount account = getAccount(actor, accountId);
+        requireAccountVersion(account, expectedVersion);
+        if (!accounts.softDeleteIfVersionMatches(actor.tenantId(), accountId, expectedVersion,
+                actor.subject(), clock.instant())) {
+            throw accountVersionConflict();
+        }
+        auditRecorder.record(actor, "CHANNEL_ACCOUNT_DELETED", "CHANNEL_ACCOUNT", accountId,
+                Map.of("channelType", account.type().name(),
+                        "version", Integer.toString(expectedVersion + 1)));
+    }
+
     private Map<String, String> validateCredentials(ChannelType type, Map<String, String> credentials) {
         Map<String, String> source = credentials == null ? Map.of() : credentials;
         List<String> required = ChannelCatalog.definition(type).credentialKeys();

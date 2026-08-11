@@ -150,7 +150,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 "select count(*) from manual_publication_progress where tenant_id=? and published=false", tenantId);
         addCount(items, "CHANNEL", "WARNING", "渠道账号需要处理",
                 "账号已停用或最近一次连接验证失败", "/channels",
-                "select count(*) from channel_accounts where tenant_id=? and (status='DISABLED' or verification_status='FAILED')",
+                "select count(*) from channel_accounts where tenant_id=? and deleted_at is null "
+                        + "and (status='DISABLED' or verification_status='FAILED')",
                 tenantId);
         addCount(items, "NOTIFICATION", "WARNING", "未确认通知", "请确认异常或恢复通知", "/actions",
                 "select count(*) from notifications where tenant_id=? and acknowledged_at is null and resolved_at is null",
@@ -428,7 +429,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
     public List<ChannelCheckTarget> findChannelChecksDue(Instant checkedBefore, int limit) {
         return jdbc.query("""
                 select tenant_id, id, verification_status from channel_accounts
-                where status='ACTIVE' and (last_verified_at is null or last_verified_at<?)
+                where deleted_at is null and status='ACTIVE'
+                  and (last_verified_at is null or last_verified_at<?)
                 order by last_verified_at nulls first, updated_at limit ?
                 """, (rs, row) -> new ChannelCheckTarget(rs.getString("tenant_id"), uuid(rs, "id"),
                 rs.getString("verification_status")), timestamp(checkedBefore), limit);
@@ -448,7 +450,8 @@ public class JdbcAutomationRepository implements AutomationRepository {
                   + (select count(*) from manual_publication_progress
                      where tenant_id=? and published=false)
                   + (select count(*) from channel_accounts
-                     where tenant_id=? and (status='DISABLED' or verification_status='FAILED'))
+                     where tenant_id=? and deleted_at is null
+                       and (status='DISABLED' or verification_status='FAILED'))
                   + (select count(*) from notifications
                      where tenant_id=? and acknowledged_at is null and resolved_at is null) action_count,
                   (select count(*) from articles

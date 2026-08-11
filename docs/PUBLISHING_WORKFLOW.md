@@ -168,19 +168,26 @@ REST API 直接使用 UTC `scheduledAt`。
 
 发布任务重放前必须先到第三方平台核对是否已经实际发布。
 
+### 8.5 API 无法申请或账号不再使用
+
+- API 是可选增强，不是发布前置条件。DEV、WordPress、GitHub Discussions、Twitter/X、Reddit、Hashnode 和 Medium 可直接切换到第 9 节人工发布。
+- Admin 可在 `/channels` 的账号管理对话框移除 API 账号。移除后账号不再出现在发布选择、巡检或监控中，凭据不可恢复，但已有发布记录和账号名称保留。
+- 重新尝试 API 接入时应新建账号并重新提交凭据；不要把旧 Token 写入备注或人工发布配置。
+
 ## 9. 人工发布
 
-人工渠道共 17 个：小红书、CSDN、掘金、知乎、博客园、SegmentFault、V2EX、开源中国、LinkedIn、微信公众号、简书、今日头条、B 站专栏、51CTO 博客、腾讯云、阿里云和华为云开发者社区。
+支持人工发布的平台共 24 个：DEV、WordPress、GitHub Discussions、Twitter/X、Reddit、Hashnode、Medium，以及小红书、CSDN、掘金、知乎、博客园、SegmentFault、V2EX、开源中国、LinkedIn、微信公众号、简书、今日头条、B 站专栏、51CTO 博客、腾讯云、阿里云和华为云开发者社区。前 7 个平台同时支持 API；申请不到接口或不希望维护 Token 时，可以不配置 API 账号，直接使用人工工作区。Discourse、Mastodon 和 Ghost 依赖具体站点或实例地址，当前没有固定安全入口，因此暂不提供人工工作区。
 
 ### 9.1 提前配置个人平台
 
 入口：`/channels?view=manual`。
 
 1. 检查需要使用的平台是否启用；从未保存的平台默认启用。
-2. 可填写个人账号别名、默认标签、默认分类/栏目、发布备注和排序。
-3. 使用 `./scripts/dev browser` 启动专用浏览器；远程部署可用 `PUBLISHER_APP_URL=https://实际应用域名 ./scripts/dev browser`。
-4. 第一次使用各平台时，通过系统提供的官方登录/创作入口完成登录。后续始终从同一浏览器 Profile 打开系统和平台页面。
-5. 不使用的平台可停用；停用后不会出现在文章发布目标中，也不能直接进入对应人工工作区。
+2. 对同时支持 API 的平台，无需先创建 API 账号；人工配置、发布进度和发布结果与 API 账号生命周期相互独立。
+3. 可填写个人账号别名、默认标签、默认分类/栏目、发布备注和排序。
+4. 使用 `./scripts/dev browser` 启动专用浏览器；远程部署可用 `PUBLISHER_APP_URL=https://实际应用域名 ./scripts/dev browser`。
+5. 第一次使用各平台时，通过系统提供的官方登录/创作入口完成登录。后续始终从同一浏览器 Profile 打开系统和平台页面。
+6. 不使用的平台可停用；停用后不会出现在文章发布目标中，也不能直接进入对应人工工作区。
 
 默认标签会去空、去除开头 `#`、转小写并去重。系统不允许保存自定义平台 URL，只使用内置渠道目录中的官方入口。
 

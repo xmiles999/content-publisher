@@ -69,6 +69,32 @@
             }
           }
         }
+      },
+      "delete" : {
+        "tags" : [ "channel-account-controller" ],
+        "operationId" : "remove",
+        "parameters" : [ {
+          "name" : "accountId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "expectedVersion",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        }
       }
     },
     "/api/v1/channel-accounts/{accountId}/credentials" : {

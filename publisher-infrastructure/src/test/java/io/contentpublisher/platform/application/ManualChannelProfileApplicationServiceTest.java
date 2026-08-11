@@ -96,10 +96,22 @@ class ManualChannelProfileApplicationServiceTest {
     }
 
     @Test
-    void shouldRejectApiChannelAsManualProfile() {
+    void shouldAcceptApiChannelWhenOfficialManualEditorExists() {
+        ManualChannelProfileRepository repository = mock(ManualChannelProfileRepository.class);
+        when(repository.findByChannel("personal", ChannelType.DEV)).thenReturn(Optional.empty());
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ManualChannelProfile saved = service(repository).saveProfile(ACTOR, ChannelType.DEV, 0, true,
+                null, List.of(), null, null, 10);
+
+        assertThat(saved.channelType()).isEqualTo(ChannelType.DEV);
+    }
+
+    @Test
+    void shouldRejectApiChannelWithoutSafeManualEditor() {
         ManualChannelProfileRepository repository = mock(ManualChannelProfileRepository.class);
 
-        assertThatThrownBy(() -> service(repository).saveProfile(ACTOR, ChannelType.DEV, 0, true,
+        assertThatThrownBy(() -> service(repository).saveProfile(ACTOR, ChannelType.DISCOURSE, 0, true,
                 null, List.of(), null, null, 10))
                 .isInstanceOfSatisfying(ApplicationException.class,
                         exception -> assertThat(exception.code()).isEqualTo("MANUAL_CHANNEL_UNAVAILABLE"));
@@ -112,12 +124,12 @@ class ManualChannelProfileApplicationServiceTest {
         when(repository.findByChannel("personal", ChannelType.XIAOHONGSHU)).thenReturn(Optional.empty());
         when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        ManualChannelProfile confirmed = service(repository)
-                .confirmLogin(ACTOR, ChannelType.XIAOHONGSHU, 0);
+        ManualChannelProfileApplicationService service = service(repository);
+        ManualChannelProfile confirmed = service.confirmLogin(ACTOR, ChannelType.XIAOHONGSHU, 0);
 
         assertThat(confirmed.enabled()).isTrue();
         assertThat(confirmed.loginConfirmedAt()).isEqualTo(NOW);
-        assertThat(confirmed.sortOrder()).isEqualTo(10);
+        assertThat(confirmed.sortOrder()).isEqualTo(service.defaultSortOrder(ChannelType.XIAOHONGSHU));
         assertThat(confirmed.version()).isEqualTo(1);
     }
 

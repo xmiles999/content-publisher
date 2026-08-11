@@ -385,6 +385,9 @@ a { color: inherit; }
 .channel-dialog-close:active { transform: translateY(1px); }
 .channel-management-dialog .channel-management-dialog-body { position: static; width: auto; min-width: 0; max-height: none; overflow-y: auto; padding: 18px; border: 0; border-radius: 0; background: var(--surface); box-shadow: none; }
 .channel-management-dialog-body > form > button, .channel-management-dialog-body > .text-link { justify-self: start; }
+.channel-danger-zone { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--danger-border); }
+.channel-danger-zone > div { display: grid; gap: 5px; min-width: 0; }
+.channel-danger-zone small { max-width: 460px; color: var(--muted); line-height: 1.55; }
 .manual-profile-form { width: min(520px,calc(100vw - 48px)); }
 .manual-profile-form > .primary-link { width: 100%; }
 .manual-profile-form .form-grid { grid-template-columns: minmax(0,1fr) 100px; }

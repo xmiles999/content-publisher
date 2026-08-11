@@ -328,6 +328,38 @@ class TenantPersistenceIntegrationTest {
                 .containsExactly(2, ChannelAccountStatus.DISABLED);
     }
 
+    @Test
+    void shouldSoftDeleteChannelAccountClearCredentialsAndReleaseIdempotencyKey() {
+        Instant now = Instant.parse("2026-08-11T03:00:00Z");
+        String tenantId = "tenant-account-delete";
+        ChannelAccount account = channelAccount(tenantId, now, "account-delete-key");
+        channelAccounts.save(account);
+
+        assertThat(channelAccounts.softDeleteIfVersionMatches(tenantId, account.id(), 1,
+                "admin", now.plusSeconds(1))).isTrue();
+        assertThat(channelAccounts.findChannelAccountById(tenantId, account.id())).isEmpty();
+        assertThat(channelAccounts.findChannelAccountById("other-tenant", account.id())).isEmpty();
+        assertThat(channelAccounts.findAll(tenantId)).isEmpty();
+        assertThat(channelAccounts.countAll(tenantId)).isZero();
+        assertThat(channelAccounts.findDisplayNamesForPublicationHistory(tenantId))
+                .containsEntry(account.id(), account.displayName());
+        assertThat(channelAccounts.findDisplayNamesForPublicationHistory("other-tenant")).isEmpty();
+        assertThat(jdbcTemplate.queryForMap("""
+                select status, encrypted_credentials, credential_fingerprint, idempotency_key,
+                       account_version, verification_status, deleted_by, deleted_at
+                from channel_accounts where id = ?
+                """, account.id())).containsEntry("status", "DISABLED")
+                .containsEntry("encrypted_credentials", "DELETED")
+                .containsEntry("credential_fingerprint", "DELETED")
+                .containsEntry("idempotency_key", "deleted:" + account.id())
+                .containsEntry("account_version", 2)
+                .containsEntry("deleted_by", "admin");
+
+        ChannelAccount replacement = channelAccount(tenantId, now.plusSeconds(2), "account-delete-key");
+        assertThat(channelAccounts.save(replacement).id()).isEqualTo(replacement.id());
+        assertThat(channelAccounts.countAll(tenantId)).isEqualTo(1);
+    }
+
     private Project project(String tenantId, String gitUrl) {
         Instant now = Instant.now();
         return new Project(UUID.randomUUID(), tenantId, gitUrl, "platform", "publisher", "main", "abc123",

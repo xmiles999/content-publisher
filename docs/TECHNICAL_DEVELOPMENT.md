@@ -70,7 +70,7 @@
 |---|---|---|
 | Spring Data JPA / Hibernate | Boot 管理 | ORM 和事务 |
 | PostgreSQL Driver | 42.7.13 | 生产数据库连接 |
-| Flyway Core + PostgreSQL | Boot 管理 | V1–V22 迁移 |
+| Flyway Core + PostgreSQL | Boot 管理 | V1–V23 迁移 |
 | Eclipse JGit | 7.3.0.202506031305-r | 安全浅克隆和仓库分析 |
 | Jsoup | 1.18.3 | 网站 HTML 文本提取 |
 | CommonMark | 0.24.0 | Markdown 解析与安全渲染 |
@@ -193,8 +193,8 @@ publisher-infrastructure → publisher-application → publisher-domain
 
 | 类型 | 职责 |
 |---|---|
-| `ChannelType` | 10 个 API 渠道定义加 17 个人工渠道 |
-| `ChannelAccount` | API 账号元数据、加密凭据、版本和验证结果 |
+| `ChannelType` | 27 个渠道定义；10 个支持 API，24 个具有固定人工入口，两者有 7 个重叠 |
+| `ChannelAccount` | 活跃 API 账号元数据、加密凭据、版本和验证结果；删除元数据保存在持久化实体 |
 | `ChannelAccountStatus` | `ACTIVE`、`DISABLED` |
 | `ChannelVerificationStatus` | `SUCCEEDED`、`FAILED` |
 | `ContentFormat` | `MARKDOWN`、`PLAIN_TEXT`、`SHORT_TEXT` |
@@ -202,7 +202,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `Publication` | API 发布事实 |
 | `PublicationStatus` | `PUBLISHING`、`PUBLISHED`、`FAILED` |
 | `ManualPublication` | 人工发布最终内容快照与外链 |
-| `ManualChannelProfile` | 纯人工渠道的个人启停、账号别名、默认标签/栏目、备注、排序、兼容登录确认时间和乐观锁版本 |
+| `ManualChannelProfile` | 可人工发布渠道的个人启停、账号别名、默认标签/栏目、备注、排序、兼容登录确认时间和乐观锁版本 |
 
 ## 7. 应用组件
 
@@ -217,8 +217,8 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `AutomationApplicationService` | 草稿、生成预设、动作台、日历、通知、Webhook 端点、投递与人工发布进度 |
 | `ArticleEditorialApplicationService` | 编辑、版本、个人确认、重新编辑、历史版本恢复，以及兼容审核/驳回 |
 | `AiSettingsApplicationService` | 租户 AI 设置、地址校验、API Key 加密和版本控制 |
-| `ChannelAccountApplicationService` | 渠道账号创建、修改、启停、验证和凭据轮换 |
-| `ManualChannelProfileApplicationService` | 校验纯人工渠道，查询/保存个人平台配置、确认登录时间、规范化默认标签和处理乐观锁 |
+| `ChannelAccountApplicationService` | 渠道账号创建、修改、启停、验证、凭据轮换和安全软删除 |
+| `ManualChannelProfileApplicationService` | 校验固定官方人工入口，查询/保存个人平台配置、确认登录时间、规范化默认标签和处理乐观锁 |
 | `PublicationCommandApplicationService` | 预检、API 发布、人工发布、凭据自动刷新和结果保存 |
 | `PublicationQueryApplicationService` | API/人工发布统一查询、分页和安全视图 |
 | `PublishingApplicationService` | 保持发布用例的稳定聚合门面 |
@@ -264,7 +264,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 
 后端校验、Portal 表单和内容适配都读取该目录，避免重复维护渠道规则。
 
-人工平台配置只接受 `ChannelCatalog.manualOnly()` 中 `manualAvailable=true` 且 `apiSupported=false` 的 17 个渠道。官方编辑器 URL 继续由目录提供，不开放自定义 URL 字段。
+人工平台配置接受 `ChannelCatalog.all()` 中 `manualAvailable=true` 的 24 个渠道，包括 17 个纯人工渠道和 7 个同时支持 API 的渠道。官方编辑器 URL 继续由目录提供，不开放自定义 URL 字段；Discourse、Mastodon 和 Ghost 因没有固定入口而被排除。
 
 ## 8. 基础设施组件
 
@@ -396,7 +396,7 @@ Adapter：
 - `JpaAuditRecorder`
 - `JdbcMonitoringQuery`
 
-`JpaDomainMapper` 负责 Entity 与 Domain 转换。`PublisherJpaRepositories` 集中声明 Spring Data Repository，其中人工平台配置按租户查询，并以“租户 + 渠道”唯一约束配合条件更新实现乐观锁。
+`JpaDomainMapper` 负责 Entity 与 Domain 转换。`PublisherJpaRepositories` 集中声明 Spring Data Repository，其中人工平台配置按租户查询，并以“租户 + 渠道”唯一约束配合条件更新实现乐观锁。渠道账号普通查询统一附加 `deleted_at is null`；发布历史使用只读名称查询包含软删除行，避免删除账号后历史记录失去可读名称。
 
 `JdbcAutomationRepository` 实现草稿、预设、通知、Webhook 端点与投递、人工发布进度、动作台、发布日历和渠道巡检查询；写操作始终携带租户/主体条件。
 
@@ -424,7 +424,7 @@ Adapter：
 |---|---|---:|
 | `ProjectController` | `/api/v1/projects` | 3 |
 | `ArticleController` | `/api/v1/articles` | 11 |
-| `ChannelAccountController` | `/api/v1/channel-accounts` | 7 |
+| `ChannelAccountController` | `/api/v1/channel-accounts` | 8 |
 | `JobController` | `/api/v1/jobs` | 5 |
 | `PublicationController` | `/api/v1/publications` | 3 |
 | `MarkdownPreviewController` | `/api/v1/markdown` | 1 |
@@ -432,7 +432,7 @@ Adapter：
 | `AutomationController` | `/api/v1` | 13 |
 | `JobReplayController` | `/api/v1/job-replays` | 2 |
 
-OpenAPI 快照当前包含 48 个 REST 操作。完整路径与角色见 `API_REFERENCE.md` 和 `docs/openapi.json`。
+OpenAPI 快照当前包含 49 个 REST 操作。完整路径与角色见 `API_REFERENCE.md` 和 `docs/openapi.json`。
 
 ### 9.2 Portal Controller
 
@@ -567,7 +567,7 @@ Portal reopen（Editor/Admin）
 
 ```text
 渠道管理
-  → ChannelCatalog 过滤纯人工渠道
+  → ChannelCatalog 过滤具有固定官方人工入口的渠道
   → 读取或创建 ManualChannelProfile（未配置默认启用）
   → 保存别名 / 默认标签 / 栏目 / 备注 / 排序 / 启停
   → 历史客户端可选记录兼容登录确认时间
@@ -606,6 +606,14 @@ Admin 删除文章
 ```
 
 删除生成任务时，如果已有生成文章，则委托整条文章记录级联删除。
+
+渠道账号使用独立的不可恢复软删除流程，不进入回收站：
+
+- `SecurityConfiguration` 对 REST DELETE 和 Portal POST 删除入口执行 Admin 门禁；`ChannelAccountApplicationService.removeAccount` 校验租户资源和 `expectedVersion`，并记录 `CHANNEL_ACCOUNT_DELETED` 审计。
+- 单条条件更新把状态改为 `DISABLED`，账号版本加一，写入 `deleted_at/deleted_by`，并清除密文、凭据指纹和连接验证结果。
+- 原幂等键替换为 `deleted:{accountId}`，允许用户重新提交原幂等键创建新账号。
+- 普通账号查询、发布选择、自动刷新、巡检、监控和计数排除已删除行；发布历史名称查询包含删除行，以保留既有发布的可读性。
+- 保留数据库行是为了维持 `publications.channel_account_id` 外键和审计事实，不提供直接恢复；再次使用必须重新创建并提交凭据。
 
 ### 10.8 监控
 
@@ -682,7 +690,7 @@ delay = min(initialRetryDelay × 2^(attempt - 1), maxRetryDelay)
 | `articles` | 当前中英文主稿与来源 | Git 可关联项目；生成任务唯一；软删除 |
 | `article_versions` | 不可变内容版本 | `(article_id, version_number)` 主键 |
 | `jobs` | 持久化任务 | 租户幂等唯一、调度/租约/进度/批次、软删除 |
-| `channel_accounts` | API 渠道账号 | 租户幂等唯一、账号版本、验证结果 |
+| `channel_accounts` | API 渠道账号 | 租户幂等唯一、账号版本、验证结果、软删除与删除人 |
 | `manual_channel_profiles` | 人工平台个人配置 | `(tenant_id, channel_type)` 唯一、启停、默认设置、登录确认和配置版本 |
 | `publications` | API 发布事实 | 发布任务唯一、文章和账号外键、软删除 |
 | `manual_publications` | 人工发布快照 | 文章外键、软删除 |
@@ -714,7 +722,7 @@ Check 约束保证：
 
 ### 12.3 软删除
 
-V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `deleted_at`、`deleted_by` 和租户删除时间索引。普通查询排除已删除记录，回收站使用专门方法查询。
+V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `deleted_at`、`deleted_by` 和租户删除时间索引。普通查询排除已删除记录，回收站使用专门方法查询。V23 为 `channel_accounts` 增加相同删除元数据和活跃账号索引，但渠道账号删除同时销毁凭据且不支持回收站恢复。
 
 ### 12.4 迁移
 
@@ -742,8 +750,9 @@ V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `del
 | V20 | Webhook 投递去重、重试状态和到期索引 |
 | V21 | 人工平台个人配置、启停、默认设置、登录确认时间和乐观锁版本 |
 | V22 | 将已有 `articles.status='APPROVED'` 回填为 `READY`，建立个人确认状态基线 |
+| V23 | 渠道账号软删除时间/操作者和活跃账号查询索引 |
 
-已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。V22 引入旧应用无法识别的 `READY` 字符串状态，因此回滚到不含该枚举的旧 JAR 通常必须恢复迁移前备份，不能只切换应用制品。
+已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。V22 引入旧应用无法识别的 `READY` 字符串状态，因此回滚到不含该枚举的旧 JAR 通常必须恢复迁移前备份，不能只切换应用制品。V23 的字段均可空且采用向前迁移，但旧应用不识别软删除语义，直接回滚可能让已移除账号重新出现在列表或任务选择中；同时已销毁的账号凭据不可恢复，回滚前必须评估旧实体映射和删除数据可见性，必要时恢复迁移前备份。
 
 ## 13. API 设计
 
@@ -895,13 +904,13 @@ Git、网站、AI 和自托管渠道都执行：
 | 发布与加密 | `PublishingApplicationServiceTest`、`OfficialChannelPublishersTest`、`ManualChannelProfileApplicationServiceTest`、`AesGcmCredentialVaultTest`、`AesGcmSecretCipherTest` | `READY/APPROVED/PUBLISHED` 发布门禁、请求映射、人工平台配置、凭据 |
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
-| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V22、`APPROVED → READY` 回填、JPA、人工平台配置、唯一约束、租户、审计、并发 |
+| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V23、`APPROVED → READY` 回填、JPA、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 渠道巡检/Webhook | `ChannelHealthSchedulerTest`、`SecureWebhookEndpointPolicyTest`、自动化持久化测试 | 转换通知、去重、投递状态、SSRF |
 | 时区与重放 | `ScheduleParserTest`、`JobApplicationServiceTest` | DST、单个/批量原子重放和不确定发布门禁 |
 | OpenAPI | `OpenApiContractTest` | 快照生成与差异门禁 |
 | PostgreSQL/恢复 | `PostgresPersistenceIntegrationTest`、`RestoreDrillIntegrationTest` | Docker 可用时的真实数据库和隔离恢复 |
-| 安全 | `SecurityIntegrationTest`、`LocalSecurityIntegrationTest` | JWT、LOCAL、CSRF、角色、改密、Editor 内容确认、人工平台配置权限和无秘密字段 |
+| 安全 | `SecurityIntegrationTest`、`LocalSecurityIntegrationTest` | JWT、LOCAL、CSRF、角色、改密、Editor 内容确认、渠道账号移除、API 渠道人工替代、人工平台配置权限和无秘密字段 |
 | 架构 | `ArchitectureBoundaryTest` | 模块依赖和入口边界 |
 | 上下文 | `PublisherApplicationTest` | Bean、Flyway、Hibernate 装配 |
 | SEO | `ArticleSeoViewTest` | 评分规则 |
@@ -1048,3 +1057,5 @@ Git、网站、AI 和自托管渠道都执行：
 2026-08-10：新增 `READY`、个人内容确认与重新编辑，Portal 主流程迁移为 `DRAFT → READY → PUBLISHED`，发布门禁接受 `READY/APPROVED/PUBLISHED`；Flyway V22 将已有 `APPROVED` 回填为 `READY`，REST `approve/reject` 与兼容状态继续保留。
 
 2026-08-10：人工平台主流程改为独立持久浏览器 Profile；新增 `scripts/browser-session` 和 `./scripts/dev browser`，在仓库外以 0700 权限保存 Chromium Cookie、LocalStorage 和站点会话，Portal 移除人工登录确认操作，旧路由和字段仅作兼容保留。
+
+2026-08-11：渠道账号增加基于版本的安全软删除，删除时销毁凭据、隐藏活跃查询并保留历史发布名称；人工发布范围扩展到 24 个固定官方入口，允许 7 个 API 渠道在无法申请接口时独立采用人工流程；加入 Flyway V23、REST/Portal 删除端点和权限、CSRF、持久化测试。

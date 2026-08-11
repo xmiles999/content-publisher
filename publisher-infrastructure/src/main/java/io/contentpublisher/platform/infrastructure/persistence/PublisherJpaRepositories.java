@@ -75,10 +75,12 @@ interface AiProviderSettingsJpaRepository extends JpaRepository<AiProviderSettin
 }
 
 interface ChannelAccountJpaRepository extends JpaRepository<ChannelAccountEntity, UUID> {
-    Optional<ChannelAccountEntity> findByTenantIdAndId(String tenantId, UUID id);
-    Optional<ChannelAccountEntity> findByTenantIdAndIdempotencyKey(String tenantId, String idempotencyKey);
+    Optional<ChannelAccountEntity> findByTenantIdAndIdAndDeletedAtIsNull(String tenantId, UUID id);
+    Optional<ChannelAccountEntity> findByTenantIdAndIdempotencyKeyAndDeletedAtIsNull(
+            String tenantId, String idempotencyKey);
+    List<ChannelAccountEntity> findAllByTenantIdAndDeletedAtIsNullOrderByCreatedAtDesc(String tenantId);
     List<ChannelAccountEntity> findAllByTenantIdOrderByCreatedAtDesc(String tenantId);
-    long countByTenantId(String tenantId);
+    long countByTenantIdAndDeletedAtIsNull(String tenantId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
@@ -88,7 +90,8 @@ interface ChannelAccountJpaRepository extends JpaRepository<ChannelAccountEntity
                 a.verificationStatus = :verificationStatus, a.verificationMessage = :verificationMessage,
                 a.lastVerifiedAt = :lastVerifiedAt,
                 a.accountVersion = :nextVersion, a.updatedBy = :updatedBy, a.updatedAt = :updatedAt
-            where a.tenantId = :tenantId and a.id = :id and a.accountVersion = :expectedVersion
+            where a.tenantId = :tenantId and a.id = :id and a.deletedAt is null
+              and a.accountVersion = :expectedVersion
             """)
     int updateIfVersionMatches(String tenantId, UUID id, String displayName, String baseUrl, String requestHash,
                                String encryptedCredentials,
@@ -102,11 +105,27 @@ interface ChannelAccountJpaRepository extends JpaRepository<ChannelAccountEntity
     @Query("""
             update ChannelAccountEntity a set a.verificationStatus = :status,
                 a.verificationMessage = :message, a.lastVerifiedAt = :checkedAt
-            where a.tenantId = :tenantId and a.id = :id
+            where a.tenantId = :tenantId and a.id = :id and a.deletedAt is null
             """)
     int updateVerification(String tenantId, UUID id,
                            io.contentpublisher.platform.domain.ChannelVerificationStatus status,
                            String message, Instant checkedAt);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update ChannelAccountEntity a set a.status = :status,
+                a.encryptedCredentials = 'DELETED', a.credentialFingerprint = 'DELETED',
+                a.idempotencyKey = :deletedIdempotencyKey,
+                a.verificationStatus = null, a.verificationMessage = null, a.lastVerifiedAt = null,
+                a.accountVersion = a.accountVersion + 1, a.updatedBy = :deletedBy,
+                a.updatedAt = :deletedAt, a.deletedBy = :deletedBy, a.deletedAt = :deletedAt
+            where a.tenantId = :tenantId and a.id = :id and a.deletedAt is null
+              and a.accountVersion = :expectedVersion
+            """)
+    int softDeleteIfVersionMatches(String tenantId, UUID id, int expectedVersion,
+                                   String deletedIdempotencyKey,
+                                   io.contentpublisher.platform.domain.ChannelAccountStatus status,
+                                   String deletedBy, Instant deletedAt);
 }
 
 interface ManualChannelProfileJpaRepository extends JpaRepository<ManualChannelProfileEntity, UUID> {

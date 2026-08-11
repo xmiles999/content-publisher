@@ -123,7 +123,8 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/channels", "/channels/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/articles/*/delete", "/jobs/*/delete").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/articles/*/restore", "/jobs/*/restore").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/v1/articles/*", "/api/v1/jobs/*").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/v1/articles/*", "/api/v1/jobs/*",
+                        "/api/v1/channel-accounts/*").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/v1/articles/*/restore", "/api/v1/jobs/*/restore")
                     .hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/channels", "/publishing/**")

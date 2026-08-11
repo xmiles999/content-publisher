@@ -8,7 +8,9 @@ import io.contentpublisher.platform.web.dto.UpdateChannelAccountRequest;
 import io.contentpublisher.platform.web.dto.RotateChannelCredentialsRequest;
 import io.contentpublisher.platform.web.security.RequestActorProvider;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -78,5 +82,11 @@ public class ChannelAccountController {
     @PostMapping("/{accountId}/verify")
     public ChannelAccountResponse verify(@PathVariable UUID accountId) {
         return ChannelAccountResponse.from(publishing.verifyConnection(actors.currentActor(), accountId));
+    }
+
+    @DeleteMapping("/{accountId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void remove(@PathVariable UUID accountId, @RequestParam int expectedVersion) {
+        publishing.removeAccount(actors.currentActor(), accountId, expectedVersion);
     }
 }

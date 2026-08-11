@@ -326,6 +326,20 @@ public class PortalPublishingController {
         return "redirect:/channels#account-" + accountId;
     }
 
+    @PostMapping("/channels/{accountId}/delete")
+    public String removeChannelAccount(@PathVariable UUID accountId,
+                                       @RequestParam int expectedVersion,
+                                       RedirectAttributes redirectAttributes) {
+        try {
+            publishing.removeAccount(actors.currentActor(), accountId, expectedVersion);
+            redirectAttributes.addFlashAttribute("success",
+                    "渠道账号已移除，凭据已清除；历史发布记录仍然保留");
+        } catch (ApplicationException | IllegalArgumentException exception) {
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return "redirect:/channels";
+    }
+
     @PostMapping("/channels/manual/{channelType}/profile")
     public String saveManualChannelProfile(@PathVariable ChannelType channelType,
                                            @Valid @ModelAttribute ManualChannelProfileForm form,
@@ -510,7 +524,7 @@ public class PortalPublishingController {
     private ChannelCatalog.ChannelDefinition requireEnabledManualChannel(ActorContext actor,
                                                                           ChannelType channelType) {
         ChannelCatalog.ChannelDefinition definition = ChannelCatalog.definition(channelType);
-        if (definition.apiSupported() || !definition.manualAvailable()) {
+        if (!definition.manualAvailable()) {
             throw new ApplicationException("MANUAL_PUBLISH_UNAVAILABLE", "该渠道不支持个人人工发布");
         }
         if (!manualProfiles.isEnabled(actor, channelType)) {

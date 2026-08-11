@@ -141,7 +141,9 @@
 | `PUBLISHER_CHANNELS_ALLOWED_HOSTS` | 空 | 自托管渠道主机允许列表 |
 | `PUBLISHER_CHANNELS_TIMEOUT` | `30s` | 渠道调用超时 |
 
-17 个人工平台配置使用数据库表 `manual_channel_profiles`，不需要新增应用环境变量。账号别名、默认标签/栏目、备注、排序、启停和兼容登录确认时间不属于平台凭据；第三方登录状态由用户设备上的专用浏览器 Profile 维护。
+24 个人工发布平台配置使用数据库表 `manual_channel_profiles`，不需要新增应用环境变量。账号别名、默认标签/栏目、备注、排序、启停和兼容登录确认时间不属于平台凭据；第三方登录状态由用户设备上的专用浏览器 Profile 维护。
+
+其中 DEV、WordPress、GitHub Discussions、Twitter/X、Reddit、Hashnode 和 Medium 同时支持 API，但人工发布不依赖 API 凭据或账号记录。Discourse、Mastodon 和 Ghost 没有固定官方编辑入口，当前不进入人工平台配置。
 
 启动器支持以下本机环境变量：
 
@@ -299,7 +301,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 2. 执行第 5 节门禁并校验 `SHA256SUMS`。
 3. 部署端先备份数据库与 Secret 元数据，验证备份校验和。
 4. Dokploy 构建/加载不可变镜像并启动 PostgreSQL、应用。
-5. 检查 Flyway 到 V22、readiness、容器用户和网络。
+5. 检查 Flyway 到 V23、readiness、容器用户和网络。
 6. 在 Dokploy Domains 配置正确目标端口后检查 Traefik 源站 HTTPS。
 7. 最后切换或确认 Cloudflare DNS，并执行业务冒烟。
 
@@ -310,7 +312,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 应用无宿主机 published port
 PostgreSQL User=70:70、无外部端口且卷已挂载
 /actuator/health/readiness = UP
-flyway_schema_history 最新成功版本 = 22
+flyway_schema_history 最新成功版本 = 23
 登录/认证成功
 租户隔离查询成功
 草稿自动保存、动作台、日历、任务重放至少各一条冒烟
@@ -319,13 +321,14 @@ Traefik 源站 HTTPS 与 Cloudflare HTTPS 正常
 
 未实际执行的项必须明确标记“未验证”。
 
-## 9. Flyway V1–V22
+## 9. Flyway V1–V23
 
-- 迁移按 V1–V22 从空库前向执行。
+- 迁移按 V1–V23 从空库前向执行。
 - V19：文章草稿、生成预设、通知、Webhook 端点、人工发布进度。
 - V20：通知 Webhook 投递状态、唯一去重和到期索引。
 - V21：人工平台个人配置、启停、默认标签/栏目、备注、排序、登录确认时间和乐观锁版本。
 - V22：将迁移时已有的 `articles.status='APPROVED'` 回填为 `READY`，作为个人内容确认后的可发布状态。
+- V23：为 `channel_accounts` 增加 `deleted_at`、`deleted_by` 和活跃账号查询索引，支持保留发布历史的安全移除。
 - 已发布脚本不可修改；新增结构只添加更高版本。
 - Hibernate 使用 `ddl-auto=validate`。
 - 没有 Down Migration；回滚应用前必须确认旧版本与新 Schema 和数据枚举兼容。
@@ -339,7 +342,7 @@ order by installed_rank desc
 limit 5;
 ```
 
-同时验证 V21 表、唯一约束和 V22 状态回填：
+同时验证 V21 表、V22 状态回填和 V23 渠道账号软删除字段：
 
 ```sql
 select tenant_id, channel_type, enabled, profile_version
@@ -358,9 +361,14 @@ where status = 'APPROVED';
 select count(*) as ready_count
 from articles
 where status = 'READY';
+
+select column_name
+from information_schema.columns
+where table_name = 'channel_accounts'
+  and column_name in ('deleted_at', 'deleted_by');
 ```
 
-V22 只执行数据回填，不删除兼容状态，也不增加表结构。新应用仍能读取后续由兼容 REST 产生的 `APPROVED`。不含 `READY` 枚举的旧应用通常无法读取回填后的文章，因此回滚旧 JAR 前必须恢复迁移前数据库备份，或先执行经过验证的显式数据兼容方案；不能只替换制品后直接启动。
+V22 只执行数据回填，不删除兼容状态，也不增加表结构。V23 增加可空软删除字段和索引；删除账号时应用会清除凭据、释放原幂等键并保留历史发布外键。新应用仍能读取后续由兼容 REST 产生的 `APPROVED`。不含 `READY` 枚举或 V23 字段映射的旧应用回滚前必须完成兼容性评估，必要时恢复迁移前备份；不能只替换制品后直接启动。
 
 ## 10. 备份与恢复演练
 
@@ -436,21 +444,27 @@ publisher.channels.verification_failed
 
 ### 13.3 Schema 校验失败
 
-检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V22，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
+检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V23，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
 
 ### 13.4 人工平台配置或持久登录不符合预期
 
-确认数据库已执行 V21，平台属于 17 个纯人工渠道，并检查当前配置版本和启停状态。未配置的平台默认启用；停用平台不能进入人工发布工作区。
+确认数据库已执行 V21，平台属于 24 个具有固定官方创作入口的平台，并检查当前配置版本和启停状态。未配置的平台默认启用；停用平台不能进入人工发布工作区。
 
 执行 `./scripts/dev browser status` 检查应用地址、Profile 路径和浏览器检测结果。必须始终从 `./scripts/dev browser` 打开系统；普通浏览器、隐私模式、不同操作系统账号或不同 `PUBLISHER_BROWSER_PROFILE_DIR` 不共享会话。确认 Profile 目录权限为 `0700`，且未被清理工具或浏览器策略删除。
 
 系统不会检测第三方 Cookie 或 Session。若平台要求重新登录，应直接在同一专用浏览器的官方页面完成；不要把登录秘密写入本系统。历史 `login_confirmed_at` 时间和 Portal 路由仅为兼容保留，不代表真实会话状态。
 
-### 13.5 LOCAL 无法登录
+### 13.5 API 账号移除或重新添加不符合预期
+
+确认数据库已执行 V23。账号移除是不可恢复的软删除：普通列表、发布选择、巡检、监控和计数不会再返回该账号；数据库行继续保留以维持历史发布外键，`encrypted_credentials` 和 `credential_fingerprint` 应为 `DELETED`，`deleted_at/deleted_by` 应有值。
+
+删除后重新添加必须重新提交完整凭据。原创建幂等键会被释放，允许重新使用；新账号会获得新的 UUID。不要物理删除旧行，否则可能破坏 `publications.channel_account_id` 的历史关联。历史发布查询仍应显示旧账号名称。
+
+### 13.6 LOCAL 无法登录
 
 检查初始化管理员是否已创建、密码策略、强制改密状态和 Secure Cookie 是否与 HTTPS 一致。初始化成功后环境中的明文密码应已移除。
 
-### 13.6 Webhook 或渠道巡检失败
+### 13.7 Webhook 或渠道巡检失败
 
 检查功能开关、允许主机、DNS、公网地址、TLS、超时和出站 ACL。Webhook 重试最终耗尽后保留 `FAILED` 投递记录，不应无限重试。
 

@@ -60,7 +60,8 @@ public class JdbcMonitoringQuery implements MonitoringQuery {
                 "select count(*) from publications where tenant_id = ? and deleted_at is null", tenantId);
         long manualPublicationCount = count(
                 "select count(*) from manual_publications where tenant_id = ? and deleted_at is null", tenantId);
-        long accountCount = count("select count(*) from channel_accounts where tenant_id = ?", tenantId);
+        long accountCount = count(
+                "select count(*) from channel_accounts where tenant_id = ? and deleted_at is null", tenantId);
 
         return new MonitoringSnapshot(capturedAt, windowStart, window,
                 projectCount, activityCount("projects", tenantId, since, false), projectStatus,
@@ -69,7 +70,8 @@ public class JdbcMonitoringQuery implements MonitoringQuery {
                 apiPublicationCount + manualPublicationCount, publicationActivityCount(tenantId, since),
                 publicationStatus, windowPublicationStatus,
                 accountCount, grouped(
-                        "select status, count(*) as total from channel_accounts where tenant_id = ? group by status",
+                        "select status, count(*) as total from channel_accounts "
+                                + "where tenant_id = ? and deleted_at is null group by status",
                         tenantId, ChannelAccountStatus.class),
                 coveredChannelCount(tenantId), channelPerformance(tenantId, since));
     }

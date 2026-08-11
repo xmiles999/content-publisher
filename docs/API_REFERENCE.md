@@ -158,10 +158,11 @@ REST 当前没有 `/confirm` 或 `/reopen` 端点。个人确认与重新编辑�
 | PATCH | `/api/v1/channel-accounts/{accountId}/status` | Admin | 启用或停用 |
 | PUT | `/api/v1/channel-accounts/{accountId}/credentials` | Admin | 轮换凭据 |
 | POST | `/api/v1/channel-accounts/{accountId}/verify` | Admin | 测试连接并保存结果 |
+| DELETE | `/api/v1/channel-accounts/{accountId}?expectedVersion={version}` | Admin | 安全移除 API 账号 |
 
 创建请求包含 `type`、`displayName`、可选 `baseUrl` 和 `credentials`。凭据键必须精确匹配渠道目录；查询响应只返回元数据、版本和验证结果，不返回密文、指纹或明文。
 
-账号资料、状态和凭据更新都要求 `expectedVersion >= 1`。版本冲突返回 `CHANNEL_ACCOUNT_VERSION_CONFLICT`。
+账号资料、状态、凭据更新和删除都要求 `expectedVersion >= 1`。删除成功返回 `204 No Content`；这是保留历史外键的软删除，账号会从普通 GET/list、发布选择、巡检和监控中隐藏，加密凭据、指纹及验证结果会被清除，历史发布记录继续显示原账号名称。删除后的原幂等键可重新用于创建账号，但必须重新提交全部凭据。版本冲突返回 `CHANNEL_ACCOUNT_VERSION_CONFLICT`，账号不存在或已经删除返回 `CHANNEL_ACCOUNT_NOT_FOUND`。
 
 ## 6. 发布
 
@@ -240,10 +241,11 @@ API 发布和批量发布接受文章状态 `READY`、兼容 `APPROVED` 或 `PUB
 |---|---|---|---|
 | POST | `/articles/{articleId}/confirm` | Editor/Admin | 本人确认当前版本；`DRAFT/REJECTED → READY` |
 | POST | `/articles/{articleId}/reopen` | Editor/Admin | 将 `READY/APPROVED` 重新进入 `DRAFT`；`PUBLISHED` 拒绝 |
-| POST | `/channels/manual/{channelType}/profile` | Admin | 保存纯人工平台个人配置 |
+| POST | `/channels/{accountId}/delete` | Admin | 使用 `expectedVersion` 安全移除 API 账号并清除凭据 |
+| POST | `/channels/manual/{channelType}/profile` | Admin | 保存具有固定官方入口的平台个人配置 |
 | POST | `/channels/manual/{channelType}/login-confirmation` | Admin | 历史兼容：记录人工登录确认时间；当前 Portal 不再提供入口 |
 
-LOCAL 模式使用服务端 Session 和 CSRF Token。现阶段 URL 安全规则继续由 Spring Security 中的 `/channels/**` Admin 门禁提供；这是历史角色兼容，不表示未来纯个人模式需要渠道管理员审批。
+LOCAL 模式使用服务端 Session 和 CSRF Token。写操作由 Spring Security 的 POST `/channels/**` Admin 门禁保护；GET 页面按现有只读角色规则开放。这是历史角色兼容，不表示未来纯个人模式需要渠道管理员审批。
 
 内容确认和重新编辑也使用 Session/JWT 身份、CSRF 与服务端租户过滤。确认重复提交保持幂等；重新编辑会解除未发布基线锁定，但不能用于直接修改已经发布的文章。
 
@@ -251,7 +253,7 @@ LOCAL 模式使用服务端 Session 和 CSRF Token。现阶段 URL 安全规则�
 
 | 字段 | 约束 |
 |---|---|
-| `channelType` | 必须与路径一致，且只能是目录中支持人工发布、不支持 API 的 17 个渠道 |
+| `channelType` | 必须与路径一致，且只能是目录中 `manualAvailable=true` 的 24 个渠道 |
 | `expectedVersion` | 首次保存为 0；已有配置必须提交当前正版本 |
 | `enabled` | 是否在文章人工发布目标中启用 |
 | `accountAlias` | 可选，最长 120 |
@@ -268,10 +270,12 @@ Portal 捕获应用异常后以 Flash 消息重定向到 `/channels?view=manual#
 |---|---|
 | `MANUAL_CHANNEL_PROFILE_INVALID` | 渠道参数、标签、文本长度或排序不合法 |
 | `MANUAL_CHANNEL_PROFILE_VERSION_CONFLICT` | 配置版本过期 |
-| `MANUAL_CHANNEL_UNAVAILABLE` | 不是可配置的纯人工渠道 |
+| `MANUAL_CHANNEL_UNAVAILABLE` | 渠道没有受信任的固定官方人工入口 |
 | `MANUAL_CHANNEL_DISABLED` | 目标人工平台已停用，不能进入或完成人工发布 |
 
 人工平台配置不接受密码、Cookie、Session、验证码、恢复码或自定义平台 URL。官方入口来自 `ChannelCatalog`。
+
+API 和人工能力彼此独立。DEV、WordPress、GitHub Discussions、Twitter/X、Reddit、Hashnode 和 Medium 即使没有 API 账号也可以进入人工工作区；Discourse、Mastodon 和 Ghost 因没有固定安全编辑入口而返回 `MANUAL_CHANNEL_UNAVAILABLE`。
 
 ## 10. 工具与监控
 

@@ -94,6 +94,10 @@ public final class PublishingApplicationService {
         return accounts.verifyConnection(actor, accountId);
     }
 
+    public void removeAccount(ActorContext actor, UUID accountId, int expectedVersion) {
+        accounts.removeAccount(actor, accountId, expectedVersion);
+    }
+
     public Article getArticle(ActorContext actor, UUID articleId) {
         return articles.getArticle(actor, articleId);
     }
