@@ -322,6 +322,50 @@
         syncCredentials();
     }
 
+    const channelDialogOpeners = [...document.querySelectorAll('[data-channel-dialog-open]')];
+    const channelDialogs = [...document.querySelectorAll('[data-channel-dialog]')];
+    const channelDialogOpenersByDialog = new Map();
+    const closeChannelDialog = dialog => {
+        if (!dialog?.open) return;
+        if (typeof dialog.close === 'function') dialog.close();
+        else {
+            dialog.removeAttribute('open');
+            channelDialogOpenersByDialog.get(dialog)?.focus();
+        }
+    };
+    channelDialogOpeners.forEach(opener => {
+        const dialog = document.getElementById(opener.getAttribute('aria-controls'));
+        if (!dialog) return;
+        channelDialogOpenersByDialog.set(dialog, opener);
+        opener.addEventListener('click', () => {
+            channelDialogs.filter(candidate => candidate !== dialog).forEach(closeChannelDialog);
+            if (typeof dialog.showModal === 'function') dialog.showModal();
+            else dialog.setAttribute('open', '');
+            dialog.querySelector('[data-channel-dialog-close]')?.focus();
+        });
+        dialog.querySelector('[data-channel-dialog-close]')?.addEventListener('click', () =>
+            closeChannelDialog(dialog));
+        dialog.addEventListener('click', event => {
+            if (event.target !== dialog) return;
+            const shell = dialog.querySelector('.channel-management-dialog-shell');
+            const bounds = shell?.getBoundingClientRect();
+            if (!bounds || event.clientX < bounds.left || event.clientX > bounds.right
+                    || event.clientY < bounds.top || event.clientY > bounds.bottom) {
+                closeChannelDialog(dialog);
+            }
+        });
+        dialog.addEventListener('close', () => channelDialogOpenersByDialog.get(dialog)?.focus());
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        const fallbackDialog = channelDialogs.find(dialog =>
+            dialog.open && typeof dialog.showModal !== 'function');
+        if (fallbackDialog) {
+            event.preventDefault();
+            closeChannelDialog(fallbackDialog);
+        }
+    });
+
     document.querySelectorAll('[data-count-source]').forEach(counter => {
         const source = document.querySelector(counter.dataset.countSource);
         const limit = Number(counter.dataset.countLimit || 0);

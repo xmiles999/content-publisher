@@ -64,6 +64,7 @@
     --focus-shadow: rgba(47,98,124,.1);
     --panel-shadow: 0 14px 34px rgba(17,39,50,.16);
     --panel-shadow-soft: 0 8px 22px rgba(17,39,50,.06);
+    --dialog-backdrop: rgba(8,20,26,.48);
     --auth-shadow: 0 8px 30px rgba(0,0,0,.18);
     --inset-shadow: inset 0 1px 2px rgba(26,34,52,.08);
     --message-code: rgba(47,98,124,.18);
@@ -139,6 +140,7 @@ html[data-theme="dark"] {
     --focus-shadow: rgba(120,189,213,.18);
     --panel-shadow: 0 18px 42px rgba(0,0,0,.38);
     --panel-shadow-soft: 0 10px 28px rgba(0,0,0,.22);
+    --dialog-backdrop: rgba(2,8,11,.72);
     --auth-shadow: 0 12px 36px rgba(0,0,0,.42);
     --inset-shadow: inset 0 1px 2px rgba(0,0,0,.34);
     --message-code: rgba(120,189,213,.24);
@@ -368,6 +370,21 @@ a { color: inherit; }
 .table-action-menu > summary { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; cursor: pointer; list-style: none; color: var(--primary); background: var(--control-bg); font-size: 12px; font-weight: 750; }
 .table-action-menu > summary::-webkit-details-marker { display: none; }
 .account-action-panel { position: absolute; z-index: 12; top: 38px; right: 0; width: min(360px,calc(100vw - 48px)); display: grid; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--panel-shadow); text-align: left; }
+.channel-dialog-trigger { min-height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--primary); background: var(--control-bg); cursor: pointer; font-size: 12px; font-weight: 750; }
+.channel-dialog-trigger:hover { border-color: var(--control-border-hover); background: var(--surface-soft); }
+.channel-dialog-trigger:active { transform: translateY(1px); }
+.channel-management-dialog { width: min(680px,calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--surface); box-shadow: var(--panel-shadow); text-align: left; }
+.channel-management-dialog:not([open]) { display: none; }
+.channel-management-dialog::backdrop { background: var(--dialog-backdrop); }
+.channel-management-dialog-shell { max-height: calc(100vh - 34px); max-height: calc(100dvh - 34px); display: grid; grid-template-rows: auto minmax(0,1fr); }
+.channel-management-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 18px; border-bottom: 1px solid var(--line); background: var(--surface-alt); }
+.channel-management-dialog-header h4 { margin: 4px 0 0; font-size: 17px; overflow-wrap: anywhere; }
+.channel-management-dialog-header small { color: var(--muted); font-size: 11px; }
+.channel-dialog-close { min-height: 34px; flex: 0 0 auto; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; color: var(--text); background: var(--control-bg); cursor: pointer; font-size: 12px; font-weight: 750; }
+.channel-dialog-close:hover { border-color: var(--control-border-hover); background: var(--surface-soft); }
+.channel-dialog-close:active { transform: translateY(1px); }
+.channel-management-dialog .channel-management-dialog-body { position: static; width: auto; min-width: 0; max-height: none; overflow-y: auto; padding: 18px; border: 0; border-radius: 0; background: var(--surface); box-shadow: none; }
+.channel-management-dialog-body > form > button, .channel-management-dialog-body > .text-link { justify-self: start; }
 .manual-profile-form { width: min(520px,calc(100vw - 48px)); }
 .manual-profile-form > .primary-link { width: 100%; }
 .manual-profile-form .form-grid { grid-template-columns: minmax(0,1fr) 100px; }

@@ -599,6 +599,23 @@ class LocalSecurityIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("DEV 主账号")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("X 主账号")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("2 个渠道")));
+        String channelsHtml = mockMvc.perform(get("/channels").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-channel-dialog-open")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-channel-dialog")))
+                .andReturn().getResponse().getContentAsString();
+        var channelsDocument = org.jsoup.Jsoup.parse(channelsHtml);
+        assertThat(channelsDocument.select("details.table-action-menu > summary"))
+                .noneMatch(summary -> "管理".equals(summary.text()));
+        assertThat(channelsDocument.select("button[data-channel-dialog-open]")).hasSize(2)
+                .allSatisfy(button -> {
+                    String dialogId = button.attr("aria-controls");
+                    assertThat(dialogId).isNotBlank();
+                    var dialog = channelsDocument.getElementById(dialogId);
+                    assertThat(dialog).isNotNull();
+                    assertThat(dialog.tagName()).isEqualTo("dialog");
+                    assertThat(dialog.attr("aria-labelledby")).isNotBlank();
+                });
         mockMvc.perform(post("/channels/manual/XIAOHONGSHU/profile").session(session).with(csrf())
                         .param("channelType", "XIAOHONGSHU")
                         .param("expectedVersion", "0")
