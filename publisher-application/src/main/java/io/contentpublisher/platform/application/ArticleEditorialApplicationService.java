@@ -4,6 +4,7 @@ import io.contentpublisher.platform.application.port.ArticleRepository;
 import io.contentpublisher.platform.application.port.AuditRecorder;
 import io.contentpublisher.platform.domain.ActorContext;
 import io.contentpublisher.platform.domain.Article;
+import io.contentpublisher.platform.domain.ArticleLimits;
 import io.contentpublisher.platform.domain.ArticleStatus;
 import io.contentpublisher.platform.domain.ArticleVersion;
 import io.contentpublisher.platform.domain.ContentOrigin;
@@ -44,19 +45,20 @@ public final class ArticleEditorialApplicationService {
                                        String titleEn, String summaryEn, String markdownEn,
                                        List<String> tagsEn, List<String> keywordsEn,
                                        String language) {
-        String normalizedTitle = requireText(title, "文章标题不能为空", 500);
-        String normalizedMarkdown = requireText(markdown, "文章正文不能为空", 20000);
+        String normalizedTitle = requireText(title, "文章标题不能为空", ArticleLimits.TITLE);
+        String normalizedMarkdown = requireText(markdown, "文章正文不能为空", ArticleLimits.MARKDOWN);
         String normalizedSummary = summary == null || summary.isBlank()
                 ? deriveSummary(normalizedMarkdown, 200)
-                : requireText(summary, "文章摘要不能为空", 2000);
+                : requireText(summary, "文章摘要不能为空", ArticleLimits.SUMMARY);
         List<String> normalizedTags = normalizeTags(tags);
         List<String> normalizedKeywords = normalizeKeywords(keywords);
         if (normalizedKeywords.isEmpty() && !normalizedTags.isEmpty()) {
             normalizedKeywords = normalizedTags.stream().limit(30).toList();
         }
-        String normalizedTitleEn = normalizeOptionalText(titleEn, "英文标题不能超过 500 个字符", 500);
-        String normalizedSummaryEn = normalizeOptionalText(summaryEn, "英文摘要不能超过 2000 个字符", 2000);
-        String normalizedMarkdownEn = normalizeOptionalText(markdownEn, "英文正文不能超过 20000 个字符", 20000);
+        String normalizedTitleEn = normalizeOptionalText(titleEn, "英文标题不能超过 500 个字符", ArticleLimits.TITLE);
+        String normalizedSummaryEn = normalizeOptionalText(summaryEn, "英文摘要不能超过 2000 个字符", ArticleLimits.SUMMARY);
+        String normalizedMarkdownEn = normalizeOptionalText(markdownEn,
+                "英文正文不能超过 " + ArticleLimits.MARKDOWN + " 个字符", ArticleLimits.MARKDOWN);
         List<String> normalizedTagsEn = normalizeTags(tagsEn);
         List<String> normalizedKeywordsEn = normalizeKeywords(keywordsEn);
         String normalizedLanguage = language == null || language.isBlank() ? "zh-CN" : language.trim();
@@ -100,14 +102,15 @@ public final class ArticleEditorialApplicationService {
         if (article.currentVersion() != expectedVersion) {
             throw new ApplicationException("ARTICLE_VERSION_CONFLICT", "文章已被其他请求修改，请刷新后重试");
         }
-        String normalizedTitle = requireText(title, "文章标题不能为空", 500);
-        String normalizedSummary = requireText(summary, "文章摘要不能为空", 2000);
-        String normalizedMarkdown = requireText(markdown, "文章正文不能为空", 20000);
+        String normalizedTitle = requireText(title, "文章标题不能为空", ArticleLimits.TITLE);
+        String normalizedSummary = requireText(summary, "文章摘要不能为空", ArticleLimits.SUMMARY);
+        String normalizedMarkdown = requireText(markdown, "文章正文不能为空", ArticleLimits.MARKDOWN);
         List<String> normalizedTags = normalizeTags(tags);
         List<String> normalizedKeywords = normalizeKeywords(keywords);
-        String normalizedTitleEn = normalizeOptionalText(titleEn, "英文标题不能超过 500 个字符", 500);
-        String normalizedSummaryEn = normalizeOptionalText(summaryEn, "英文摘要不能超过 2000 个字符", 2000);
-        String normalizedMarkdownEn = normalizeOptionalText(markdownEn, "英文正文不能超过 20000 个字符", 20000);
+        String normalizedTitleEn = normalizeOptionalText(titleEn, "英文标题不能超过 500 个字符", ArticleLimits.TITLE);
+        String normalizedSummaryEn = normalizeOptionalText(summaryEn, "英文摘要不能超过 2000 个字符", ArticleLimits.SUMMARY);
+        String normalizedMarkdownEn = normalizeOptionalText(markdownEn,
+                "英文正文不能超过 " + ArticleLimits.MARKDOWN + " 个字符", ArticleLimits.MARKDOWN);
         List<String> normalizedTagsEn = normalizeTags(tagsEn);
         List<String> normalizedKeywordsEn = normalizeKeywords(keywordsEn);
         int nextVersion = expectedVersion + 1;
@@ -138,6 +141,15 @@ public final class ArticleEditorialApplicationService {
         return updateArticle(actor, articleId, expectedVersion, title, summary, markdown, keywords, keywords);
     }
 
+    public Article updateAndConfirm(ActorContext actor, UUID articleId, int expectedVersion, String title,
+                                    String summary, String markdown, List<String> tags, List<String> keywords,
+                                    String titleEn, String summaryEn, String markdownEn, List<String> tagsEn,
+                                    List<String> keywordsEn) {
+        Article updated = updateArticle(actor, articleId, expectedVersion, title, summary, markdown, tags, keywords,
+                titleEn, summaryEn, markdownEn, tagsEn, keywordsEn);
+        return confirmArticle(actor, updated.id());
+    }
+
     public Article approveArticle(ActorContext actor, UUID articleId) {
         Article article = getArticle(actor, articleId);
         if (article.status().isConfirmedBaseline()) return article;
@@ -163,14 +175,14 @@ public final class ArticleEditorialApplicationService {
     public Article reopenArticle(ActorContext actor, UUID articleId) {
         Article article = getArticle(actor, articleId);
         if (article.status().isEditable()) return article;
-        if (article.status() == ArticleStatus.PUBLISHED) {
-            throw new ApplicationException("ARTICLE_STATE_CONFLICT", "已发布文章不能直接重新编辑");
-        }
-        if (article.status() != ArticleStatus.READY && article.status() != ArticleStatus.APPROVED) {
+        if (article.status() != ArticleStatus.READY && article.status() != ArticleStatus.APPROVED
+                && article.status() != ArticleStatus.PUBLISHED) {
             throw new ApplicationException("ARTICLE_STATE_CONFLICT", "当前内容状态不能重新进入编辑");
         }
         Article saved = updateArticleStatus(article, ArticleStatus.DRAFT, actor.subject());
-        auditRecorder.record(actor, "ARTICLE_EDITING_REOPENED", "ARTICLE", articleId, Map.of());
+        String event = article.status() == ArticleStatus.PUBLISHED
+                ? "ARTICLE_REVISION_OPENED" : "ARTICLE_EDITING_REOPENED";
+        auditRecorder.record(actor, event, "ARTICLE", articleId, Map.of());
         return saved;
     }
 
@@ -227,7 +239,8 @@ public final class ArticleEditorialApplicationService {
         if (keywords == null) return List.of();
         List<String> normalized = keywords.stream().filter(java.util.Objects::nonNull).map(String::trim)
                 .filter(value -> !value.isEmpty()).distinct().toList();
-        if (normalized.size() > 30 || normalized.stream().anyMatch(value -> value.length() > 100)) {
+        if (normalized.size() > ArticleLimits.KEYWORDS
+                || normalized.stream().anyMatch(value -> value.length() > ArticleLimits.KEYWORD)) {
             throw new ApplicationException("INVALID_ARGUMENT", "关键词最多 30 个且每个不超过 100 字符");
         }
         return normalized;
@@ -237,7 +250,8 @@ public final class ArticleEditorialApplicationService {
         if (tags == null) return List.of();
         List<String> normalized = tags.stream().filter(java.util.Objects::nonNull).map(String::trim)
                 .map(value -> value.replaceFirst("^#+", "")).filter(value -> !value.isEmpty()).distinct().toList();
-        if (normalized.size() > 15 || normalized.stream().anyMatch(value -> value.length() > 50)) {
+        if (normalized.size() > ArticleLimits.TAGS
+                || normalized.stream().anyMatch(value -> value.length() > ArticleLimits.TAG)) {
             throw new ApplicationException("INVALID_ARGUMENT", "标签最多 15 个且每个不超过 50 字符");
         }
         return normalized;

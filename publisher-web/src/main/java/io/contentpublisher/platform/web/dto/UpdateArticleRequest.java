@@ -1,5 +1,6 @@
 package io.contentpublisher.platform.web.dto;
 
+import io.contentpublisher.platform.domain.ArticleLimits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -8,14 +9,14 @@ import java.util.List;
 
 public record UpdateArticleRequest(
         @Min(1) int expectedVersion,
-        @NotBlank @Size(max = 500) String title,
-        @NotBlank @Size(max = 2000) String summary,
-        @NotBlank @Size(max = 20000) String markdown,
-        @Size(max = 15) List<@Size(max = 50) String> tags,
-        @Size(max = 30) List<@Size(max = 100) String> keywords,
-        @Size(max = 500) String titleEn,
-        @Size(max = 2000) String summaryEn,
-        @Size(max = 20000) String markdownEn,
-        @Size(max = 15) List<@Size(max = 50) String> tagsEn,
-        @Size(max = 30) List<@Size(max = 100) String> keywordsEn) {
+        @NotBlank @Size(max = ArticleLimits.TITLE) String title,
+        @NotBlank @Size(max = ArticleLimits.SUMMARY) String summary,
+        @NotBlank @Size(max = ArticleLimits.MARKDOWN) String markdown,
+        @Size(max = ArticleLimits.TAGS) List<@Size(max = ArticleLimits.TAG) String> tags,
+        @Size(max = ArticleLimits.KEYWORDS) List<@Size(max = ArticleLimits.KEYWORD) String> keywords,
+        @Size(max = ArticleLimits.TITLE) String titleEn,
+        @Size(max = ArticleLimits.SUMMARY) String summaryEn,
+        @Size(max = ArticleLimits.MARKDOWN) String markdownEn,
+        @Size(max = ArticleLimits.TAGS) List<@Size(max = ArticleLimits.TAG) String> tagsEn,
+        @Size(max = ArticleLimits.KEYWORDS) List<@Size(max = ArticleLimits.KEYWORD) String> keywordsEn) {
 }

@@ -12,7 +12,7 @@ public class CreateCustomArticleForm {
     private String summary = "";
 
     @NotBlank(message = "文章正文或笔记内容不能为空")
-    @Size(max = 20000, message = "正文内容不能超过 20000 个字符")
+    @Size(max = io.contentpublisher.platform.domain.ArticleLimits.MARKDOWN, message = "正文内容不能超过 100000 个字符")
     private String markdown;
 
     @Size(max = 1000, message = "标签内容过长")
@@ -31,7 +31,7 @@ public class CreateCustomArticleForm {
     @Size(max = 2000, message = "英文摘要不能超过 2000 个字符")
     private String summaryEn = "";
 
-    @Size(max = 20000, message = "英文正文不能超过 20000 个字符")
+    @Size(max = io.contentpublisher.platform.domain.ArticleLimits.MARKDOWN, message = "英文正文不能超过 100000 个字符")
     private String markdownEn = "";
 
     @Size(max = 1000, message = "英文标签内容过长")

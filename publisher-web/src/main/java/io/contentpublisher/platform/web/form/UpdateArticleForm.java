@@ -17,8 +17,10 @@ public class UpdateArticleForm {
     private String summary;
 
     @NotBlank(message = "正文不能为空")
-    @Size(max = 20000, message = "正文不能超过 20000 个字符")
+    @Size(max = io.contentpublisher.platform.domain.ArticleLimits.MARKDOWN, message = "正文不能超过 100000 个字符")
     private String markdown;
+
+    private String intent = "draft";
 
     @Size(max = 3200, message = "关键词内容过长")
     private String keywords;
@@ -32,7 +34,7 @@ public class UpdateArticleForm {
     @Size(max = 2000, message = "英文摘要不能超过 2000 个字符")
     private String summaryEn;
 
-    @Size(max = 20000, message = "英文正文不能超过 20000 个字符")
+    @Size(max = io.contentpublisher.platform.domain.ArticleLimits.MARKDOWN, message = "英文正文不能超过 100000 个字符")
     private String markdownEn;
 
     @Size(max = 3200, message = "英文关键词内容过长")
@@ -63,4 +65,6 @@ public class UpdateArticleForm {
     public void setKeywordsEn(String keywordsEn) { this.keywordsEn = keywordsEn; }
     public String getTagsEn() { return tagsEn; }
     public void setTagsEn(String tagsEn) { this.tagsEn = tagsEn; }
+    public String getIntent() { return intent; }
+    public void setIntent(String intent) { this.intent = intent; }
 }

@@ -79,7 +79,7 @@ public class PortalPublishingController {
     }
 
     @GetMapping("/publishing")
-    public String publishing(@RequestParam(defaultValue = "records") String tab,
+    public String publishing(@RequestParam(defaultValue = "coverage") String tab,
                              @RequestParam(required = false) String q,
                              @RequestParam(required = false) String channel,
                              @RequestParam(required = false) String status,
@@ -130,6 +130,7 @@ public class PortalPublishingController {
                 .filter(batch -> batch.failedCount() > 0).count());
         model.addAttribute("publicationMatrix", selectedTab.equals("coverage")
                 ? publicationMatrix(actor, articles) : List.of());
+        model.addAttribute("publishPackSize", publishPack(actor).size());
         model.addAttribute("articleNames", articleNames);
         model.addAttribute("publishedCount", publishedCount);
         model.addAttribute("channelNames", channelNames);
@@ -155,14 +156,22 @@ public class PortalPublishingController {
         Map<ArticleChannelKey, PublicationRecord> latest = new java.util.HashMap<>();
         matrixRecords.forEach(record -> latest.putIfAbsent(
                 new ArticleChannelKey(record.articleId(), record.channelType()), record));
-        return articles.stream().map(article -> new PublicationMatrixRow(article, ChannelCatalog.all().stream()
+        List<ChannelCatalog.ChannelDefinition> pack = publishPack(actor);
+        return articles.stream().map(article -> new PublicationMatrixRow(article, pack.stream()
                 .map(channel -> new PublicationMatrixCell(channel,
                         latest.get(new ArticleChannelKey(article.id(), channel.type())))).toList())).toList();
     }
 
+    private List<ChannelCatalog.ChannelDefinition> publishPack(ActorContext actor) {
+        return manualProfileViews(actor).stream()
+                .filter(ManualChannelProfileView::enabled)
+                .map(ManualChannelProfileView::channel)
+                .toList();
+    }
+
     private String normalizeTab(String tab) {
         String normalized = tab == null ? "" : tab.trim().toLowerCase(Locale.ROOT);
-        return Set.of("queue", "batches", "records", "coverage").contains(normalized) ? normalized : "records";
+        return Set.of("queue", "batches", "records", "coverage").contains(normalized) ? normalized : "coverage";
     }
 
     private String normalizeSearch(String value) {

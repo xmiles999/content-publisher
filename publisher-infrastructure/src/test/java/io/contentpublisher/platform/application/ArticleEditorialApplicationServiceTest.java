@@ -132,15 +132,29 @@ class ArticleEditorialApplicationServiceTest {
     }
 
     @Test
-    void shouldRejectReopeningPublishedContent() {
+    void shouldReopenPublishedContentForExplicitRevision() {
         Fixture fixture = fixture(ArticleStatus.PUBLISHED);
 
-        assertThatThrownBy(() -> fixture.service.reopenArticle(ACTOR, fixture.articleId))
-                .isInstanceOfSatisfying(ApplicationException.class, exception -> {
-                    assertThat(exception.code()).isEqualTo("ARTICLE_STATE_CONFLICT");
-                    assertThat(exception.getMessage()).contains("已发布文章");
-                });
-        verify(fixture.articles, never()).save(any());
+        Article reopened = fixture.service.reopenArticle(ACTOR, fixture.articleId);
+
+        assertThat(reopened.status()).isEqualTo(ArticleStatus.DRAFT);
+        verify(fixture.audits).record(ACTOR, "ARTICLE_REVISION_OPENED", "ARTICLE",
+                fixture.articleId, Map.of());
+    }
+
+    @Test
+    void shouldSaveNewVersionAndConfirmInOneStep() {
+        Fixture fixture = fixture(ArticleStatus.DRAFT);
+
+        Article confirmed = fixture.service.updateAndConfirm(ACTOR, fixture.articleId, 1,
+                "确认标题", "确认摘要", "确认正文内容足够长", List.of("个人"), List.of("个人"),
+                "", "", "", List.of(), List.of());
+
+        assertThat(confirmed.status()).isEqualTo(ArticleStatus.READY);
+        assertThat(confirmed.title()).isEqualTo("确认标题");
+        assertThat(confirmed.currentVersion()).isEqualTo(2);
+        verify(fixture.audits).record(ACTOR, "ARTICLE_CONTENT_CONFIRMED", "ARTICLE",
+                fixture.articleId, Map.of());
     }
 
     @Test

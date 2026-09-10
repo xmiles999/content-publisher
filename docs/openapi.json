@@ -828,6 +828,33 @@
         }
       }
     },
+    "/api/v1/articles/{articleId}/reopen" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "reopen",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/articles/{articleId}/reject" : {
       "post" : {
         "tags" : [ "article-controller" ],
@@ -862,7 +889,8 @@
               }
             }
           }
-        }
+        },
+        "deprecated" : true
       }
     },
     "/api/v1/articles/{articleId}/publications" : {
@@ -953,6 +981,140 @@
         }
       }
     },
+    "/api/v1/articles/{articleId}/english-translations" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "translate",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EnglishTranslationRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EnglishTranslationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/confirm" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{articleId}/assets" : {
+      "get" : {
+        "tags" : [ "article-asset-controller" ],
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ArticleAssetResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "article-asset-controller" ],
+        "operationId" : "upload",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleAssetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/articles/{articleId}/approve" : {
       "post" : {
         "tags" : [ "article-controller" ],
@@ -977,7 +1139,8 @@
               }
             }
           }
-        }
+        },
+        "deprecated" : true
       }
     },
     "/api/v1/articles/website-generations" : {
@@ -1175,7 +1338,7 @@
     "/api/v1/publications" : {
       "get" : {
         "tags" : [ "publication-controller" ],
-        "operationId" : "list_1",
+        "operationId" : "list_2",
         "parameters" : [ {
           "name" : "limit",
           "in" : "query",
@@ -1483,6 +1646,78 @@
         }
       }
     },
+    "/api/v1/articles/{articleId}/assets/{assetId}" : {
+      "get" : {
+        "tags" : [ "article-asset-controller" ],
+        "operationId" : "content",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "assetId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/articles/{articleId}/assets/{assetId}" : {
+      "get" : {
+        "tags" : [ "article-asset-controller" ],
+        "operationId" : "content_1",
+        "parameters" : [ {
+          "name" : "articleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "assetId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/automation/presets/{presetId}" : {
       "delete" : {
         "tags" : [ "automation-controller" ],
@@ -1608,7 +1843,7 @@
           },
           "markdown" : {
             "type" : "string",
-            "maxLength" : 20000,
+            "maxLength" : 100000,
             "minLength" : 0
           },
           "tags" : {
@@ -1643,7 +1878,7 @@
           },
           "markdownEn" : {
             "type" : "string",
-            "maxLength" : 20000,
+            "maxLength" : 100000,
             "minLength" : 0
           },
           "tagsEn" : {
@@ -2094,7 +2329,7 @@
         "properties" : {
           "markdown" : {
             "type" : "string",
-            "maxLength" : 20000,
+            "maxLength" : 100000,
             "minLength" : 0
           }
         },
@@ -2416,6 +2651,102 @@
           }
         }
       },
+      "EnglishTranslationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "summary" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "markdown" : {
+            "type" : "string",
+            "maxLength" : 100000,
+            "minLength" : 0
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 50,
+              "minLength" : 0
+            },
+            "maxItems" : 15,
+            "minItems" : 0
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 100,
+              "minLength" : 0
+            },
+            "maxItems" : 30,
+            "minItems" : 0
+          }
+        }
+      },
+      "EnglishTranslationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "titleEn" : {
+            "type" : "string"
+          },
+          "summaryEn" : {
+            "type" : "string"
+          },
+          "markdownEn" : {
+            "type" : "string"
+          },
+          "tagsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywordsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ArticleAssetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "articleId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "originalFilename" : {
+            "type" : "string"
+          },
+          "contentType" : {
+            "type" : "string"
+          },
+          "byteSize" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "markdownUrl" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "CreateWebsiteArticleRequest" : {
         "type" : "object",
         "properties" : {
@@ -2603,7 +2934,7 @@
           },
           "markdown" : {
             "type" : "string",
-            "maxLength" : 20000,
+            "maxLength" : 100000,
             "minLength" : 0
           },
           "tags" : {
@@ -2630,7 +2961,7 @@
           },
           "markdownEn" : {
             "type" : "string",
-            "maxLength" : 20000,
+            "maxLength" : 100000,
             "minLength" : 0
           },
           "tagsEn" : {

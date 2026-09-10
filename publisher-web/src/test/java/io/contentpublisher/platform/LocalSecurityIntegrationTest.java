@@ -90,7 +90,10 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("tenant-local")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("个人工作区")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("写新稿")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("tenant-local"))));
         mockMvc.perform(get("/monitoring").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("全链路监控大屏")))
@@ -308,7 +311,7 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("选择内容来源")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("直接编写，或从资料生成")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-group=\"content\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-active=\"true\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-toggle")))
@@ -322,7 +325,7 @@ class LocalSecurityIntegrationTest {
                         org.hamcrest.Matchers.containsString("已删除记录"))));
         mockMvc.perform(get("/content").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("文章主稿")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("这里编辑、确认和修订主稿")));
         mockMvc.perform(get("/jobs").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("任务队列")));
@@ -605,13 +608,13 @@ class LocalSecurityIntegrationTest {
         MockHttpSession session = login();
 
         mockMvc.perform(get("/publishing").session(session)).andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("多平台发布中心")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("发布覆盖")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("已连接接口"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("人工发布平台"))));
         mockMvc.perform(get("/articles/" + articleId).session(session)).andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("进入发布中心")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("去发布")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("一键多平台发布"))));
         mockMvc.perform(get("/publishing/articles/" + articleId).session(session)).andExpect(status().isOk())
@@ -734,7 +737,7 @@ class LocalSecurityIntegrationTest {
                         .param("sortOrder", "10"))
                 .andExpect(status().is3xxRedirection());
         mockMvc.perform(get("/publishing?tab=coverage").session(session)).andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("文章 / 渠道覆盖分析")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("常用渠道覆盖")));
         mockMvc.perform(get("/publishing?tab=records").session(session)).andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("发布记录")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("MANUAL")));

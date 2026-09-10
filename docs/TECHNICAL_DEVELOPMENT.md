@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-08-10 |
+| 文档基线 | 2026-09-10 |
 | 适用版本 | `0.1.0-SNAPSHOT` |
 | 架构形态 | 模块化单体 |
 | 主包名 | `io.contentpublisher.platform` |
@@ -70,7 +70,7 @@
 |---|---|---|
 | Spring Data JPA / Hibernate | Boot 管理 | ORM 和事务 |
 | PostgreSQL Driver | 42.7.13 | 生产数据库连接 |
-| Flyway Core + PostgreSQL | Boot 管理 | V1–V24 迁移 |
+| Flyway Core + PostgreSQL | Boot 管理 | V1–V25 迁移 |
 | Eclipse JGit | 7.3.0.202506031305-r | 安全浅克隆和仓库分析 |
 | Jsoup | 1.18.3 | 网站 HTML 文本提取 |
 | CommonMark | 0.24.0 | Markdown 解析与安全渲染 |
@@ -203,6 +203,8 @@ publisher-infrastructure → publisher-application → publisher-domain
 | `PublicationStatus` | `PUBLISHING`、`PUBLISHED`、`FAILED` |
 | `ManualPublication` | 人工发布最终内容快照与外链 |
 | `ManualChannelProfile` | 可人工发布渠道的个人启停、账号别名、默认标签/栏目、备注、排序、兼容登录确认时间和乐观锁版本 |
+| `ArticleLimits` | 主稿标题/摘要/正文长度上限 |
+| `ArticleAsset` | 文章配图元数据和 Markdown 相对地址 |
 
 ## 7. 应用组件
 
@@ -211,11 +213,12 @@ publisher-infrastructure → publisher-application → publisher-domain
 | 组件 | 职责 |
 |---|---|
 | `ProjectImportApplicationService` | 创建/更新项目、调用仓库检查器、保存快照和审计 |
-| `ContentGenerationApplicationService` | Git、主题、网站三类内容生成与文章幂等保存 |
+| `ContentGenerationApplicationService` | Git、主题、网站三类内容生成、英文翻译和文章幂等保存 |
 | `ProjectApplicationService` | 项目查询和兼容门面 |
 | `JobApplicationService` | 任务提交、幂等、配额、批次、调度、取消和发布重试 |
 | `AutomationApplicationService` | 草稿、生成预设、动作台、日历、通知、Webhook 端点、投递与人工发布进度 |
-| `ArticleEditorialApplicationService` | 编辑、版本、个人确认、重新编辑、历史版本恢复，以及兼容审核/驳回 |
+| `ArticleEditorialApplicationService` | 编辑、版本、保存并确认、已发布修订、历史版本恢复，以及兼容审核/驳回 |
+| `ArticleAssetApplicationService` | 文章配图上传、类型探测、数量/大小限制和受控读取 |
 | `AiSettingsApplicationService` | 租户 AI 设置、地址校验、API Key 加密和版本控制 |
 | `ChannelAccountApplicationService` | 渠道账号创建、修改、启停、验证、凭据轮换和安全软删除 |
 | `ManualChannelProfileApplicationService` | 校验固定官方人工入口，查询/保存个人平台配置、确认登录时间、规范化默认标签和处理乐观锁 |
@@ -245,6 +248,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | 任务与审计 | `JobRepository`、`JobProgressReporter`、`AuditRecorder`、`MonitoringQuery` |
 | 自动化 | `AutomationRepository`、`WebhookEndpointPolicy` |
 | 发布 | `ChannelAccountRepository`、`ManualChannelProfileRepository`、`PublicationRepository`、`ManualPublicationRepository`、`ChannelPublisher` |
+| 配图 | `ArticleAssetRepository`、`ArticleAssetStore` |
 | 渠道安全 | `CredentialVault`、`ChannelEndpointPolicy`、`ChannelConnectionVerifier`、`ChannelCredentialRefresher` |
 | 通用安全与渲染 | `SecretCipher`、`MarkdownRenderer` |
 
@@ -318,10 +322,13 @@ publisher-infrastructure → publisher-application → publisher-domain
 - 要求 HTTPS；只有服务器显式允许时可以使用受控私网地址。
 - 拒绝 UserInfo、Query、Fragment、危险 DNS 和非允许主机。
 
+`FilesystemArticleAssetStore` 把配图写到 `publisher.assets.directory/{tenant}/{articleId}/{assetId}`，禁止路径逃逸。Portal 与 REST 共用同一读取路径。
+
 `OpenAiCompatibleContentGenerator`：
 
 - 读取租户设置或环境默认设置。
 - 请求 `{baseUrl}/chat/completions`。
+- `translateToEnglish` 使用独立翻译提示词，只要求英文字段。
 - 使用 JSON response format、system/user messages、模型和温度。
 - 给 Git、主题、网站分别构造不可信事实边界。
 - 解析中英文 JSON 并执行长度、关键词、章节、SEO 和元叙述校验。
@@ -376,7 +383,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 JPA Entity：
 
 - `ProjectEntity`、`SnapshotEntity`
-- `ArticleEntity`、`ArticleVersionEntity`
+- `ArticleEntity`、`ArticleVersionEntity`、`ArticleAssetEntity`
 - `JobEntity`
 - `ChannelAccountEntity`
 - `PublicationEntity`、`ManualPublicationEntity`
@@ -389,6 +396,7 @@ Adapter：
 
 - `JpaProjectPersistenceAdapter`
 - `JpaArticlePersistenceAdapter`
+- `JpaArticleAssetPersistenceAdapter`
 - `JpaJobPersistenceAdapter`
 - `JpaPublishingPersistenceAdapter`
 - `JpaManualChannelProfilePersistenceAdapter`
@@ -752,6 +760,7 @@ V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `del
 | V22 | 将已有 `articles.status='APPROVED'` 回填为 `READY`，建立个人确认状态基线 |
 | V23 | 渠道账号软删除时间/操作者和活跃账号查询索引 |
 | V24 | 更新 `ck_articles_source` 检查约束，支持 `CUSTOM` 来源类型（`project_id is null`） |
+| V25 | 文章配图元数据表 `article_assets` |
 
 已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。V22 引入旧应用无法识别的 `READY` 字符串状态，因此回滚到不含该枚举的旧 JAR 通常必须恢复迁移前备份，不能只切换应用制品。V23 的字段均可空且采用向前迁移，但旧应用不识别软删除语义，直接回滚可能让已移除账号重新出现在列表或任务选择中；同时已销毁的账号凭据不可恢复，回滚前必须评估旧实体映射和删除数据可见性，必要时恢复迁移前备份。
 
@@ -900,12 +909,12 @@ Git、网站、AI 和自托管渠道都执行：
 
 | 层次 | 代表测试 | 风险 |
 |---|---|---|
-| 应用服务单元 | `ProjectApplicationServiceTest`、`JobApplicationServiceTest`、`RecordManagementApplicationServiceTest`、`ArticleEditorialApplicationServiceTest` | 状态、个人确认、重新编辑、兼容审核、幂等、配额、删除恢复 |
+| 应用服务单元 | `ProjectApplicationServiceTest`、`JobApplicationServiceTest`、`RecordManagementApplicationServiceTest`、`ArticleEditorialApplicationServiceTest`、`ArticleAssetApplicationServiceTest` | 状态、保存并确认、已发布修订、配图类型探测、兼容审核、幂等、配额、删除恢复 |
 | AI/网站安全 | `OpenAiCompatibleContentGeneratorTest`、`SecureAiEndpointPolicyTest`、`SecureWebsiteInspectorTest` | 输出校验、SSRF、响应限制 |
 | 发布与加密 | `PublishingApplicationServiceTest`、`OfficialChannelPublishersTest`、`ManualChannelProfileApplicationServiceTest`、`AesGcmCredentialVaultTest`、`AesGcmSecretCipherTest` | `READY/APPROVED/PUBLISHED` 发布门禁、请求映射、人工平台配置、凭据 |
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
-| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V24、`APPROVED → READY` 回填、JPA、自定义文章、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
+| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V25、`APPROVED → READY` 回填、JPA、自定义文章、配图、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 渠道巡检/Webhook | `ChannelHealthSchedulerTest`、`SecureWebhookEndpointPolicyTest`、自动化持久化测试 | 转换通知、去重、投递状态、SSRF |
 | 时区与重放 | `ScheduleParserTest`、`JobApplicationServiceTest` | DST、单个/批量原子重放和不确定发布门禁 |
@@ -1010,7 +1019,7 @@ Git、网站、AI 和自托管渠道都执行：
 
 ## 20. 已知技术债
 
-1. Portal 已完成个人确认迁移，但多租户、角色、REST `approve/reject`、`APPROVED/REJECTED` 和 `ARTICLE_NOT_APPROVED` 仍是待收敛兼容结构。
+1. Portal 已完成个人确认迁移，账户菜单不再展示租户/角色；多租户、RBAC、REST `approve/reject`、`APPROVED/REJECTED` 和 `ARTICLE_NOT_APPROVED` 仍是待收敛兼容结构。
 2. 主密钥没有版本化和在线迁移。
 3. Worker 单线程轮询，没有可配置并发和独立死信表。
 4. H2 不能完全代表 PostgreSQL 锁和串行化语义，Testcontainers 仍依赖可用 Docker。
@@ -1062,3 +1071,5 @@ Git、网站、AI 和自托管渠道都执行：
 2026-08-11：渠道账号增加基于版本的安全软删除，删除时销毁凭据、隐藏活跃查询并保留历史发布名称；人工发布范围扩展到 24 个固定官方入口，允许 7 个 API 渠道在无法申请接口时独立采用人工流程；加入 Flyway V23、REST/Portal 删除端点和权限、CSRF、持久化测试。
 
 2026-09-10：内容生产控制台增加自定义文章/笔记发布能力；支持直接编写或粘贴 Markdown 笔记，无需 AI 生成任务即可直接生成主稿（v1）并进入确认与发布流程；引入 Flyway V24 放宽 `ck_articles_source` 约束，新增 REST `POST /api/v1/articles/custom` 与 Portal `POST /articles/custom` 端点，补齐单元/集成/持久化/安全与 OpenAPI 契约测试。
+
+2026-09-10：个人工作区收敛。Portal 导航改为文稿/待办/发布/设置；写稿默认自定义文章；保存并可一次确认；已发布文稿可显式修订；编辑器分栏预览、配图和中英一键生成；发布中心默认覆盖矩阵且只统计启用的发布包；人工发布主路径改为复制并打开；Flyway V25 增加 `article_assets`；REST `approve/reject` 标记 deprecated。

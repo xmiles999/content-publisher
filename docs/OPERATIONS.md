@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-08-10 |
+| 文档基线 | 2026-09-10 |
 | 应用版本 | `0.1.0-SNAPSHOT` |
 | 配置来源 | `publisher-web/src/main/resources/application.yml` |
 | 本地数据库 | `deploy/dev-compose.yaml` |
@@ -107,6 +107,7 @@
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
+| `PUBLISHER_ASSETS_DIRECTORY` | `/data/services/content-publisher/assets` | 文章配图文件目录；生产必须是可写卷 |
 | `GIT_WORK_DIRECTORY` | `/data/tmp/content-publisher` | 浅克隆临时目录 |
 | `GIT_ALLOWED_HOSTS` | `github.com,gitlab.com,gitee.com` | Git 主机允许列表 |
 | `GIT_TIMEOUT_SECONDS` | `30` | 克隆超时 |
@@ -301,7 +302,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 2. 执行第 5 节门禁并校验 `SHA256SUMS`。
 3. 部署端先备份数据库与 Secret 元数据，验证备份校验和。
 4. Dokploy 构建/加载不可变镜像并启动 PostgreSQL、应用。
-5. 检查 Flyway 到 V24、readiness、容器用户和网络。
+5. 检查 Flyway 到 V25、readiness、容器用户、配图卷和网络。
 6. 在 Dokploy Domains 配置正确目标端口后检查 Traefik 源站 HTTPS。
 7. 最后切换或确认 Cloudflare DNS，并执行业务冒烟。
 
@@ -321,15 +322,16 @@ Traefik 源站 HTTPS 与 Cloudflare HTTPS 正常
 
 未实际执行的项必须明确标记“未验证”。
 
-## 9. Flyway V1–V24
+## 9. Flyway V1–V25
 
-- 迁移按 V1–V24 从空库前向执行。
+- 迁移按 V1–V25 从空库前向执行。
 - V19：文章草稿、生成预设、通知、Webhook 端点、人工发布进度。
 - V20：通知 Webhook 投递状态、唯一去重和到期索引。
 - V21：人工平台个人配置、启停、默认标签/栏目、备注、排序、登录确认时间和乐观锁版本。
 - V22：将迁移时已有的 `articles.status='APPROVED'` 回填为 `READY`，作为个人内容确认后的可发布状态。
 - V23：为 `channel_accounts` 增加 `deleted_at`、`deleted_by` 和活跃账号查询索引，支持保留发布历史的安全移除。
 - V24：放宽 `ck_articles_source` 检查约束，支持 `CUSTOM` 来源类型（`project_id is null`）。
+- V25：新增 `article_assets`，保存文章配图元数据；文件本体在 `PUBLISHER_ASSETS_DIRECTORY`。
 - 已发布脚本不可修改；新增结构只添加更高版本。
 - Hibernate 使用 `ddl-auto=validate`。
 - 没有 Down Migration；回滚应用前必须确认旧版本与新 Schema 和数据枚举兼容。
@@ -343,7 +345,7 @@ order by installed_rank desc
 limit 5;
 ```
 
-同时验证 V21 表、V22 状态回填、V23 渠道账号软删除字段和 V24 文章来源约束：
+同时验证 V21 表、V22 状态回填、V23 渠道账号软删除字段、V24 文章来源约束和 V25 配图表：
 
 ```sql
 select tenant_id, channel_type, enabled, profile_version
@@ -369,7 +371,7 @@ where table_name = 'channel_accounts'
   and column_name in ('deleted_at', 'deleted_by');
 ```
 
-V22 只执行数据回填，不删除兼容状态，也不增加表结构。V23 增加可空软删除字段和索引；删除账号时应用会清除凭据、释放原幂等键并保留历史发布外键。V24 仅更新 `ck_articles_source` 检查约束，允许 `CUSTOM` 来源在 `project_id` 为空时持久化。新应用仍能读取后续由兼容 REST 产生的 `APPROVED`。不含 `READY` 枚举、V23 字段映射或 V24 来源约束语义的旧应用回滚前必须完成兼容性评估，必要时恢复迁移前备份；不能只替换制品后直接启动。
+V22 只执行数据回填，不删除兼容状态，也不增加表结构。V23 增加可空软删除字段和索引；删除账号时应用会清除凭据、释放原幂等键并保留历史发布外键。V24 仅更新 `ck_articles_source` 检查约束，允许 `CUSTOM` 来源在 `project_id` 为空时持久化。V25 新增 `article_assets`；回滚旧应用前必须评估配图表和 `PUBLISHER_ASSETS_DIRECTORY` 卷。新应用仍能读取后续由兼容 REST 产生的 `APPROVED`。不含 `READY` 枚举、V23 字段映射、V24 来源约束或 V25 配图表语义的旧应用回滚前必须完成兼容性评估，必要时恢复迁移前备份；不能只替换制品后直接启动。
 
 ## 10. 备份与恢复演练
 
@@ -445,7 +447,7 @@ publisher.channels.verification_failed
 
 ### 13.3 Schema 校验失败
 
-检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V24，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
+检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V25，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，`article_assets` 可写入，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
 
 ### 13.4 人工平台配置或持久登录不符合预期
 

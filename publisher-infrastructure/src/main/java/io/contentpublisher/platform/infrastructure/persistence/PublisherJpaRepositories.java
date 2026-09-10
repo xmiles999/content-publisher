@@ -262,3 +262,11 @@ interface JobJpaRepository extends JpaRepository<JobEntity, UUID> {
     List<JobEntity> findClaimable(List<JobStatus> readyStatuses, JobStatus runningStatus,
                                   Instant now, Instant staleBefore, Pageable pageable);
 }
+
+interface ArticleAssetJpaRepository extends JpaRepository<ArticleAssetEntity, UUID> {
+    Optional<ArticleAssetEntity> findByTenantIdAndArticleIdAndId(String tenantId, UUID articleId, UUID id);
+
+    List<ArticleAssetEntity> findByTenantIdAndArticleIdOrderByCreatedAtDesc(String tenantId, UUID articleId);
+
+    long countByTenantIdAndArticleId(String tenantId, UUID articleId);
+}

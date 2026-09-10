@@ -42,9 +42,12 @@ services:
       PUBLISHER_CHANNELS_ALLOWED_HOSTS: ${PUBLISHER_CHANNELS_ALLOWED_HOSTS:-}
       PUBLISHER_CHANNELS_TIMEOUT: ${PUBLISHER_CHANNELS_TIMEOUT:-30s}
       GIT_ALLOWED_HOSTS: ${GIT_ALLOWED_HOSTS:-github.com,gitlab.com,gitee.com}
+      PUBLISHER_ASSETS_DIRECTORY: /data/services/content-publisher/assets
     ports:
       - "127.0.0.1:8080:8080"
     read_only: true
+    volumes:
+      - ${PUBLISHER_SERVICE_DATA_DIR:-/data/services/content-publisher/data}/assets:/data/services/content-publisher/assets
     tmpfs:
       - /tmp
       - /data/tmp/content-publisher:uid=10001,gid=10001,mode=0700

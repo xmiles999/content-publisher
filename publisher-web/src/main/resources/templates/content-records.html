@@ -8,9 +8,9 @@
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('内容库', '集中编辑、确认和维护已经生成的内容主稿')}"></header>
         <main class="page-content">
-            <section class="page-header compact-page-header"><div><h2>文章主稿</h2>
-                <p>内容工作台负责创建；内容库负责编辑、确认当前版本、维护历史和移入回收站。</p></div>
-                <div class="header-actions"><a class="secondary-link" th:href="@{/projects}">创建内容</a><a class="primary-link" th:href="@{/publishing}">进入发布中心</a></div></section>
+            <section class="page-header compact-page-header"><div><h2>文稿</h2>
+                <p>这里编辑、确认和修订主稿。发布结果在覆盖矩阵里看。</p></div>
+                <div class="header-actions"><a class="secondary-link" th:href="@{/projects(source='custom')}">写新稿</a><a class="primary-link" th:href="@{/publishing}">去发布</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
             <form class="filter-toolbar" method="get" th:action="@{/content}">
                 <div class="filter-search"><label for="content-search">搜索</label><input id="content-search" name="q" maxlength="120" th:value="${searchQuery}" placeholder="标题或摘要"></div>

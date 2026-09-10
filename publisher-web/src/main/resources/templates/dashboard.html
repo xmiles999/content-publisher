@@ -10,54 +10,43 @@
 <div class="app-layout">
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main">
-        <header th:replace="~{fragments/app-shell :: topbar('工作台', '项目内容与多平台发布运行概览')}"></header>
+        <header th:replace="~{fragments/app-shell :: topbar('工作台', '写稿、确认、再发到常用平台')}"></header>
         <main class="page-content">
             <section class="hero-banner">
-                <div><p class="section-kicker">今日概览</p>
-                    <h2>欢迎回来，<span th:text="${username}">admin</span></h2>
-                    <p>从 Git 仓库提取可信事实，用 AI 生成主文章，再按每个平台的格式要求自动适配并发布。</p></div>
-                <div class="hero-actions"><a class="primary-link" th:href="@{/projects}">创建内容</a>
-                    <a class="secondary-link" th:href="@{/publishing}">进入发布中心</a></div>
+                <div><p class="section-kicker">今日</p>
+                    <h2>继续写，或把已确认的稿发出去</h2>
+                    <p>一份主稿，多个平台。先写完并确认，再按你的常用渠道覆盖。</p></div>
+                <div class="hero-actions"><a class="primary-link" th:href="@{/projects(source='custom')}">写新稿</a>
+                    <a class="secondary-link" th:href="@{/publishing}">查看覆盖</a></div>
             </section>
 
-            <section class="metric-grid" aria-label="业务指标">
-                <article class="metric-card"><span>项目总数</span><strong th:text="${projectCount}">0</strong><small>已接入的 Git 仓库</small></article>
-                <article class="metric-card"><span>内容总数</span><strong th:text="${articleCount}">0</strong><small>生成并留档的文章</small></article>
-                <article class="metric-card"><span>待发布</span><strong th:text="${readyCount}">0</strong><small>已确认当前版本</small></article>
-                <article class="metric-card"><span>API 渠道</span><strong th:text="${channelCount}">0</strong><small>已安全配置账号</small></article>
-            </section>
-
-            <section class="card">
-                <div class="card-header"><div><p class="section-kicker">工作流程</p><h3>内容生产与发布流程</h3>
-                    <p>每一步都有明确状态、可追溯记录和下一步入口。</p></div><span class="card-badge">4 个阶段</span></div>
-                <div class="workflow-board">
-                    <article class="workflow-step"><span class="step-number">01</span><h4>导入项目</h4><p>安全读取 Git 仓库与 README，提取项目事实。</p></article>
-                    <article class="workflow-step"><span class="step-number">02</span><h4>AI 生成</h4><p>通过关键词、章节、语气和长度策略生成主文章。</p></article>
-                    <article class="workflow-step"><span class="step-number">03</span><h4>编辑确认</h4><p>版本化编辑内容，由本人确认当前发布基线。</p></article>
-                    <article class="workflow-step"><span class="step-number">04</span><h4>适配发布</h4><p>按 Markdown、纯文本或短帖规则生成渠道版本。</p></article>
-                </div>
+            <section class="metric-grid" aria-label="文稿进度">
+                <article class="metric-card"><span>文稿</span><strong th:text="${articleCount}">0</strong><small>已保存的主稿</small></article>
+                <article class="metric-card"><span>写作中</span><strong th:text="${draftCount}">0</strong><small>待确认的草稿</small></article>
+                <article class="metric-card"><span>可发布</span><strong th:text="${readyCount}">0</strong><small>已确认当前版本</small></article>
+                <article class="metric-card"><span>待办</span><strong th:text="${actionCount}">0</strong><small>失败、待发或待确认</small></article>
             </section>
 
             <div class="grid-2 section-gap">
                 <section class="card">
-                    <div class="card-header"><div><p class="section-kicker">最近内容</p><h3>最近文章</h3></div>
-                        <a class="text-link" th:href="@{/publishing}">查看全部</a></div>
-                    <div class="empty-state" th:if="${#lists.isEmpty(recentArticles)}">暂无内容，从导入第一个项目开始。</div>
+                    <div class="card-header"><div><p class="section-kicker">最近文稿</p><h3>继续编辑</h3></div>
+                        <a class="text-link" th:href="@{/content}">全部文稿</a></div>
+                    <div class="empty-state" th:if="${#lists.isEmpty(recentArticles)}">还没有文稿。从写新稿开始。</div>
                     <div class="compact-list" th:unless="${#lists.isEmpty(recentArticles)}">
                         <a class="compact-item" th:each="article : ${recentArticles}" th:href="@{/articles/{id}(id=${article.id})}">
-                            <span><strong th:text="${article.title}">文章标题</strong><small th:text="|v${article.currentVersion} · ${article.language}|">版本</small></span>
+                            <span><strong th:text="${article.title}">文章标题</strong><small th:text="|v${article.currentVersion}|">版本</small></span>
                             <span class="status-pill" th:classappend="| status-${article.status.name().toLowerCase()}|" th:text="${articleStatusNames.get(article.status)}">草稿</span>
                         </a>
                     </div>
                 </section>
                 <section class="card">
-                    <div class="card-header"><div><p class="section-kicker">后台任务</p><h3>最近任务</h3></div>
-                        <a class="text-link" th:href="@{/jobs}">查看全部</a></div>
-                    <div class="empty-state" th:if="${#lists.isEmpty(recentJobs)}">当前没有后台任务。</div>
-                    <div class="compact-list" th:unless="${#lists.isEmpty(recentJobs)}">
-                        <a class="compact-item" th:each="job : ${recentJobs}" th:href="@{/jobs/{id}(id=${job.id})}">
-                            <span><strong th:text="${jobTypeNames.get(job.type)}">任务</strong><small th:text="${job.updatedAt}">time</small></span>
-                            <span class="status-pill" th:classappend="| status-${job.status.name().toLowerCase()}|" th:text="${jobStatusNames.get(job.status)}">等待执行</span>
+                    <div class="card-header"><div><p class="section-kicker">待办</p><h3>需要处理</h3></div>
+                        <a class="text-link" th:href="@{/actions}">全部待办</a></div>
+                    <div class="empty-state" th:if="${#lists.isEmpty(pendingActions)}">没有待处理事项。</div>
+                    <div class="compact-list" th:unless="${#lists.isEmpty(pendingActions)}">
+                        <a class="compact-item" th:each="item : ${pendingActions}" th:href="${item.targetUrl}">
+                            <span><strong th:text="${item.title}">待办</strong><small th:text="${item.detail}">说明</small></span>
+                            <strong th:text="${item.count}">1</strong>
                         </a>
                     </div>
                 </section>

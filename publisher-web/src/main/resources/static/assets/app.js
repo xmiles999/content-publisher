@@ -286,6 +286,13 @@
         const content = document.querySelector(button.dataset.copyContent);
         if (title && content) await copy(`${title.value}\n\n${content.value}`, button);
     }));
+    document.querySelectorAll('[data-copy-and-open]').forEach(button => button.addEventListener('click', async () => {
+        const title = document.querySelector(button.dataset.copyTitle);
+        const content = document.querySelector(button.dataset.copyContent);
+        if (title && content) await copy(`${title.value}\n\n${content.value}`, button);
+        const launch = document.querySelector('[data-platform-launch]');
+        if (launch) launch.click();
+    }));
     document.querySelectorAll('[data-copy-tags]').forEach(button => button.addEventListener('click', async () => {
         const tags = [...document.querySelectorAll(button.dataset.copyTags)]
             .map(tag => tag.textContent.trim()).filter(Boolean);
@@ -606,36 +613,133 @@
         });
         activateEditorTab(tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0]);
 
-        const previewPanel = editorWorkspace.querySelector('[data-editor-panel="preview"]');
-        const previewTarget = previewPanel?.querySelector('[data-markdown-preview]');
-        const previewState = previewPanel?.querySelector('[data-preview-state]');
+        const editorForm = editorWorkspace.querySelector('#article-edit-form') || editorWorkspace.querySelector('form');
+        const previewUrl = editorForm?.dataset.previewUrl || '/api/v1/markdown/preview';
         const renderPreview = async language => {
-            const source = editorWorkspace.querySelector(`[data-preview-source="${language || activeLanguage}"]`);
-            if (!source || !previewPanel || !previewTarget) return;
-            const previewTab = tabs.find(tab => tab.dataset.editorTab === 'preview');
-            if (previewTab) activateEditorTab(previewTab);
-            previewState?.classList.remove('error');
-            if (previewState) previewState.textContent = '正在生成预览…';
-            const csrf = editorWorkspace.querySelector('input[name="_csrf"]')?.value;
-            const headers = { 'Content-Type': 'application/json' };
-            if (csrf) headers['X-CSRF-TOKEN'] = csrf;
+            const source = editorWorkspace.querySelector(`[data-preview-source="${language}"]`);
+            const target = editorWorkspace.querySelector(`[data-live-preview="${language}"]`);
+            if (!source || !target) return;
             try {
-                const response = await fetch(previewPanel.dataset.previewUrl, {
-                    method: 'POST', headers, credentials: 'same-origin',
+                const response = await fetch(previewUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...csrfHeaders(editorForm) },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ markdown: source.value || '' })
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const payload = await response.json();
-                previewTarget.innerHTML = payload.html || '<p>暂无内容。</p>';
-                if (previewState) previewState.textContent = language === 'en' ? '英文预览已更新' : '中文预览已更新';
-            } catch (error) {
-                previewTarget.textContent = '预览生成失败。';
-                previewState?.classList.add('error');
-                if (previewState) previewState.textContent = '请检查登录状态或稍后重试。';
+                target.innerHTML = payload.html || '<p>暂无内容。</p>';
+            } catch (_error) {
+                target.textContent = '预览生成失败。';
             }
         };
-        editorWorkspace.querySelectorAll('[data-render-preview]').forEach(button =>
-            button.addEventListener('click', () => renderPreview(button.dataset.renderPreview)));
+        const debouncePreview = (language => {
+            const timers = {};
+            return name => {
+                clearTimeout(timers[name]);
+                timers[name] = setTimeout(() => renderPreview(name), 400);
+            };
+        })();
+        editorWorkspace.querySelectorAll('[data-preview-source]').forEach(source => {
+            const language = source.dataset.previewSource;
+            source.addEventListener('input', () => debouncePreview(language));
+            renderPreview(language);
+        });
+
+        const insertAtCursor = (textarea, snippet) => {
+            const start = textarea.selectionStart || textarea.value.length;
+            const end = textarea.selectionEnd || textarea.value.length;
+            textarea.value = `${textarea.value.slice(0, start)}${snippet}${textarea.value.slice(end)}`;
+            textarea.selectionStart = textarea.selectionEnd = start + snippet.length;
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        const uploadImage = async file => {
+            const assetUrl = editorForm?.dataset.assetUrl;
+            if (!assetUrl) throw new Error('缺少配图上传地址');
+            const body = new FormData();
+            body.append('file', file);
+            const response = await fetch(assetUrl, {
+                method: 'POST',
+                headers: csrfHeaders(editorForm),
+                credentials: 'same-origin',
+                body
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.message || '配图上传失败');
+            const alt = (payload.originalFilename || 'image').replace(/\.[^.]+$/, '');
+            return `![${alt}](${payload.markdownUrl})`;
+        };
+        editorWorkspace.querySelectorAll('[data-image-input]').forEach(input => {
+            input.addEventListener('change', async event => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (!file) return;
+                const language = input.dataset.imageInput;
+                const source = editorWorkspace.querySelector(`[data-preview-source="${language}"]`);
+                if (!source) return;
+                try {
+                    insertAtCursor(source, await uploadImage(file));
+                } catch (error) {
+                    window.alert(error.message || '配图上传失败');
+                }
+            });
+        });
+        editorWorkspace.querySelectorAll('[data-preview-source]').forEach(source => {
+            source.addEventListener('paste', async event => {
+                const file = [...(event.clipboardData?.items || [])]
+                    .map(item => item.kind === 'file' ? item.getAsFile() : null)
+                    .find(item => item && item.type.startsWith('image/'));
+                if (!file) return;
+                event.preventDefault();
+                try {
+                    insertAtCursor(source, await uploadImage(file));
+                } catch (error) {
+                    window.alert(error.message || '配图上传失败');
+                }
+            });
+        });
+
+        const translateButton = editorWorkspace.querySelector('[data-translate-english]');
+        const translateState = editorWorkspace.querySelector('[data-translate-state]');
+        translateButton?.addEventListener('click', async () => {
+            const url = editorForm?.dataset.translateUrl;
+            if (!url) return;
+            translateButton.disabled = true;
+            if (translateState) translateState.textContent = '正在生成英文稿…';
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...csrfHeaders(editorForm) },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        title: editorForm.elements.namedItem('title')?.value || '',
+                        summary: editorForm.elements.namedItem('summary')?.value || '',
+                        markdown: editorForm.elements.namedItem('markdown')?.value || '',
+                        tags: splitEditorValues(editorForm.elements.namedItem('tags')?.value),
+                        keywords: splitEditorValues(editorForm.elements.namedItem('keywords')?.value)
+                    })
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(payload.message || '英文稿生成失败');
+                const setValue = (name, value) => {
+                    const field = editorForm.elements.namedItem(name);
+                    if (field) field.value = value || '';
+                };
+                setValue('titleEn', payload.titleEn);
+                setValue('summaryEn', payload.summaryEn);
+                setValue('markdownEn', payload.markdownEn);
+                setValue('tagsEn', (payload.tagsEn || []).join('\n'));
+                setValue('keywordsEn', (payload.keywordsEn || []).join('\n'));
+                renderPreview('en');
+                const englishTab = tabs.find(tab => tab.dataset.editorTab === 'en');
+                if (englishTab) activateEditorTab(englishTab);
+                if (translateState) translateState.textContent = '英文稿已填入，请核对后保存。';
+            } catch (error) {
+                if (translateState) translateState.textContent = error.message || '英文稿生成失败';
+            } finally {
+                translateButton.disabled = false;
+            }
+        });
     }
 
     const publishedUrlInput = document.querySelector('#manual-external-url');

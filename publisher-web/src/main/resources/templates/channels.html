@@ -17,7 +17,7 @@
 
             <nav class="workspace-tabs" aria-label="渠道管理视图">
                 <a th:href="@{/channels(view='api')}" th:classappend="${selectedChannelView == 'api'} ? ' active'" th:attr="aria-current=${selectedChannelView == 'api' ? 'page' : null}">API 账号 <span th:text="${accounts.size()}">0</span></a>
-                <a th:href="@{/channels(view='manual')}" th:classappend="${selectedChannelView == 'manual'} ? ' active'" th:attr="aria-current=${selectedChannelView == 'manual' ? 'page' : null}">人工平台 <span th:text="${manualChannels.size()}">0</span></a>
+                <a th:href="@{/channels(view='manual')}" th:classappend="${selectedChannelView == 'manual'} ? ' active'" th:attr="aria-current=${selectedChannelView == 'manual' ? 'page' : null}">我的发布包 <span th:text="${manualChannels.size()}">0</span></a>
             </nav>
 
             <section class="workspace-panel" th:if="${selectedChannelView == 'api'}">

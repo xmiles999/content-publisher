@@ -15,6 +15,10 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   jackson:
     default-property-inclusion: non_null
   lifecycle:
@@ -76,6 +80,8 @@ publisher:
     max-repository-bytes: ${GIT_MAX_REPOSITORY_BYTES:104857600}
     max-files: ${GIT_MAX_FILES:2000}
     max-readme-characters: ${GIT_MAX_README_CHARACTERS:60000}
+  assets:
+    directory: ${PUBLISHER_ASSETS_DIRECTORY:/data/services/content-publisher/assets}
   website:
     timeout: ${PUBLISHER_WEBSITE_TIMEOUT:20s}
     max-response-bytes: ${PUBLISHER_WEBSITE_MAX_RESPONSE_BYTES:2000000}

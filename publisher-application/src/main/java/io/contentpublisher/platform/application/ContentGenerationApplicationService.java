@@ -25,6 +25,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -133,6 +134,26 @@ public final class ContentGenerationApplicationService {
                 Map.of("websiteHost", java.net.URI.create(snapshot.url()).getHost(), "language", policy.language()));
         progress.update(94, "文章已经保存", "网站文章、来源信息和版本记录已完成落库");
         return saved;
+    }
+
+    public ContentGenerator.EnglishTranslation translateToEnglish(ActorContext actor, UUID articleId,
+                                                                  String title, String summary, String markdown,
+                                                                  List<String> tags, List<String> keywords) {
+        Article article = articles.findArticleById(actor.tenantId(), articleId)
+                .orElseThrow(() -> new ApplicationException("ARTICLE_NOT_FOUND", "文章不存在"));
+        String zhTitle = firstNonBlank(title, article.title());
+        String zhSummary = firstNonBlank(summary, article.summary());
+        String zhMarkdown = firstNonBlank(markdown, article.markdown());
+        List<String> zhTags = tags == null || tags.isEmpty() ? article.tags() : tags;
+        List<String> zhKeywords = keywords == null || keywords.isEmpty() ? article.keywords() : keywords;
+        ContentGenerator.EnglishTranslation translated = contentGenerator.translateToEnglish(
+                actor.tenantId(), zhTitle, zhSummary, zhMarkdown, zhTags, zhKeywords);
+        auditRecorder.record(actor, "ARTICLE_ENGLISH_TRANSLATED", "ARTICLE", articleId, Map.of());
+        return translated;
+    }
+
+    private String firstNonBlank(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
     }
 
     private Article existingResult(ActorContext actor, UUID generationJobId, JobProgressReporter progress) {

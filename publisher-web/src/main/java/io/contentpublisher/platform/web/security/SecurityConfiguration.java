@@ -172,6 +172,9 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.POST, "/api/v1/articles/custom")
                     .hasAnyRole("EDITOR", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/v1/articles/*").hasAnyRole("EDITOR", "ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/v1/articles/*/confirm", "/api/v1/articles/*/reopen",
+                        "/api/v1/articles/*/english-translations", "/api/v1/articles/*/assets")
+                    .hasAnyRole("EDITOR", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/v1/articles/*/draft",
                         "/api/v1/articles/*/manual/*/progress").hasAnyRole("EDITOR", "ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/v1/articles/*/draft").hasAnyRole("EDITOR", "ADMIN")

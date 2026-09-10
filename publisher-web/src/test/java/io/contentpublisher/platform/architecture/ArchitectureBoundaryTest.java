@@ -10,6 +10,7 @@ import io.contentpublisher.platform.application.PublicationCommandApplicationSer
 import io.contentpublisher.platform.application.PublicationQueryApplicationService;
 import io.contentpublisher.platform.application.PublishingApplicationService;
 import io.contentpublisher.platform.application.port.AiProviderSettingsRepository;
+import io.contentpublisher.platform.application.port.ArticleAssetRepository;
 import io.contentpublisher.platform.application.port.ArticleRepository;
 import io.contentpublisher.platform.application.port.AuditRecorder;
 import io.contentpublisher.platform.application.port.ChannelAccountRepository;
@@ -22,6 +23,7 @@ import io.contentpublisher.platform.application.port.RepositorySnapshotStore;
 import io.contentpublisher.platform.infrastructure.jobs.DurableJobWorker;
 import io.contentpublisher.platform.infrastructure.jobs.JobHandler;
 import io.contentpublisher.platform.infrastructure.persistence.JpaAiProviderSettingsPersistenceAdapter;
+import io.contentpublisher.platform.infrastructure.persistence.JpaArticleAssetPersistenceAdapter;
 import io.contentpublisher.platform.infrastructure.persistence.JpaArticlePersistenceAdapter;
 import io.contentpublisher.platform.infrastructure.persistence.JpaAuditRecorder;
 import io.contentpublisher.platform.infrastructure.persistence.JpaJobPersistenceAdapter;
@@ -80,6 +82,7 @@ class ArchitectureBoundaryTest {
         assertThat(interfaceTypes(JpaProjectPersistenceAdapter.class)).containsExactlyInAnyOrder(
                 ProjectRepository.class, RepositorySnapshotStore.class);
         assertThat(interfaceTypes(JpaArticlePersistenceAdapter.class)).containsExactly(ArticleRepository.class);
+        assertThat(interfaceTypes(JpaArticleAssetPersistenceAdapter.class)).containsExactly(ArticleAssetRepository.class);
         assertThat(interfaceTypes(JpaJobPersistenceAdapter.class)).containsExactly(JobRepository.class);
         assertThat(interfaceTypes(JpaPublishingPersistenceAdapter.class)).containsExactlyInAnyOrder(
                 ChannelAccountRepository.class, PublicationRepository.class, ManualPublicationRepository.class);

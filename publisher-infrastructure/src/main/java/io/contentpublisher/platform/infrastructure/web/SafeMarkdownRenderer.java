@@ -14,7 +14,9 @@ public class SafeMarkdownRenderer implements MarkdownRenderer {
     private final Safelist safelist = Safelist.relaxed()
             .addTags("h1", "h2", "h3", "h4", "h5", "h6", "pre", "code")
             .addProtocols("a", "href", "http", "https", "mailto")
-            .addAttributes("a", "rel", "target");
+            .addProtocols("img", "src", "http", "https")
+            .addAttributes("a", "rel", "target")
+            .preserveRelativeLinks(true);
 
     @Override
     public String render(String markdown) {

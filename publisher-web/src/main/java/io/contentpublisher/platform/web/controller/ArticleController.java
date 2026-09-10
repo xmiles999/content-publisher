@@ -1,9 +1,12 @@
 package io.contentpublisher.platform.web.controller;
 
+import io.contentpublisher.platform.application.ContentGenerationApplicationService;
 import io.contentpublisher.platform.application.JobApplicationService;
 import io.contentpublisher.platform.application.PublishingApplicationService;
 import io.contentpublisher.platform.application.RecordManagementApplicationService;
 import io.contentpublisher.platform.web.dto.ArticleResponse;
+import io.contentpublisher.platform.web.dto.EnglishTranslationRequest;
+import io.contentpublisher.platform.web.dto.EnglishTranslationResponse;
 import io.contentpublisher.platform.web.dto.JobResponse;
 import io.contentpublisher.platform.web.dto.PublishArticleRequest;
 import io.contentpublisher.platform.web.dto.PublishArticleBatchRequest;
@@ -39,13 +42,16 @@ import java.util.List;
 @RequestMapping("/api/v1/articles")
 public class ArticleController {
     private final PublishingApplicationService publishing;
+    private final ContentGenerationApplicationService generation;
     private final JobApplicationService jobs;
     private final RecordManagementApplicationService records;
     private final RequestActorProvider actors;
 
-    public ArticleController(PublishingApplicationService publishing, JobApplicationService jobs,
-                             RecordManagementApplicationService records, RequestActorProvider actors) {
+    public ArticleController(PublishingApplicationService publishing, ContentGenerationApplicationService generation,
+                             JobApplicationService jobs, RecordManagementApplicationService records,
+                             RequestActorProvider actors) {
         this.publishing = publishing;
+        this.generation = generation;
         this.jobs = jobs;
         this.records = records;
         this.actors = actors;
@@ -101,14 +107,35 @@ public class ArticleController {
                 request.keywordsEn()));
     }
 
+    @Deprecated
     @PostMapping("/{articleId}/approve")
     public ArticleResponse approve(@PathVariable UUID articleId) {
         return ArticleResponse.from(publishing.approveArticle(actors.currentActor(), articleId));
     }
 
+    @Deprecated
     @PostMapping("/{articleId}/reject")
     public ArticleResponse reject(@PathVariable UUID articleId, @Valid @RequestBody RejectArticleRequest request) {
         return ArticleResponse.from(publishing.rejectArticle(actors.currentActor(), articleId, request.reason()));
+    }
+
+    @PostMapping("/{articleId}/confirm")
+    public ArticleResponse confirm(@PathVariable UUID articleId) {
+        return ArticleResponse.from(publishing.confirmArticle(actors.currentActor(), articleId));
+    }
+
+    @PostMapping("/{articleId}/reopen")
+    public ArticleResponse reopen(@PathVariable UUID articleId) {
+        return ArticleResponse.from(publishing.reopenArticle(actors.currentActor(), articleId));
+    }
+
+    @PostMapping("/{articleId}/english-translations")
+    public EnglishTranslationResponse translate(@PathVariable UUID articleId,
+                                                @RequestBody(required = false) EnglishTranslationRequest request) {
+        EnglishTranslationRequest body = request == null
+                ? new EnglishTranslationRequest(null, null, null, null, null) : request;
+        return EnglishTranslationResponse.from(generation.translateToEnglish(actors.currentActor(), articleId,
+                body.title(), body.summary(), body.markdown(), body.tags(), body.keywords()));
     }
 
     @PostMapping("/{articleId}/publications")

@@ -16,40 +16,47 @@
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
 
             <section class="editor-action-bar" aria-label="文章操作">
-                <div><strong th:text="|版本 ${article.currentVersion}|">版本 1</strong><span th:if="${editable and canEdit and !hasServerDraft}">修改会自动保存草稿；请先保存新版本，再确认当前内容</span><span th:if="${editable and canEdit and hasServerDraft}" th:text="|已恢复服务端草稿 · ${draftUpdatedAt}|">已恢复草稿</span><span th:unless="${editable and canEdit}">当前版本为已确认基线或发布记录，只读展示</span><small data-draft-state aria-live="polite"></small></div>
-                <div class="editor-action-buttons"><button class="primary-button" type="submit" form="article-edit-form" th:if="${editable and canEdit}">保存新版本</button><form th:if="${canEdit and editable}" th:action="@{/articles/{id}/confirm(id=${article.id})}" method="post"><button class="secondary-button" type="submit">确认内容并准备发布</button></form><form th:if="${canEdit and reopenable}" th:action="@{/articles/{id}/reopen(id=${article.id})}" method="post" data-confirm="重新进入编辑后，当前内容将不再作为可发布基线，确认继续？"><button class="secondary-button" type="submit">重新编辑</button></form><a class="primary-link" th:if="${publishable}" th:href="@{/publishing/articles/{id}(id=${article.id})}">进入发布中心</a></div>
+                <div><strong th:text="|版本 ${article.currentVersion}|">版本 1</strong><span th:if="${editable and canEdit and !hasServerDraft}">修改会自动保存草稿；写完后可直接保存并准备发布</span><span th:if="${editable and canEdit and hasServerDraft}" th:text="|已恢复服务端草稿 · ${draftUpdatedAt}|">已恢复草稿</span><span th:unless="${editable and canEdit}">当前版本为已确认基线或发布记录，只读展示</span><small data-draft-state aria-live="polite"></small></div>
+                <div class="editor-action-buttons">
+                    <button class="secondary-button" type="submit" form="article-edit-form" name="intent" value="draft" th:if="${editable and canEdit}">仅保存草稿</button>
+                    <button class="primary-button" type="submit" form="article-edit-form" name="intent" value="ready" th:if="${editable and canEdit}">保存并准备发布</button>
+                    <form th:if="${canEdit and editable}" th:action="@{/articles/{id}/confirm(id=${article.id})}" method="post"><button class="secondary-button" type="submit">确认已保存版本</button></form>
+                    <form th:if="${canEdit and reopenable}" th:action="@{/articles/{id}/reopen(id=${article.id})}" method="post"
+                          th:attr="data-confirm=${revisingPublished} ? '修订会把已发布文稿重新变为草稿，历史发布记录仍保留。确认继续？' : '重新进入编辑后，当前内容将不再作为可发布基线，确认继续？'">
+                        <button class="secondary-button" type="submit" th:text="${revisingPublished} ? '修订已发布内容' : '重新编辑'">重新编辑</button></form>
+                    <a class="primary-link" th:if="${publishable}" th:href="@{/publishing/articles/{id}(id=${article.id})}">去发布</a>
+                </div>
             </section>
 
             <div class="article-editor-layout">
                 <section class="editor-workspace" data-editor-workspace>
-                    <nav class="editor-tabs" role="tablist" aria-label="内容语言与预览">
+                    <nav class="editor-tabs" role="tablist" aria-label="内容语言">
                         <button id="editor-tab-zh" type="button" role="tab" aria-selected="true" aria-controls="editor-panel-zh" data-editor-tab="zh">中文主稿</button>
                         <button id="editor-tab-en" type="button" role="tab" aria-selected="false" aria-controls="editor-panel-en" data-editor-tab="en">English <span th:if="${!article.hasEnglishContent()}">待补充</span></button>
-                        <button id="editor-tab-preview" type="button" role="tab" aria-selected="false" aria-controls="editor-panel-preview" data-editor-tab="preview">预览</button>
                     </nav>
 
                     <form id="article-edit-form" class="stack-form editor-form" th:action="@{/articles/{id}/edit(id=${article.id})}" th:object="${updateArticleForm}" method="post" data-dirty-form
-                          th:attr="data-draft-url=@{/api/v1/articles/{id}/draft(id=${article.id})},data-has-server-draft=${hasServerDraft}">
+                          th:attr="data-draft-url=@{/api/v1/articles/{id}/draft(id=${article.id})},data-has-server-draft=${hasServerDraft},data-asset-url=@{/api/v1/articles/{id}/assets(id=${article.id})},data-translate-url=@{/api/v1/articles/{id}/english-translations(id=${article.id})},data-preview-url=@{/api/v1/markdown/preview}">
                         <input type="hidden" th:field="*{expectedVersion}">
                         <section id="editor-panel-zh" class="editor-tab-panel" role="tabpanel" aria-labelledby="editor-tab-zh" data-editor-panel="zh">
                             <div class="field"><label for="article-title">文章标题</label><input id="article-title" th:field="*{title}" maxlength="500" required th:readonly="${!editable or !canEdit}"></div>
                             <div class="field"><label for="article-summary">摘要 / Meta Description</label><textarea id="article-summary" th:field="*{summary}" rows="4" maxlength="2000" required th:readonly="${!editable or !canEdit}"></textarea><small>建议保持 50–200 字符，准确说明文章内容。</small></div>
                             <div class="form-grid"><div class="field"><label for="article-tags">发布标签</label><textarea id="article-tags" th:field="*{tags}" rows="3" placeholder="每行或逗号分隔" th:readonly="${!editable or !canEdit}"></textarea></div><div class="field"><label for="article-keywords">SEO 关键词</label><textarea id="article-keywords" th:field="*{keywords}" rows="3" placeholder="第一项为主关键词" th:readonly="${!editable or !canEdit}"></textarea></div></div>
-                            <div class="field"><label for="article-markdown">Markdown 正文</label><textarea id="article-markdown" class="markdown-editor" th:field="*{markdown}" rows="30" maxlength="20000" required th:readonly="${!editable or !canEdit}" data-preview-source="zh"></textarea></div>
+                            <div class="field"><div class="editor-markdown-heading"><label for="article-markdown">Markdown 正文</label>
+                                <div class="editor-media-toolbar" th:if="${editable and canEdit}"><label class="secondary-button mini-button">插入图片<input type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden data-image-input="zh"></label><small>也可直接粘贴图片</small></div></div>
+                                <div class="editor-split"><textarea id="article-markdown" class="markdown-editor" th:field="*{markdown}" rows="30" maxlength="100000" required th:readonly="${!editable or !canEdit}" data-preview-source="zh"></textarea>
+                                    <div class="markdown-preview" data-live-preview="zh"><p>预览将显示在这里。</p></div></div></div>
                         </section>
 
                         <section id="editor-panel-en" class="editor-tab-panel" role="tabpanel" aria-labelledby="editor-tab-en" data-editor-panel="en" hidden>
-                            <div class="editor-language-note" th:unless="${article.hasEnglishContent()}">国外渠道需要英文标题、摘要和正文；留空时不会允许发布到对应渠道。</div>
+                            <div class="editor-language-note">国外渠道需要英文标题、摘要和正文。可从中文主稿一键生成后继续修改。<button class="secondary-button mini-button" type="button" data-translate-english th:if="${editable and canEdit}">从中文生成英文稿</button><small data-translate-state></small></div>
                             <div class="field"><label for="article-title-en">English Title</label><input id="article-title-en" th:field="*{titleEn}" maxlength="500" th:readonly="${!editable or !canEdit}"></div>
                             <div class="field"><label for="article-summary-en">English Summary</label><textarea id="article-summary-en" th:field="*{summaryEn}" rows="4" maxlength="2000" th:readonly="${!editable or !canEdit}"></textarea></div>
                             <div class="form-grid"><div class="field"><label for="article-tags-en">English Tags</label><textarea id="article-tags-en" th:field="*{tagsEn}" rows="3" placeholder="One per line or comma separated" th:readonly="${!editable or !canEdit}"></textarea></div><div class="field"><label for="article-keywords-en">English Keywords</label><textarea id="article-keywords-en" th:field="*{keywordsEn}" rows="3" th:readonly="${!editable or !canEdit}"></textarea></div></div>
-                            <div class="field"><label for="article-markdown-en">English Markdown Body</label><textarea id="article-markdown-en" class="markdown-editor" th:field="*{markdownEn}" rows="30" maxlength="20000" th:readonly="${!editable or !canEdit}" data-preview-source="en"></textarea></div>
-                        </section>
-
-                        <section id="editor-panel-preview" class="editor-tab-panel markdown-preview-panel" role="tabpanel" aria-labelledby="editor-tab-preview" data-editor-panel="preview" data-preview-url="/api/v1/markdown/preview" hidden>
-                            <div class="preview-toolbar"><div><strong>Markdown 预览</strong><small>预览内容经过服务端安全清理</small></div><div><button class="secondary-button" type="button" data-render-preview="zh">预览中文</button><button class="secondary-button" type="button" data-render-preview="en">Preview English</button></div></div>
-                            <div class="markdown-preview" data-markdown-preview><p>选择语言后生成预览。</p></div>
-                            <div class="preview-state" data-preview-state aria-live="polite"></div>
+                            <div class="field"><div class="editor-markdown-heading"><label for="article-markdown-en">English Markdown Body</label>
+                                <div class="editor-media-toolbar" th:if="${editable and canEdit}"><label class="secondary-button mini-button">Insert image<input type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden data-image-input="en"></label></div></div>
+                                <div class="editor-split"><textarea id="article-markdown-en" class="markdown-editor" th:field="*{markdownEn}" rows="30" maxlength="100000" th:readonly="${!editable or !canEdit}" data-preview-source="en"></textarea>
+                                    <div class="markdown-preview" data-live-preview="en"><p>Preview appears here.</p></div></div></div>
                         </section>
                     </form>
                 </section>

@@ -96,7 +96,9 @@ public class ContentLibraryPortalController {
         model.addAttribute("editable", article.status().isEditable());
         model.addAttribute("publishable", article.status().isPublishable());
         model.addAttribute("reopenable", article.status() == ArticleStatus.READY
-                || article.status() == ArticleStatus.APPROVED);
+                || article.status() == ArticleStatus.APPROVED
+                || article.status() == ArticleStatus.PUBLISHED);
+        model.addAttribute("revisingPublished", article.status() == ArticleStatus.PUBLISHED);
         model.addAttribute("articleStatusNames", PortalLabels.articleStatusNames());
         return "article-detail";
     }
@@ -123,12 +125,21 @@ public class ContentLibraryPortalController {
             return "redirect:/articles/" + articleId;
         }
         try {
-            publishing.updateArticle(actors.currentActor(), articleId, form.getExpectedVersion(), form.getTitle(),
-                    form.getSummary(), form.getMarkdown(), splitValues(form.getTags()), splitValues(form.getKeywords()),
-                    form.getTitleEn(), form.getSummaryEn(), form.getMarkdownEn(), splitValues(form.getTagsEn()),
-                    splitValues(form.getKeywordsEn()));
+            boolean prepare = "ready".equalsIgnoreCase(form.getIntent());
+            if (prepare) {
+                publishing.updateAndConfirm(actors.currentActor(), articleId, form.getExpectedVersion(), form.getTitle(),
+                        form.getSummary(), form.getMarkdown(), splitValues(form.getTags()), splitValues(form.getKeywords()),
+                        form.getTitleEn(), form.getSummaryEn(), form.getMarkdownEn(), splitValues(form.getTagsEn()),
+                        splitValues(form.getKeywordsEn()));
+            } else {
+                publishing.updateArticle(actors.currentActor(), articleId, form.getExpectedVersion(), form.getTitle(),
+                        form.getSummary(), form.getMarkdown(), splitValues(form.getTags()), splitValues(form.getKeywords()),
+                        form.getTitleEn(), form.getSummaryEn(), form.getMarkdownEn(), splitValues(form.getTagsEn()),
+                        splitValues(form.getKeywordsEn()));
+            }
             automation.deleteDraft(actors.currentActor(), articleId);
-            redirectAttributes.addFlashAttribute("success", "文章已保存为新版本");
+            redirectAttributes.addFlashAttribute("success",
+                    prepare ? "已保存新版本并准备发布" : "文章已保存为新版本");
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
@@ -149,8 +160,12 @@ public class ContentLibraryPortalController {
     @PostMapping("/articles/{articleId}/reopen")
     public String reopenArticle(@PathVariable UUID articleId, RedirectAttributes redirectAttributes) {
         try {
+            boolean published = publishing.getArticle(actors.currentActor(), articleId).status()
+                    == ArticleStatus.PUBLISHED;
             publishing.reopenArticle(actors.currentActor(), articleId);
-            redirectAttributes.addFlashAttribute("success", "当前内容已重新进入编辑状态");
+            redirectAttributes.addFlashAttribute("success", published
+                    ? "已开始修订，确认后可作为新的发布基线；历史发布记录仍保留"
+                    : "当前内容已重新进入编辑状态");
         } catch (ApplicationException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }

@@ -4,9 +4,8 @@
     <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('人工发布工作区', '复制适配内容、跳转登录并回填结果')}"></header>
-        <main class="page-content"><div class="process-rail"><div class="process-item done"><span>✓</span><div><strong>内容准备</strong><small th:text="|使用主稿 v${article.currentVersion}|">使用当前主稿</small></div></div>
-            <div class="process-item done"><span>✓</span><div><strong>平台适配</strong><small th:text="${channel.contentHint()}">内容已生成</small></div></div>
-            <div class="process-item active"><span>3</span><div><strong>打开并发布</strong><small>在官方创作页操作</small></div></div><div class="process-item"><span>4</span><div><strong>保存结果</strong><small>留存外链与快照</small></div></div></div>
+        <main class="page-content"><div class="process-rail process-rail-two"><div class="process-item active"><span>1</span><div><strong>复制并打开</strong><small>复制标题、正文和标签，打开官方编辑器</small></div></div>
+            <div class="process-item"><span>2</span><div><strong>回填链接</strong><small>发布成功后粘贴公开 URL</small></div></div></div>
             <section class="page-header"><div><p class="section-kicker">人工发布</p><h2 th:text="|发布到 ${channel.displayName()}|">发布平台</h2><p th:text="|源内容：${article.title} · 主稿 v${article.currentVersion}|">source</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/publishing/articles/{id}(id=${article.id})}">返回文章发布</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div>
@@ -20,8 +19,8 @@
                   th:action="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.type()})}"
                   th:object="${manualPublicationForm}" method="post">
                 <input type="hidden" th:field="*{contentFormat}"><div class="manual-editor-grid"><section class="card"><div class="card-header"><div><p class="section-kicker">渠道版本</p><h3>平台专用版本</h3><p>可以在发布前继续调整；最终提交时保存的是当前文本快照。</p></div><span class="format-badge" th:text="${channel.contentFormat()}">MARKDOWN</span></div>
-                    <div class="copy-toolbar"><button class="copy-button" type="button" data-copy-target="#manual-title" data-progress-step="copiedTitle">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content" data-progress-step="copiedContent">复制正文</button>
-                        <button class="copy-button" type="button" data-copy-combined data-copy-title="#manual-title" data-copy-content="#manual-content" data-progress-step="copiedAll">复制全部</button></div>
+                    <div class="copy-toolbar"><button class="primary-button" type="button" data-copy-and-open data-copy-title="#manual-title" data-copy-content="#manual-content" data-progress-step="copiedAll">复制并打开编辑器</button>
+                        <button class="copy-button" type="button" data-copy-target="#manual-title" data-progress-step="copiedTitle">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content" data-progress-step="copiedContent">复制正文</button></div>
                     <div class="stack-form section-gap"><div class="field"><label>平台标题</label><input id="manual-title" th:field="*{title}" maxlength="500" required><small class="character-counter" data-count-source="#manual-title">0</small></div>
                         <div class="field"><div class="manual-tag-heading"><label>发布标签</label><button class="copy-button" type="button" data-copy-tags="#manual-publish-tags .tag" th:unless="${#lists.isEmpty(adapted.tags())}">复制标签</button></div>
                             <div id="manual-publish-tags" class="manual-tag-panel"><div class="tag-row" th:unless="${#lists.isEmpty(adapted.tags())}"><span class="tag" th:each="tag : ${adapted.tags()}" th:text="|#${tag}|">#标签</span></div><span class="manual-tag-empty" th:if="${#lists.isEmpty(adapted.tags())}">暂无生成标签</span></div>

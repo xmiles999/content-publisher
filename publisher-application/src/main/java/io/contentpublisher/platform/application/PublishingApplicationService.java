@@ -138,6 +138,14 @@ public final class PublishingApplicationService {
         return articles.updateArticle(actor, articleId, expectedVersion, title, summary, markdown, keywords);
     }
 
+    public Article updateAndConfirm(ActorContext actor, UUID articleId, int expectedVersion, String title,
+                                    String summary, String markdown, List<String> tags, List<String> keywords,
+                                    String titleEn, String summaryEn, String markdownEn, List<String> tagsEn,
+                                    List<String> keywordsEn) {
+        return articles.updateAndConfirm(actor, articleId, expectedVersion, title, summary, markdown, tags, keywords,
+                titleEn, summaryEn, markdownEn, tagsEn, keywordsEn);
+    }
+
     public Article approveArticle(ActorContext actor, UUID articleId) {
         return articles.approveArticle(actor, articleId);
     }

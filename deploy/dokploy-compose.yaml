@@ -53,6 +53,7 @@ services:
       PUBLISHER_JOBS_LOCK_TIMEOUT: ${PUBLISHER_JOBS_LOCK_TIMEOUT:-5m}
       PUBLISHER_JOBS_INITIAL_RETRY_DELAY: ${PUBLISHER_JOBS_INITIAL_RETRY_DELAY:-10s}
       PUBLISHER_JOBS_MAX_RETRY_DELAY: ${PUBLISHER_JOBS_MAX_RETRY_DELAY:-5m}
+      PUBLISHER_ASSETS_DIRECTORY: /data/services/content-publisher/assets
       GIT_WORK_DIRECTORY: /data/tmp/content-publisher
       GIT_ALLOWED_HOSTS: ${GIT_ALLOWED_HOSTS:-github.com,gitlab.com,gitee.com}
       GIT_TIMEOUT_SECONDS: ${GIT_TIMEOUT_SECONDS:-30}
@@ -90,6 +91,8 @@ services:
     expose:
       - "8080"
     read_only: true
+    volumes:
+      - content-publisher-assets:/data/services/content-publisher/assets
     tmpfs:
       - /tmp:uid=10001,gid=10001,mode=1770
       - /data/tmp/content-publisher:uid=10001,gid=10001,mode=0700
@@ -109,6 +112,8 @@ services:
 volumes:
   content-publisher-postgres:
     name: content-publisher-postgres
+  content-publisher-assets:
+    name: content-publisher-assets
 
 networks:
   backend:

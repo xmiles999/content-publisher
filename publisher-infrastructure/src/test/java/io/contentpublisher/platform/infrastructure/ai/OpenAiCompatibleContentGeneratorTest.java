@@ -143,6 +143,28 @@ class OpenAiCompatibleContentGeneratorTest {
     }
 
     @Test
+    void shouldTranslateChineseManuscriptToEnglish() throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("titleEn", "Virtual Threads in Java 21");
+        payload.put("summaryEn", "A practical guide to virtual threads.");
+        payload.put("markdownEn", "## Overview\nVirtual threads simplify blocking I/O.");
+        payload.put("tagsEn", List.of("Java"));
+        payload.put("keywordsEn", List.of("virtual threads"));
+        String response = mapper.writeValueAsString(java.util.Map.of("choices", List.of(
+                java.util.Map.of("message", java.util.Map.of("content", mapper.writeValueAsString(payload))))));
+        OpenAiCompatibleContentGenerator generator = generator(response);
+
+        var result = generator.translateToEnglish("tenant-test", "Java 21 虚拟线程", "实践指南",
+                "## 概览\n虚拟线程简化阻塞 IO。", List.of("Java"), List.of("虚拟线程"));
+
+        assertThat(result.titleEn()).isEqualTo("Virtual Threads in Java 21");
+        assertThat(result.markdownEn()).contains("Virtual threads");
+        assertThat(result.tagsEn()).containsExactly("Java");
+        assertThat(lastRequestBody).contains("把以下中文主稿翻译成英文");
+    }
+
+    @Test
     void shouldGenerateControlledTutorialFromTopicBrief() throws Exception {
         String markdown = "## 分步教程\nSpring Boot 可观测性配置。" + "包含指标、日志和追踪的操作说明。".repeat(20);
         OpenAiCompatibleContentGenerator generator = generator(aiEnvelope(markdown, List.of("Spring Boot", "可观测性")));

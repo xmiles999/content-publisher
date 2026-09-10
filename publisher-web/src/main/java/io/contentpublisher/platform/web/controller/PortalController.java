@@ -1,6 +1,7 @@
 package io.contentpublisher.platform.web.controller;
 
 import io.contentpublisher.platform.web.security.LocalUserPrincipal;
+import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.JobApplicationService;
 import io.contentpublisher.platform.application.ProjectApplicationService;
 import io.contentpublisher.platform.application.PublishingApplicationService;
@@ -17,13 +18,16 @@ public class PortalController {
     private final ProjectApplicationService projects;
     private final JobApplicationService jobs;
     private final PublishingApplicationService publishing;
+    private final AutomationApplicationService automation;
     private final RequestActorProvider actors;
 
     public PortalController(ProjectApplicationService projects, JobApplicationService jobs,
-                            PublishingApplicationService publishing, RequestActorProvider actors) {
+                            PublishingApplicationService publishing, AutomationApplicationService automation,
+                            RequestActorProvider actors) {
         this.projects = projects;
         this.jobs = jobs;
         this.publishing = publishing;
+        this.automation = automation;
         this.actors = actors;
     }
 
@@ -45,22 +49,21 @@ public class PortalController {
             model.addAttribute("username", authentication.getName());
             model.addAttribute("tenantId", "-");
         }
-        model.addAttribute("roles", authentication.getAuthorities().stream()
-                .map(authority -> authority.getAuthority().replaceFirst("^ROLE_", ""))
-                .sorted().toList());
         var actor = actors.currentActor();
-        var articleList = projects.listArticles(actor, 6);
+        var articleList = projects.listArticles(actor, 8);
         var jobList = jobs.listJobs(actor, 20);
-        model.addAttribute("projectCount", projects.countProjects(actor));
+        long draftCount = projects.searchArticles(actor, "", ArticleStatus.DRAFT, null, "", 0, 1).totalItems();
+        long readyCount = projects.searchArticles(actor, "", ArticleStatus.READY, null, "", 0, 1).totalItems()
+                + projects.searchArticles(actor, "", ArticleStatus.APPROVED, null, "", 0, 1).totalItems();
+        var actions = automation.actions(actor);
         model.addAttribute("articleCount", projects.countArticles(actor));
-        long readyCount = projects.searchArticles(actor, "", ArticleStatus.READY,
-                null, "", 0, 1).totalItems()
-                + projects.searchArticles(actor, "", ArticleStatus.APPROVED,
-                null, "", 0, 1).totalItems();
+        model.addAttribute("draftCount", draftCount);
         model.addAttribute("readyCount", readyCount);
+        model.addAttribute("actionCount", actions.stream().mapToLong(AutomationApplicationService.ActionItem::count).sum());
         model.addAttribute("channelCount", publishing.countAccounts(actor));
         model.addAttribute("recentArticles", articleList);
         model.addAttribute("recentJobs", jobList.stream().limit(5).toList());
+        model.addAttribute("pendingActions", actions.stream().limit(4).toList());
         model.addAttribute("articleStatusNames", PortalLabels.articleStatusNames());
         model.addAttribute("jobTypeNames", PortalLabels.jobTypeNames());
         model.addAttribute("jobStatusNames", PortalLabels.jobStatusNames());

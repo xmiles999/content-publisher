@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-08-10 |
+| 文档基线 | 2026-09-10 |
 | API 前缀 | `/api/v1` |
 | 实现入口 | `publisher-web/.../controller/*Controller.java` |
 | 请求模型 | `publisher-web/.../dto/*Request.java` |
@@ -129,12 +129,20 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 | PUT | `/api/v1/articles/{articleId}` | Editor/Admin | 编辑 `DRAFT` 或兼容 `REJECTED` |
 | PUT | `/api/v1/articles/{articleId}/draft` | Editor/Admin | 保存当前主体的自动保存草稿 |
 | DELETE | `/api/v1/articles/{articleId}/draft` | Editor/Admin | 删除当前主体的服务端草稿 |
-| POST | `/api/v1/articles/{articleId}/approve` | Admin | 兼容审核通过；新 Portal 流程不调用 |
-| POST | `/api/v1/articles/{articleId}/reject` | Admin | 兼容驳回；新 Portal 流程不调用 |
+| POST | `/api/v1/articles/{articleId}/confirm` | Editor/Admin | 确认当前正式版本进入 `READY` |
+| POST | `/api/v1/articles/{articleId}/reopen` | Editor/Admin | 将 `READY`/`APPROVED`/`PUBLISHED` 显式拉回 `DRAFT` |
+| POST | `/api/v1/articles/{articleId}/english-translations` | Editor/Admin | 按当前或请求中的中文稿生成英文稿，不直接写库 |
+| POST | `/api/v1/articles/{articleId}/assets` | Editor/Admin | 上传配图（multipart `file`） |
+| GET | `/api/v1/articles/{articleId}/assets` | Viewer/Editor/Admin | 列出配图元数据 |
+| GET | `/api/v1/articles/{articleId}/assets/{assetId}` | Viewer/Editor/Admin | 读取配图字节 |
+| POST | `/api/v1/articles/{articleId}/approve` | Admin | 已弃用的兼容审核通过 |
+| POST | `/api/v1/articles/{articleId}/reject` | Admin | 已弃用的兼容驳回 |
 | DELETE | `/api/v1/articles/{articleId}` | Admin | 软删除文章及关联记录 |
 | POST | `/api/v1/articles/{articleId}/restore` | Admin | 从回收站恢复 |
 
-编辑请求必须包含 `expectedVersion`。标题最长 500，摘要最长 2000，中英文 Markdown 各最长 20000；标签最多 15 项，关键词最多 30 项。没有任何英文字段时只更新中文稿；提交英文字段时服务端同时保存英文版本。
+编辑请求必须包含 `expectedVersion`。标题最长 500，摘要最长 2000，中英文 Markdown 各最长 100000；标签最多 15 项，关键词最多 30 项。没有任何英文字段时只更新中文稿；提交英文字段时服务端同时保存英文版本。配图只接受 JPEG/PNG/GIF/WebP，单张不超过 5MB，每篇文章最多 20 张；Markdown 使用相对路径 `/articles/{articleId}/assets/{assetId}`。英文翻译接口返回 `titleEn`/`summaryEn`/`markdownEn`/`tagsEn`/`keywordsEn`，由客户端填入后再正式保存。
+
+REST `approve`/`reject` 仍可用，但已标记 deprecated，Portal 不调用。
 
 自定义文章创建请求 `POST /api/v1/articles/custom`：
 

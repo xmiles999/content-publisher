@@ -73,7 +73,7 @@ public class PortalModelAdvice {
                 case "topic" -> "projects-topic";
                 case "website" -> "projects-website";
                 case "custom" -> "projects-custom";
-                default -> "projects";
+                default -> "projects-custom";
             };
         }
         if (path.equals("/content") || path.matches("/articles/[^/]+(?:/edit|/versions.*)?")) return "content";
@@ -84,8 +84,8 @@ public class PortalModelAdvice {
             return switch (tab) {
                 case "queue" -> "publishing-queue";
                 case "batches" -> "publishing-batches";
-                case "coverage" -> "publishing-coverage";
-                default -> "publishing-records";
+                case "records" -> "publishing-records";
+                default -> "publishing-coverage";
             };
         }
         if (path.startsWith("/channels")) return "channels";
@@ -101,11 +101,15 @@ public class PortalModelAdvice {
     @ModelAttribute("activeSection")
     public String activeSection(HttpServletRequest request) {
         String item = activeItem(request);
-        if (item.startsWith("projects")) return "content";
+        if (item.startsWith("projects") || item.equals("content")) return "manuscripts";
+        if (item.equals("actions")) return "inbox";
         if (item.startsWith("publishing") || item.equals("channels") || item.equals("calendar")) {
             return "publishing";
         }
-        if (item.equals("monitoring") || item.equals("jobs")) return "operations";
+        if (item.equals("monitoring") || item.equals("jobs") || item.equals("ai")
+                || item.equals("automation") || item.equals("recycle")) {
+            return "settings";
+        }
         return "";
     }
 
