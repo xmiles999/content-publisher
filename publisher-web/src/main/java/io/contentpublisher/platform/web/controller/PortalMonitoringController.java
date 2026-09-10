@@ -176,7 +176,9 @@ public class PortalMonitoringController {
                 bar("主题教程", value(snapshot.articlesBySource(), ArticleSourceType.TOPIC),
                         snapshot.articleCount(), "success"),
                 bar("网站推荐", value(snapshot.articlesBySource(), ArticleSourceType.WEBSITE),
-                        snapshot.articleCount(), "warning")
+                        snapshot.articleCount(), "warning"),
+                bar("自定义文章", value(snapshot.articlesBySource(), ArticleSourceType.CUSTOM),
+                        snapshot.articleCount(), "teal")
         );
     }
 

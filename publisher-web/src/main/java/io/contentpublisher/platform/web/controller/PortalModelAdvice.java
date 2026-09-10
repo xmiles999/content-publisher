@@ -72,6 +72,7 @@ public class PortalModelAdvice {
                 case "git" -> "projects-git";
                 case "topic" -> "projects-topic";
                 case "website" -> "projects-website";
+                case "custom" -> "projects-custom";
                 default -> "projects";
             };
         }

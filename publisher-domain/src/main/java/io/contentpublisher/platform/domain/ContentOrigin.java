@@ -39,4 +39,17 @@ public record ContentOrigin(
         return new ContentOrigin(ArticleSourceType.WEBSITE, null, snapshot.url(), snapshot.title(),
                 brief.recommendationAngle(), brief.audience(), "WEBSITE_RECOMMENDATION", "MIXED", brief.keywords());
     }
+
+    public static ContentOrigin custom(String title, String description, List<String> keywords) {
+        return new ContentOrigin(ArticleSourceType.CUSTOM, null, null, title, description, null,
+                "CUSTOM_NOTE", null, keywords);
+    }
+
+    public static ContentOrigin custom(String title, String description) {
+        return custom(title, description, List.of());
+    }
+
+    public static ContentOrigin custom() {
+        return custom(null, null, List.of());
+    }
 }

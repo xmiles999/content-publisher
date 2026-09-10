@@ -264,9 +264,14 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("从网站生成推荐文章")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("编写或导入文章笔记")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/projects?source=custom")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/projects?source=website")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("主题教程")));
+
+        mockMvc.perform(get("/projects").param("source", "website").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("从网站生成推荐文章")));
 
         mockMvc.perform(get("/projects").param("source", "git").session(session))
                 .andExpect(status().isOk())
@@ -338,6 +343,43 @@ class LocalSecurityIntegrationTest {
     }
 
     @Test
+    void shouldCreateCustomArticleFromManagementPortal() throws Exception {
+        MockHttpSession session = login();
+
+        mockMvc.perform(get("/projects").param("source", "custom").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("编写或导入文章笔记")));
+
+        mockMvc.perform(post("/articles/custom").session(session)
+                        .param("title", "Java 21 虚拟线程笔记")
+                        .param("summary", "关于虚拟线程与高并发模型的一手笔记")
+                        .param("tags", "Java, 并发, 虚拟线程")
+                        .param("keywords", "Java21, 虚拟线程实战")
+                        .param("markdown", "## 虚拟线程优势\n\n降低上下文切换开销，兼容现有阻塞 IO。"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/access-denied"));
+
+        var submitted = mockMvc.perform(post("/articles/custom").session(session).with(csrf())
+                        .param("title", "Java 21 虚拟线程笔记")
+                        .param("summary", "关于虚拟线程与高并发模型的一手笔记")
+                        .param("tags", "Java, 并发, 虚拟线程")
+                        .param("keywords", "Java21, 虚拟线程实战")
+                        .param("markdown", "## 虚拟线程优势\n\n降低上下文切换开销，兼容现有阻塞 IO。"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrlPattern("/articles/*"))
+                .andReturn();
+
+        String articleUrl = submitted.getResponse().getRedirectedUrl();
+        assertThat(articleUrl).isNotNull();
+
+        mockMvc.perform(get(articleUrl).session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Java 21 虚拟线程笔记")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("自定义文章 / 笔记")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("草稿")));
+    }
+
+    @Test
     void shouldSubmitTopicTutorialGenerationFromManagementPortal() throws Exception {
         MockHttpSession session = login();
 
@@ -372,7 +414,7 @@ class LocalSecurityIntegrationTest {
     void shouldSubmitWebsiteRecommendationGenerationFromManagementPortal() throws Exception {
         MockHttpSession session = login();
 
-        mockMvc.perform(get("/projects").session(session))
+        mockMvc.perform(get("/projects").param("source", "website").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("从网站生成推荐文章")));
 
@@ -809,6 +851,8 @@ class LocalSecurityIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(content().string(org.hamcrest.Matchers.not(
                             org.hamcrest.Matchers.containsString("data-source-workspace"))))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("action=\"/articles/custom\""))))
                     .andExpect(content().string(org.hamcrest.Matchers.not(
                             org.hamcrest.Matchers.containsString("action=\"/projects/imports\""))))
                     .andExpect(content().string(org.hamcrest.Matchers.not(

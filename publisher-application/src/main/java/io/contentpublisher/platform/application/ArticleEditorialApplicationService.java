@@ -6,9 +6,14 @@ import io.contentpublisher.platform.domain.ActorContext;
 import io.contentpublisher.platform.domain.Article;
 import io.contentpublisher.platform.domain.ArticleStatus;
 import io.contentpublisher.platform.domain.ArticleVersion;
+import io.contentpublisher.platform.domain.ContentOrigin;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +37,56 @@ public final class ArticleEditorialApplicationService {
     public List<ArticleVersion> getArticleVersions(ActorContext actor, UUID articleId) {
         getArticle(actor, articleId);
         return articles.findVersions(actor.tenantId(), articleId);
+    }
+
+    public Article createCustomArticle(ActorContext actor, String title, String summary, String markdown,
+                                       List<String> tags, List<String> keywords,
+                                       String titleEn, String summaryEn, String markdownEn,
+                                       List<String> tagsEn, List<String> keywordsEn,
+                                       String language) {
+        String normalizedTitle = requireText(title, "文章标题不能为空", 500);
+        String normalizedMarkdown = requireText(markdown, "文章正文不能为空", 20000);
+        String normalizedSummary = summary == null || summary.isBlank()
+                ? deriveSummary(normalizedMarkdown, 200)
+                : requireText(summary, "文章摘要不能为空", 2000);
+        List<String> normalizedTags = normalizeTags(tags);
+        List<String> normalizedKeywords = normalizeKeywords(keywords);
+        if (normalizedKeywords.isEmpty() && !normalizedTags.isEmpty()) {
+            normalizedKeywords = normalizedTags.stream().limit(30).toList();
+        }
+        String normalizedTitleEn = normalizeOptionalText(titleEn, "英文标题不能超过 500 个字符", 500);
+        String normalizedSummaryEn = normalizeOptionalText(summaryEn, "英文摘要不能超过 2000 个字符", 2000);
+        String normalizedMarkdownEn = normalizeOptionalText(markdownEn, "英文正文不能超过 20000 个字符", 20000);
+        List<String> normalizedTagsEn = normalizeTags(tagsEn);
+        List<String> normalizedKeywordsEn = normalizeKeywords(keywordsEn);
+        String normalizedLanguage = language == null || language.isBlank() ? "zh-CN" : language.trim();
+        if (normalizedLanguage.length() > 20) {
+            throw new ApplicationException("INVALID_ARGUMENT", "语言代码不能超过 20 个字符");
+        }
+
+        Instant now = clock.instant();
+        UUID articleId = UUID.randomUUID();
+        String sourceRevision = sha256(normalizedTitle + "\n" + normalizedMarkdown);
+        ContentOrigin origin = ContentOrigin.custom(normalizedTitle, normalizedSummary, normalizedKeywords);
+        Article article = new Article(articleId, actor.tenantId(), origin, null,
+                normalizedTitle, normalizedSummary, normalizedMarkdown, normalizedTags, normalizedKeywords,
+                normalizedTitleEn, normalizedSummaryEn, normalizedMarkdownEn, normalizedTagsEn, normalizedKeywordsEn,
+                normalizedLanguage, sourceRevision, 1, ArticleStatus.DRAFT, actor.subject(), actor.subject(),
+                now, now);
+        ArticleVersion version = new ArticleVersion(actor.tenantId(), articleId, 1,
+                normalizedTitle, normalizedSummary, normalizedMarkdown, normalizedTags, normalizedKeywords,
+                normalizedTitleEn, normalizedSummaryEn, normalizedMarkdownEn, normalizedTagsEn, normalizedKeywordsEn,
+                actor.subject(), now);
+        Article saved = articles.saveWithVersion(article, version);
+        auditRecorder.record(actor, "CUSTOM_ARTICLE_CREATED", "ARTICLE", articleId,
+                Map.of("title", normalizedTitle, "language", normalizedLanguage));
+        return saved;
+    }
+
+    public Article createCustomArticle(ActorContext actor, String title, String summary, String markdown,
+                                       List<String> tags, List<String> keywords) {
+        return createCustomArticle(actor, title, summary, markdown, tags, keywords,
+                "", "", "", List.of(), List.of(), "zh-CN");
     }
 
     public Article updateArticle(ActorContext actor, UUID articleId, int expectedVersion, String title,
@@ -186,5 +241,30 @@ public final class ArticleEditorialApplicationService {
             throw new ApplicationException("INVALID_ARGUMENT", "标签最多 15 个且每个不超过 50 字符");
         }
         return normalized;
+    }
+
+    private String deriveSummary(String markdown, int maxLength) {
+        String cleaned = markdown
+                .replaceAll("(?m)^#+\\s*", "")
+                .replaceAll("\\[([^\\]]+)\\]\\([^\\)]+\\)", "$1")
+                .replaceAll("[`*_>~]", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (cleaned.isBlank()) {
+            return "自定义文章笔记";
+        }
+        if (cleaned.length() <= maxLength) {
+            return cleaned;
+        }
+        return cleaned.substring(0, maxLength).stripTrailing();
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("运行环境缺少 SHA-256", exception);
+        }
     }
 }

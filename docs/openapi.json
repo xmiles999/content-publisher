@@ -1052,6 +1052,34 @@
         }
       }
     },
+    "/api/v1/articles/custom" : {
+      "post" : {
+        "tags" : [ "article-controller" ],
+        "operationId" : "createCustom",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateCustomArticleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ArticleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/channel-accounts/{accountId}/status" : {
       "patch" : {
         "tags" : [ "channel-account-controller" ],
@@ -2559,6 +2587,71 @@
           }
         },
         "required" : [ "audience", "description", "language", "tone", "topic" ]
+      },
+      "CreateCustomArticleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "summary" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "markdown" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywords" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "titleEn" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "summaryEn" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "markdownEn" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "tagsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "keywordsEn" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "language" : {
+            "type" : "string",
+            "maxLength" : 20,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "markdown", "title" ]
       },
       "UpdateChannelAccountStatusRequest" : {
         "type" : "object",

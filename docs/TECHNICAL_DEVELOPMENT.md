@@ -70,7 +70,7 @@
 |---|---|---|
 | Spring Data JPA / Hibernate | Boot 管理 | ORM 和事务 |
 | PostgreSQL Driver | 42.7.13 | 生产数据库连接 |
-| Flyway Core + PostgreSQL | Boot 管理 | V1–V23 迁移 |
+| Flyway Core + PostgreSQL | Boot 管理 | V1–V24 迁移 |
 | Eclipse JGit | 7.3.0.202506031305-r | 安全浅克隆和仓库分析 |
 | Jsoup | 1.18.3 | 网站 HTML 文本提取 |
 | CommonMark | 0.24.0 | Markdown 解析与安全渲染 |
@@ -160,7 +160,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 
 | 类型 | 职责 |
 |---|---|
-| `ArticleSourceType` | `GIT`、`TOPIC`、`WEBSITE` |
+| `ArticleSourceType` | `GIT`、`TOPIC`、`WEBSITE`、`CUSTOM` |
 | `ContentOrigin` | 统一来源对象；校验 Git 必须有项目、非 Git 不得有项目、网站必须有 URL |
 | `TopicBrief` | 主题、说明、受众、文章类型、知识级别、关键词和参考说明 |
 | `WebsiteBrief` | 网站 URL、推荐角度、受众和关键词 |
@@ -432,14 +432,14 @@ Adapter：
 | `AutomationController` | `/api/v1` | 13 |
 | `JobReplayController` | `/api/v1/job-replays` | 2 |
 
-OpenAPI 快照当前包含 49 个 REST 操作。完整路径与角色见 `API_REFERENCE.md` 和 `docs/openapi.json`。
+OpenAPI 快照当前包含 50 个 REST 操作。完整路径与角色见 `API_REFERENCE.md` 和 `docs/openapi.json`。
 
 ### 9.2 Portal Controller
 
 | Controller | 职责 |
 |---|---|
 | `PortalController` | 登录、工作台、权限错误 |
-| `ContentCreationPortalController` | Git、主题、网站内容创建 |
+| `ContentCreationPortalController` | Git、主题、网站和自定义文章/笔记内容创建 |
 | `ContentLibraryPortalController` | 内容库、编辑、版本、个人确认和重新编辑 |
 | `PortalPublishingController` | 发布中心、API 渠道、人工平台个人配置、API/人工发布和失败重试 |
 | `JobPortalController` | 任务列表、详情和取消 |
@@ -718,7 +718,7 @@ V12 添加：
 Check 约束保证：
 
 - `GIT` 必须有 `project_id`。
-- `TOPIC`、`WEBSITE` 必须没有 `project_id`。
+- `TOPIC`、`WEBSITE`、`CUSTOM` 必须没有 `project_id`。
 
 ### 12.3 软删除
 
@@ -751,6 +751,7 @@ V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `del
 | V21 | 人工平台个人配置、启停、默认设置、登录确认时间和乐观锁版本 |
 | V22 | 将已有 `articles.status='APPROVED'` 回填为 `READY`，建立个人确认状态基线 |
 | V23 | 渠道账号软删除时间/操作者和活跃账号查询索引 |
+| V24 | 更新 `ck_articles_source` 检查约束，支持 `CUSTOM` 来源类型（`project_id is null`） |
 
 已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。V22 引入旧应用无法识别的 `READY` 字符串状态，因此回滚到不含该枚举的旧 JAR 通常必须恢复迁移前备份，不能只切换应用制品。V23 的字段均可空且采用向前迁移，但旧应用不识别软删除语义，直接回滚可能让已移除账号重新出现在列表或任务选择中；同时已销毁的账号凭据不可恢复，回滚前必须评估旧实体映射和删除数据可见性，必要时恢复迁移前备份。
 
@@ -904,7 +905,7 @@ Git、网站、AI 和自托管渠道都执行：
 | 发布与加密 | `PublishingApplicationServiceTest`、`OfficialChannelPublishersTest`、`ManualChannelProfileApplicationServiceTest`、`AesGcmCredentialVaultTest`、`AesGcmSecretCipherTest` | `READY/APPROVED/PUBLISHED` 发布门禁、请求映射、人工平台配置、凭据 |
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
-| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V23、`APPROVED → READY` 回填、JPA、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
+| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V24、`APPROVED → READY` 回填、JPA、自定义文章、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 渠道巡检/Webhook | `ChannelHealthSchedulerTest`、`SecureWebhookEndpointPolicyTest`、自动化持久化测试 | 转换通知、去重、投递状态、SSRF |
 | 时区与重放 | `ScheduleParserTest`、`JobApplicationServiceTest` | DST、单个/批量原子重放和不确定发布门禁 |
@@ -1059,3 +1060,5 @@ Git、网站、AI 和自托管渠道都执行：
 2026-08-10：人工平台主流程改为独立持久浏览器 Profile；新增 `scripts/browser-session` 和 `./scripts/dev browser`，在仓库外以 0700 权限保存 Chromium Cookie、LocalStorage 和站点会话，Portal 移除人工登录确认操作，旧路由和字段仅作兼容保留。
 
 2026-08-11：渠道账号增加基于版本的安全软删除，删除时销毁凭据、隐藏活跃查询并保留历史发布名称；人工发布范围扩展到 24 个固定官方入口，允许 7 个 API 渠道在无法申请接口时独立采用人工流程；加入 Flyway V23、REST/Portal 删除端点和权限、CSRF、持久化测试。
+
+2026-09-10：内容生产控制台增加自定义文章/笔记发布能力；支持直接编写或粘贴 Markdown 笔记，无需 AI 生成任务即可直接生成主稿（v1）并进入确认与发布流程；引入 Flyway V24 放宽 `ck_articles_source` 约束，新增 REST `POST /api/v1/articles/custom` 与 Portal `POST /articles/custom` 端点，补齐单元/集成/持久化/安全与 OpenAPI 契约测试。

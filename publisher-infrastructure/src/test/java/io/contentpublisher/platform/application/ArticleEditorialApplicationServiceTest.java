@@ -4,7 +4,9 @@ import io.contentpublisher.platform.application.port.ArticleRepository;
 import io.contentpublisher.platform.application.port.AuditRecorder;
 import io.contentpublisher.platform.domain.ActorContext;
 import io.contentpublisher.platform.domain.Article;
+import io.contentpublisher.platform.domain.ArticleSourceType;
 import io.contentpublisher.platform.domain.ArticleStatus;
+import io.contentpublisher.platform.domain.ArticleVersion;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -27,6 +29,64 @@ import static org.mockito.Mockito.when;
 class ArticleEditorialApplicationServiceTest {
     private static final ActorContext ACTOR = new ActorContext("personal", "owner");
     private static final Instant NOW = Instant.parse("2026-08-10T12:00:00Z");
+
+    @Test
+    void shouldCreateCustomArticleWithDerivedSummaryAndInitialVersion() {
+        Fixture fixture = fixture(ArticleStatus.DRAFT);
+
+        Article created = fixture.service.createCustomArticle(ACTOR, "自定义开发笔记", "",
+                "# 深入理解虚拟线程\n\n虚拟线程是 Java 21 引入的核心轻量并发特性，极大简化了高吞吐网络服务的开发模型。",
+                List.of("Java", "并发"), List.of());
+
+        assertThat(created.title()).isEqualTo("自定义开发笔记");
+        assertThat(created.summary()).contains("虚拟线程是 Java 21 引入的核心轻量并发特性");
+        assertThat(created.sourceType()).isEqualTo(ArticleSourceType.CUSTOM);
+        assertThat(created.status()).isEqualTo(ArticleStatus.DRAFT);
+        assertThat(created.currentVersion()).isEqualTo(1);
+        assertThat(created.tags()).containsExactly("Java", "并发");
+        assertThat(created.keywords()).containsExactly("Java", "并发");
+        assertThat(created.sourceRevision()).isNotBlank();
+        assertThat(created.createdAt()).isEqualTo(NOW);
+        assertThat(created.updatedAt()).isEqualTo(NOW);
+        verify(fixture.articles).saveWithVersion(any(Article.class), any(ArticleVersion.class));
+        verify(fixture.audits).record(ACTOR, "CUSTOM_ARTICLE_CREATED", "ARTICLE",
+                created.id(), Map.of("title", "自定义开发笔记", "language", "zh-CN"));
+    }
+
+    @Test
+    void shouldCreateCustomArticleWithExplicitBilingualFields() {
+        Fixture fixture = fixture(ArticleStatus.DRAFT);
+
+        Article created = fixture.service.createCustomArticle(ACTOR, "微服务架构演进", "从单体到服务网格的演进路径",
+                "## 架构演进实战\n\n服务治理与链路追踪方案。", List.of("微服务"), List.of("架构演进", "服务网格"),
+                "Microservice Evolution", "Path from monolith to service mesh",
+                "## Evolution Practice\n\nObservability and governance.",
+                List.of("Microservices"), List.of("Architecture"), "zh-CN");
+
+        assertThat(created.title()).isEqualTo("微服务架构演进");
+        assertThat(created.summary()).isEqualTo("从单体到服务网格的演进路径");
+        assertThat(created.titleEn()).isEqualTo("Microservice Evolution");
+        assertThat(created.summaryEn()).isEqualTo("Path from monolith to service mesh");
+        assertThat(created.markdownEn()).contains("Observability and governance");
+        assertThat(created.hasEnglishContent()).isTrue();
+    }
+
+    @Test
+    void shouldRejectCustomArticleWhenTitleOrBodyIsBlank() {
+        Fixture fixture = fixture(ArticleStatus.DRAFT);
+
+        assertThatThrownBy(() -> fixture.service.createCustomArticle(ACTOR, "", "摘要", "正文", List.of(), List.of()))
+                .isInstanceOfSatisfying(ApplicationException.class, exception -> {
+                    assertThat(exception.code()).isEqualTo("INVALID_ARGUMENT");
+                    assertThat(exception.getMessage()).contains("文章标题不能为空");
+                });
+
+        assertThatThrownBy(() -> fixture.service.createCustomArticle(ACTOR, "标题", "摘要", "   ", List.of(), List.of()))
+                .isInstanceOfSatisfying(ApplicationException.class, exception -> {
+                    assertThat(exception.code()).isEqualTo("INVALID_ARGUMENT");
+                    assertThat(exception.getMessage()).contains("文章正文不能为空");
+                });
+    }
 
     @Test
     void shouldConfirmDraftAsReadyAndRecordPersonalConfirmation() {
@@ -112,6 +172,11 @@ class ArticleEditorialApplicationServiceTest {
         when(articles.findArticleById("personal", original.id()))
                 .thenAnswer(invocation -> Optional.of(stored.get()));
         when(articles.save(any())).thenAnswer(invocation -> {
+            Article saved = invocation.getArgument(0);
+            stored.set(saved);
+            return saved;
+        });
+        when(articles.saveWithVersion(any(), any())).thenAnswer(invocation -> {
             Article saved = invocation.getArgument(0);
             stored.set(saved);
             return saved;

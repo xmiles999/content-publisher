@@ -95,7 +95,7 @@ class ArchitectureBoundaryTest {
 
     @Test
     void portalResponsibilitiesShouldRemainSplit() {
-        assertThat(requestMethodCount(ContentCreationPortalController.class)).isEqualTo(6);
+        assertThat(requestMethodCount(ContentCreationPortalController.class)).isEqualTo(7);
         assertThat(requestMethodCount(ContentLibraryPortalController.class)).isEqualTo(6);
         assertThat(requestMethodCount(JobPortalController.class)).isEqualTo(3);
         assertThat(requestMethodCount(RecycleBinPortalController.class)).isEqualTo(5);

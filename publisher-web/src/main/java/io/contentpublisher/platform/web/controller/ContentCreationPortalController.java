@@ -5,11 +5,14 @@ import io.contentpublisher.platform.application.ApplicationException;
 import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.JobApplicationService;
 import io.contentpublisher.platform.application.ProjectApplicationService;
+import io.contentpublisher.platform.application.PublishingApplicationService;
+import io.contentpublisher.platform.domain.Article;
 import io.contentpublisher.platform.domain.GenerationPolicy;
 import io.contentpublisher.platform.domain.Job;
 import io.contentpublisher.platform.domain.TopicBrief;
 import io.contentpublisher.platform.domain.WebsiteBrief;
 import io.contentpublisher.platform.infrastructure.config.AiProperties;
+import io.contentpublisher.platform.web.form.CreateCustomArticleForm;
 import io.contentpublisher.platform.web.form.CreateTopicArticleForm;
 import io.contentpublisher.platform.web.form.CreateWebsiteArticleForm;
 import io.contentpublisher.platform.web.form.GenerateArticleForm;
@@ -40,17 +43,22 @@ public class ContentCreationPortalController {
     private static final int LIST_LIMIT = 50;
 
     private final ProjectApplicationService projects;
+    private final PublishingApplicationService publishing;
     private final JobApplicationService jobs;
     private final RequestActorProvider actors;
     private final AiProperties aiProperties;
     private final AiSettingsApplicationService aiSettings;
     private final AutomationApplicationService automation;
 
-    public ContentCreationPortalController(ProjectApplicationService projects, JobApplicationService jobs,
-                                           RequestActorProvider actors, AiProperties aiProperties,
+    public ContentCreationPortalController(ProjectApplicationService projects,
+                                           PublishingApplicationService publishing,
+                                           JobApplicationService jobs,
+                                           RequestActorProvider actors,
+                                           AiProperties aiProperties,
                                            AiSettingsApplicationService aiSettings,
                                            AutomationApplicationService automation) {
         this.projects = projects;
+        this.publishing = publishing;
         this.jobs = jobs;
         this.actors = actors;
         this.aiProperties = aiProperties;
@@ -59,11 +67,31 @@ public class ContentCreationPortalController {
     }
 
     @GetMapping("/projects")
-    public String projects(@RequestParam(defaultValue = "website") String source, Model model) {
+    public String projects(@RequestParam(defaultValue = "custom") String source, Model model) {
         activateSource(model, normalizedSource(source));
         populateSourceForms(model);
         populateCreationWorkspace(model);
         return "projects";
+    }
+
+    @PostMapping("/articles/custom")
+    public String createCustomArticle(@Valid @ModelAttribute("customArticleForm") CreateCustomArticleForm form,
+                                      BindingResult bindingResult, Model model,
+                                      RedirectAttributes redirectAttributes) {
+        if (bindingResult.hasErrors()) return invalidSourceForm(model, "custom");
+        try {
+            Article article = publishing.createCustomArticle(actors.currentActor(),
+                    form.getTitle(), form.getSummary(), form.getMarkdown(),
+                    splitValues(form.getTags()), splitValues(form.getKeywords()),
+                    form.getTitleEn(), form.getSummaryEn(), form.getMarkdownEn(),
+                    splitValues(form.getTagsEn()), splitValues(form.getKeywordsEn()),
+                    form.getLanguage());
+            redirectAttributes.addFlashAttribute("success", "自定义文章主稿已创建，可直接编辑确认或进入发布中心分发");
+            return "redirect:/articles/" + article.id();
+        } catch (ApplicationException | IllegalArgumentException exception) {
+            model.addAttribute("error", exception.getMessage());
+            return invalidSourceForm(model, "custom");
+        }
     }
 
     @PostMapping("/articles/topic-generations")
@@ -174,6 +202,10 @@ public class ContentCreationPortalController {
     }
 
     private void populateSourceForms(Model model) {
+        if (!model.containsAttribute("customArticleForm")) {
+            CreateCustomArticleForm form = new CreateCustomArticleForm();
+            model.addAttribute("customArticleForm", form);
+        }
         if (!model.containsAttribute("importProjectForm")) {
             ImportProjectForm form = new ImportProjectForm();
             form.setIdempotencyKey(idempotencyKey("import"));
@@ -198,8 +230,8 @@ public class ContentCreationPortalController {
     private String normalizedSource(String source) {
         String normalized = source == null ? "" : source.trim().toLowerCase(Locale.ROOT);
         return switch (normalized) {
-            case "git", "topic", "website" -> normalized;
-            default -> "website";
+            case "git", "topic", "website", "custom" -> normalized;
+            default -> "custom";
         };
     }
 

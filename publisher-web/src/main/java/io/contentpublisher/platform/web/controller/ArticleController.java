@@ -11,6 +11,7 @@ import io.contentpublisher.platform.web.dto.PublicationBatchResponse;
 import io.contentpublisher.platform.web.dto.RejectArticleRequest;
 import io.contentpublisher.platform.web.dto.UpdateArticleRequest;
 import io.contentpublisher.platform.web.dto.ArticleVersionResponse;
+import io.contentpublisher.platform.web.dto.CreateCustomArticleRequest;
 import io.contentpublisher.platform.web.dto.CreateTopicArticleRequest;
 import io.contentpublisher.platform.web.dto.CreateWebsiteArticleRequest;
 import io.contentpublisher.platform.domain.GenerationPolicy;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
 import java.util.UUID;
 import java.util.List;
 
@@ -70,6 +72,18 @@ public class ArticleController {
     public ResponseEntity<Void> restore(@PathVariable UUID articleId) {
         records.restoreArticleRecord(actors.currentActor(), articleId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/custom")
+    public ResponseEntity<ArticleResponse> createCustom(@Valid @RequestBody CreateCustomArticleRequest request) {
+        var created = publishing.createCustomArticle(actors.currentActor(),
+                request.title(), request.summary(), request.markdown(),
+                request.tags(), request.keywords(),
+                request.titleEn(), request.summaryEn(), request.markdownEn(),
+                request.tagsEn(), request.keywordsEn(),
+                request.language());
+        return ResponseEntity.created(URI.create("/api/v1/articles/" + created.id()))
+                .body(ArticleResponse.from(created));
     }
 
     @PutMapping("/{articleId}")

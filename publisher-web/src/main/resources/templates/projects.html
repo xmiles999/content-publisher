@@ -9,17 +9,39 @@
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('内容工作台', '从可信来源创建可编辑的内容主稿')}"></header>
         <main class="page-content projects-page">
             <section class="page-header projects-page-header"><div><p class="section-kicker">内容生产</p><h2>选择内容来源</h2>
-                <p>这里只负责导入资料和创建主稿；生成后的内容统一进入内容库编辑确认，再交由发布中心分发。</p></div>
+                <p>这里只负责导入资料和创建主稿；生成或编写后的内容统一进入内容库编辑确认，再交由发布中心分发。</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/content}">进入内容库</a></div></section>
 
             <div class="alert error" th:if="${error}" th:text="${error}"></div>
             <div class="alert success" th:if="${success}" th:text="${success}"></div>
-            <div class="alert warning" th:if="${!aiEnabled and canAdmin}">AI 内容生成尚未启用。请先前往 <a class="text-link" th:href="@{/settings/ai}">AI 服务</a>配置兼容接口。</div>
-            <div class="alert warning" th:if="${!aiEnabled and !canAdmin}">AI 内容生成尚未启用，请联系租户管理员完成配置。</div>
+            <div class="alert warning" th:if="${!aiEnabled and canAdmin and activeSourcePanel != 'custom'}">AI 内容生成尚未启用。请先前往 <a class="text-link" th:href="@{/settings/ai}">AI 服务</a>配置兼容接口。</div>
+            <div class="alert warning" th:if="${!aiEnabled and !canAdmin and activeSourcePanel != 'custom'}">AI 内容生成尚未启用，请联系租户管理员完成配置。</div>
 
             <section class="source-workspace" th:if="${canEdit}">
                 <div class="source-workspace-heading"><div><p class="section-kicker">创建内容</p><h3>创建新内容</h3><p>通过左侧二级菜单切换内容来源，当前页面只展示对应的创建表单。</p></div>
-                    <span class="service-badge" th:classappend="${aiEnabled} ? ' online' : ' offline'" th:text="${aiEnabled} ? 'AI 已就绪' : 'AI 未配置'">AI 状态</span></div>
+                    <span class="service-badge online" th:if="${activeSourcePanel == 'custom'}">直接编写</span>
+                    <span class="service-badge" th:if="${activeSourcePanel != 'custom'}" th:classappend="${aiEnabled} ? ' online' : ' offline'" th:text="${aiEnabled} ? 'AI 已就绪' : 'AI 未配置'">AI 状态</span></div>
+
+                <div id="source-panel-custom" class="source-panel" th:if="${activeSourcePanel == 'custom'}">
+                    <div class="source-panel-intro"><div><p class="section-kicker">自定义创作</p><h3>编写或导入文章笔记</h3><p>直接编写或粘贴 Markdown 笔记、博客或长文，创建后进入统一的主稿编辑、版本核对与多渠道发布流程。</p></div><span class="service-badge online">无需 AI</span></div>
+                    <form class="stack-form" th:action="@{/articles/custom}" th:object="${customArticleForm}" method="post">
+                        <div class="field"><label for="custom-title">文章标题</label><input id="custom-title" th:field="*{title}" maxlength="500" placeholder="例如：深入理解 Java 21 虚拟线程调度机制" required><small class="field-error" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></small></div>
+                        <div class="field"><label for="custom-summary">摘要 / Meta Description（可选）</label><textarea id="custom-summary" th:field="*{summary}" rows="3" maxlength="2000" placeholder="概括核心内容；留空时系统将自动根据正文前部提取"></textarea><small class="field-error" th:if="${#fields.hasErrors('summary')}" th:errors="*{summary}"></small></div>
+                        <div class="form-grid"><div class="field"><label for="custom-tags">发布标签（可选）</label><textarea id="custom-tags" th:field="*{tags}" rows="2" maxlength="1000" placeholder="标签用逗号或换行分隔，如：Java, 虚拟线程, 并发"></textarea></div>
+                            <div class="field"><label for="custom-keywords">SEO / 推荐关键词（可选）</label><textarea id="custom-keywords" th:field="*{keywords}" rows="2" maxlength="3200" placeholder="第一项为主关键词，留空时自动复用标签"></textarea></div></div>
+                        <div class="field"><label for="custom-markdown">Markdown 正文 / 笔记内容</label><textarea id="custom-markdown" class="markdown-editor" th:field="*{markdown}" rows="22" maxlength="20000" placeholder="在此直接编写或粘贴 Markdown 笔记内容..." required></textarea><small class="field-error" th:if="${#fields.hasErrors('markdown')}" th:errors="*{markdown}"></small></div>
+                        <details class="advanced-settings"><summary>多语言与英文主稿（可选）</summary>
+                            <div class="field section-gap"><label for="custom-language">主稿语言代码</label><input id="custom-language" th:field="*{language}" maxlength="20" placeholder="zh-CN" required></div>
+                            <div class="field"><label for="custom-title-en">English Title</label><input id="custom-title-en" th:field="*{titleEn}" maxlength="500" placeholder="Optional English title for global channels"></div>
+                            <div class="field"><label for="custom-summary-en">English Summary</label><textarea id="custom-summary-en" th:field="*{summaryEn}" rows="3" maxlength="2000" placeholder="Optional English summary"></textarea></div>
+                            <div class="form-grid"><div class="field"><label for="custom-tags-en">English Tags</label><textarea id="custom-tags-en" th:field="*{tagsEn}" rows="2" maxlength="1000" placeholder="Comma or newline separated"></textarea></div>
+                                <div class="field"><label for="custom-keywords-en">English Keywords</label><textarea id="custom-keywords-en" th:field="*{keywordsEn}" rows="2" maxlength="3200"></textarea></div></div>
+                            <div class="field"><label for="custom-markdown-en">English Markdown Body</label><textarea id="custom-markdown-en" class="markdown-editor" th:field="*{markdownEn}" rows="14" maxlength="20000" placeholder="Optional English markdown text"></textarea></div>
+                        </details>
+                        <div class="form-footer"><small>保存后将直接生成可编辑主稿，并可在内容库核对预览或进入发布中心发布。</small><button class="primary-button" type="submit">保存并进入主稿</button></div>
+                    </form>
+                    <div class="source-hints"><span>✓ 支持直接粘贴笔记</span><span>✓ 自动提取文章摘要</span><span>✓ 接入统一发布预检</span></div>
+                </div>
 
                 <div id="source-panel-git" class="source-panel" th:if="${activeSourcePanel == 'git'}">
                     <div class="source-panel-intro"><div><p class="section-kicker">仓库导入</p><h3>导入 Git 项目</h3><p>支持允许列表内的 GitHub、GitLab 和 Gitee HTTPS 仓库，导入任务会在后台完成克隆与事实分析。</p></div><span class="service-badge">仅 HTTPS</span></div>

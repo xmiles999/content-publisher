@@ -106,6 +106,20 @@ public final class PublishingApplicationService {
         return articles.getArticleVersions(actor, articleId);
     }
 
+    public Article createCustomArticle(ActorContext actor, String title, String summary, String markdown,
+                                       List<String> tags, List<String> keywords,
+                                       String titleEn, String summaryEn, String markdownEn,
+                                       List<String> tagsEn, List<String> keywordsEn,
+                                       String language) {
+        return articles.createCustomArticle(actor, title, summary, markdown, tags, keywords,
+                titleEn, summaryEn, markdownEn, tagsEn, keywordsEn, language);
+    }
+
+    public Article createCustomArticle(ActorContext actor, String title, String summary, String markdown,
+                                       List<String> tags, List<String> keywords) {
+        return articles.createCustomArticle(actor, title, summary, markdown, tags, keywords);
+    }
+
     public Article updateArticle(ActorContext actor, UUID articleId, int expectedVersion, String title,
                                  String summary, String markdown, List<String> tags, List<String> keywords,
                                  String titleEn, String summaryEn, String markdownEn, List<String> tagsEn,

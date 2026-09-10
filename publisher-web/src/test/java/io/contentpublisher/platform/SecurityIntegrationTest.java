@@ -70,6 +70,40 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void shouldAllowEditorToCreateCustomArticleAndDenyViewer() throws Exception {
+        String body = """
+                {
+                    "title": "API 自定义文章",
+                    "summary": "通过 REST API 创建的一手技术笔记",
+                    "markdown": "## API 实践\\n\\n直接发布与分发。",
+                    "tags": ["API", "笔记"],
+                    "keywords": ["API发布"]
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/articles/custom")
+                        .contentType("application/json")
+                        .content(body)
+                        .with(jwt().jwt(token -> token.subject("reader")
+                                        .claim("tenant_id", "tenant-a")
+                                        .claim("roles", List.of("VIEWER")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_VIEWER"))))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/articles/custom")
+                        .contentType("application/json")
+                        .content(body)
+                        .with(jwt().jwt(token -> token.subject("editor")
+                                        .claim("tenant_id", "tenant-a")
+                                        .claim("roles", List.of("EDITOR")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_EDITOR"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("API 自定义文章"))
+                .andExpect(jsonPath("$.sourceType").value("CUSTOM"))
+                .andExpect(jsonPath("$.status").value("DRAFT"));
+    }
+
+    @Test
     void shouldDenyViewerFromImportingRepository() throws Exception {
         mockMvc.perform(post("/api/v1/projects/imports")
                         .contentType("application/json")

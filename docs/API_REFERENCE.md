@@ -122,6 +122,7 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|
+| POST | `/api/v1/articles/custom` | Editor/Admin | 直接创建自定义文章/笔记主稿（返回 201 与 Location） |
 | GET | `/api/v1/articles/{articleId}` | Viewer/Editor/Admin | 查询当前文章 |
 | GET | `/api/v1/articles/{articleId}/versions` | Viewer/Editor/Admin | 查询不可变版本 |
 | GET | `/api/v1/articles/{articleId}/draft` | Viewer/Editor/Admin | 查询当前主体的服务端草稿；不存在返回 204 |
@@ -134,6 +135,23 @@ Git 生成额外使用 `requiredKeywords`，最多 30 项。主题和网站生�
 | POST | `/api/v1/articles/{articleId}/restore` | Admin | 从回收站恢复 |
 
 编辑请求必须包含 `expectedVersion`。标题最长 500，摘要最长 2000，中英文 Markdown 各最长 20000；标签最多 15 项，关键词最多 30 项。没有任何英文字段时只更新中文稿；提交英文字段时服务端同时保存英文版本。
+
+自定义文章创建请求 `POST /api/v1/articles/custom`：
+
+```json
+{
+  "title": "Spring Boot 优雅停机与连接池回收最佳实践",
+  "summary": "生产环境下 Spring Boot 服务平滑停机与连接池治理实践总结",
+  "tags": ["Spring Boot", "DevOps"],
+  "keywords": ["Graceful Shutdown", "HikariCP", "SIGTERM"],
+  "markdown": "## 1. 背景\n\n在容器化部署中...",
+  "titleEn": "Best Practices for Graceful Shutdown in Spring Boot",
+  "summaryEn": "A guide on handling graceful shutdown and pool reclamation in production.",
+  "markdownEn": "## 1. Background\n\nIn containerized environments..."
+}
+```
+
+`summary` 留空时服务端自动从 Markdown 正文提取清洗纯文本（最多 200 字）。创建成功返回 `201 Created` 与 `Location: /api/v1/articles/{articleId}`。
 
 草稿保存使用 `baseVersion` 而不是 `expectedVersion`，并按“租户 + 文章 + 当前主体”隔离。草稿不创建正式文章版本，也不能绕过正式保存时的版本冲突检查。正式保存成功后客户端可删除对应草稿。
 
@@ -239,6 +257,7 @@ API 发布和批量发布接受文章状态 `READY`、兼容 `APPROVED` 或 `PUB
 
 | 方法 | 路径 | 当前角色 | 说明 |
 |---|---|---|---|
+| POST | `/articles/custom` | Editor/Admin | 表单直接创建自定义文章/笔记并重定向到详情页 |
 | POST | `/articles/{articleId}/confirm` | Editor/Admin | 本人确认当前版本；`DRAFT/REJECTED → READY` |
 | POST | `/articles/{articleId}/reopen` | Editor/Admin | 将 `READY/APPROVED` 重新进入 `DRAFT`；`PUBLISHED` 拒绝 |
 | POST | `/channels/{accountId}/delete` | Admin | 使用 `expectedVersion` 安全移除 API 账号并清除凭据 |
@@ -304,7 +323,7 @@ API 和人工能力彼此独立。DEV、WordPress、GitHub Discussions、Twitter
 
 ### 12.2 文章响应
 
-响应包含来源类型与来源信息、项目 ID、中文与英文内容、标签、关键词、语言、源版本、状态、当前版本和时间。来源类型为 `GIT`、`TOPIC` 或 `WEBSITE`；状态可能为 `DRAFT`、`READY`、`APPROVED`、`PUBLISHED` 或 `REJECTED`。
+响应包含来源类型与来源信息、项目 ID、中文与英文内容、标签、关键词、语言、源版本、状态、当前版本和时间。来源类型为 `GIT`、`TOPIC`、`WEBSITE` 或 `CUSTOM`；状态可能为 `DRAFT`、`READY`、`APPROVED`、`PUBLISHED` 或 `REJECTED`。
 
 ### 12.3 渠道账号响应
 

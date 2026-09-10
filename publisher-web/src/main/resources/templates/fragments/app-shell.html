@@ -48,6 +48,8 @@
                 <button class="sidebar-nav-toggle" type="button" data-sidebar-toggle aria-controls="sidebar-content-subnav"
                         th:attr="aria-expanded=${activeSection == 'content'}" aria-label="展开或收起内容工作台子菜单"><span aria-hidden="true"><svg viewBox="0 0 20 20"><use href="#nav-chevron"></use></svg></span></button></div>
             <div id="sidebar-content-subnav" class="sidebar-subnav" role="group" aria-label="内容工作台子菜单">
+                <a th:href="@{/projects(source='custom')}" th:classappend="${activeItem == 'projects-custom'} ? ' active'"
+                   th:attr="aria-current=${activeItem == 'projects-custom' ? 'page' : null}">自定义文章</a>
                 <a th:href="@{/projects(source='website')}" th:classappend="${activeItem == 'projects-website'} ? ' active'"
                    th:attr="aria-current=${activeItem == 'projects-website' ? 'page' : null}">网站推荐</a>
                 <a th:href="@{/projects(source='git')}" th:classappend="${activeItem == 'projects-git'} ? ' active'"

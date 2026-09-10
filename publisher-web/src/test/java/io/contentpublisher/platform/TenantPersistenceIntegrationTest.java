@@ -114,6 +114,34 @@ class TenantPersistenceIntegrationTest {
     }
 
     @Test
+    void shouldPersistCustomArticleWithoutGitProject() {
+        Instant now = Instant.parse("2026-07-20T00:00:00Z");
+        Article article = new Article(UUID.randomUUID(), "tenant-custom",
+                ContentOrigin.custom("架构重构随笔", "关于单体架构模块化的实战记录", List.of("架构", "模块化")),
+                null, "架构重构随笔", "关于单体架构模块化的实战记录", "## 架构设计\n直接记录的笔记正文。",
+                List.of("架构", "重构"), List.of("架构", "模块化"), "", "", "", List.of(), List.of(),
+                "zh-CN", "c".repeat(64), 1, ArticleStatus.DRAFT, "editor", "editor", now, now);
+
+        articles.saveWithVersion(article, new ArticleVersion("tenant-custom", article.id(), 1, article.title(),
+                article.summary(), article.markdown(), article.tags(), article.keywords(),
+                article.titleEn(), article.summaryEn(), article.markdownEn(), article.tagsEn(), article.keywordsEn(),
+                "editor", now));
+
+        assertThat(articles.findArticleById("tenant-custom", article.id())).get().satisfies(saved -> {
+            assertThat(saved.projectId()).isNull();
+            assertThat(saved.sourceType().name()).isEqualTo("CUSTOM");
+            assertThat(saved.origin().title()).isEqualTo("架构重构随笔");
+            assertThat(saved.tags()).containsExactly("架构", "重构");
+            assertThat(saved.keywords()).containsExactly("架构", "模块化");
+        });
+
+        var searchResult = articles.searchArticles("tenant-custom", "架构", null,
+                io.contentpublisher.platform.domain.ArticleSourceType.CUSTOM, null, 0, 10);
+        assertThat(searchResult.items()).hasSize(1);
+        assertThat(searchResult.items().get(0).id()).isEqualTo(article.id());
+    }
+
+    @Test
     void shouldPersistTopicArticleWithoutGitProject() {
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         TopicBrief brief = new TopicBrief("PostgreSQL 索引优化", "创建面向开发者的排查教程", "后端开发者",

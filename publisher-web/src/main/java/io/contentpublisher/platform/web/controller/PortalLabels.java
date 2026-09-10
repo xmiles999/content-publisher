@@ -87,6 +87,7 @@ final class PortalLabels {
         names.put(ArticleSourceType.GIT, "Git 项目");
         names.put(ArticleSourceType.TOPIC, "主题教程");
         names.put(ArticleSourceType.WEBSITE, "网站推荐");
+        names.put(ArticleSourceType.CUSTOM, "自定义文章");
         return Map.copyOf(names);
     }
 
