@@ -35,10 +35,10 @@
         <jgit.version>7.3.0.202506031305-r</jgit.version>
         <commonmark.version>0.24.0</commonmark.version>
         <testcontainers.version>1.21.4</testcontainers.version>
-        <jacoco.version>0.8.13</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
         <cyclonedx.version>2.9.3</cyclonedx.version>
         <!-- 13.0.0 在无 NVD API Key 时存在已确认且尚未发布修复的更新缺陷。 -->
-        <dependency-check.version>12.2.2</dependency-check.version>
+        <dependency-check.version>13.0.0</dependency-check.version>
         <springdoc.version>2.8.17</springdoc.version>
     </properties>
 
@@ -110,7 +110,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.5.5</version>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
                         <goals>
