@@ -4,7 +4,7 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title th:text="|${article.title} · Content Publisher|">文章</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script>
+    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script><script defer th:src="@{/assets/draft-autosave.js}"></script>
 </head>
 <body class="app-page">
 <div class="app-layout">
@@ -18,9 +18,8 @@
             <section class="editor-action-bar" aria-label="文章操作">
                 <div><strong th:text="|版本 ${article.currentVersion}|">版本 1</strong><span th:if="${editable and canEdit and !hasServerDraft}">修改会自动保存草稿；写完后可直接保存并准备发布</span><span th:if="${editable and canEdit and hasServerDraft}" th:text="|已恢复服务端草稿 · ${draftUpdatedAt}|">已恢复草稿</span><span th:unless="${editable and canEdit}">当前版本为已确认基线或发布记录，只读展示</span><small data-draft-state aria-live="polite"></small></div>
                 <div class="editor-action-buttons">
-                    <button class="secondary-button" type="submit" form="article-edit-form" name="intent" value="draft" th:if="${editable and canEdit}">仅保存草稿</button>
+                    <button class="secondary-button" type="submit" form="article-edit-form" name="intent" value="draft" th:if="${editable and canEdit}">保存版本</button>
                     <button class="primary-button" type="submit" form="article-edit-form" name="intent" value="ready" th:if="${editable and canEdit}">保存并准备发布</button>
-                    <form th:if="${canEdit and editable}" th:action="@{/articles/{id}/confirm(id=${article.id})}" method="post"><button class="secondary-button" type="submit">确认已保存版本</button></form>
                     <form th:if="${canEdit and reopenable}" th:action="@{/articles/{id}/reopen(id=${article.id})}" method="post"
                           th:attr="data-confirm=${revisingPublished} ? '修订会把已发布文稿重新变为草稿，历史发布记录仍保留。确认继续？' : '重新进入编辑后，当前内容将不再作为可发布基线，确认继续？'">
                         <button class="secondary-button" type="submit" th:text="${revisingPublished} ? '修订已发布内容' : '重新编辑'">重新编辑</button></form>
@@ -36,7 +35,7 @@
                     </nav>
 
                     <form id="article-edit-form" class="stack-form editor-form" th:action="@{/articles/{id}/edit(id=${article.id})}" th:object="${updateArticleForm}" method="post" data-dirty-form
-                          th:attr="data-draft-url=@{/api/v1/articles/{id}/draft(id=${article.id})},data-has-server-draft=${hasServerDraft},data-asset-url=@{/api/v1/articles/{id}/assets(id=${article.id})},data-translate-url=@{/api/v1/articles/{id}/english-translations(id=${article.id})},data-preview-url=@{/api/v1/markdown/preview}">
+                          th:attr="data-draft-url=@{/api/v1/articles/{id}/draft(id=${article.id})},data-draft-owner=${currentTenant + ':' + currentUsername},data-draft-editable=${editable and canEdit},data-save-succeeded=${articleSaved == true},data-asset-url=@{/api/v1/articles/{id}/assets(id=${article.id})},data-translate-url=@{/api/v1/articles/{id}/english-translations(id=${article.id})},data-preview-url=@{/api/v1/markdown/preview}">
                         <input type="hidden" th:field="*{expectedVersion}">
                         <section id="editor-panel-zh" class="editor-tab-panel" role="tabpanel" aria-labelledby="editor-tab-zh" data-editor-panel="zh">
                             <div class="field"><label for="article-title">文章标题</label><input id="article-title" th:field="*{title}" maxlength="500" required th:readonly="${!editable or !canEdit}"></div>

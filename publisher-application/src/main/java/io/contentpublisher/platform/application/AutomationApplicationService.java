@@ -5,6 +5,7 @@ import io.contentpublisher.platform.application.port.AutomationRepository;
 import io.contentpublisher.platform.application.port.ArticleRepository;
 import io.contentpublisher.platform.application.port.WebhookEndpointPolicy;
 import io.contentpublisher.platform.domain.ActorContext;
+import io.contentpublisher.platform.domain.ArticleLimits;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -43,12 +44,20 @@ public final class AutomationApplicationService {
         if (article.currentVersion() != baseVersion) {
             throw new ApplicationException("DRAFT_VERSION_CONFLICT", "文章已有新版本，请刷新后再继续编辑");
         }
+        if (!article.status().isEditable()) {
+            throw new ApplicationException("ARTICLE_STATE_CONFLICT", "当前版本已确认，请先重新编辑");
+        }
         ArticleDraft draft = new ArticleDraft(UUID.randomUUID(), actor.tenantId(), articleId, actor.subject(),
-                baseVersion, limited(content.title(), 500, true), limited(content.summary(), 2000, true),
-                limited(content.markdown(), 20_000, true), normalizedList(content.tags(), 100),
-                normalizedList(content.keywords(), 100), limited(content.titleEn(), 500, false),
-                limited(content.summaryEn(), 2000, false), limited(content.markdownEn(), 20_000, false),
-                normalizedList(content.tagsEn(), 100), normalizedList(content.keywordsEn(), 100), clock.instant());
+                baseVersion, limited(content.title(), ArticleLimits.TITLE, true),
+                limited(content.summary(), ArticleLimits.SUMMARY, true),
+                limited(content.markdown(), ArticleLimits.MARKDOWN, true),
+                draftValues(content.tags(), ArticleLimits.TAGS, ArticleLimits.TAG, true),
+                draftValues(content.keywords(), ArticleLimits.KEYWORDS, ArticleLimits.KEYWORD, false),
+                limited(content.titleEn(), ArticleLimits.TITLE, false),
+                limited(content.summaryEn(), ArticleLimits.SUMMARY, false),
+                limited(content.markdownEn(), ArticleLimits.MARKDOWN, false),
+                draftValues(content.tagsEn(), ArticleLimits.TAGS, ArticleLimits.TAG, true),
+                draftValues(content.keywordsEn(), ArticleLimits.KEYWORDS, ArticleLimits.KEYWORD, false), clock.instant());
         return repository.saveDraft(draft);
     }
 
@@ -312,10 +321,16 @@ public final class AutomationApplicationService {
         return normalized;
     }
 
-    private List<String> normalizedList(List<String> values, int maxItems) {
+    private List<String> draftValues(List<String> values, int maxItems, int maxLength, boolean tags) {
         if (values == null) return List.of();
-        return values.stream().filter(java.util.Objects::nonNull).map(String::trim).filter(value -> !value.isBlank())
-                .distinct().limit(maxItems).toList();
+        List<String> normalized = values.stream().filter(java.util.Objects::nonNull).map(String::trim)
+                .map(value -> tags ? value.replaceFirst("^#+", "") : value)
+                .filter(value -> !value.isBlank()).distinct().toList();
+        if (normalized.size() > maxItems || normalized.stream().anyMatch(value -> value.length() > maxLength)) {
+            throw new ApplicationException("INVALID_ARGUMENT",
+                    (tags ? "标签" : "关键词") + "最多 " + maxItems + " 个且每个不超过 " + maxLength + " 字符");
+        }
+        return normalized;
     }
 
     public record DraftContent(String title, String summary, String markdown, List<String> tags,

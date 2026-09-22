@@ -90,7 +90,9 @@ public class ContentLibraryPortalController {
                     .filter(version -> version.versionNumber() == targetVersion).findFirst().orElse(null));
         }
         var draft = automation.getDraft(actor, articleId);
-        model.addAttribute("updateArticleForm", draft.map(this::articleForm).orElseGet(() -> articleForm(article)));
+        if (!model.containsAttribute("updateArticleForm")) {
+            model.addAttribute("updateArticleForm", draft.map(this::articleForm).orElseGet(() -> articleForm(article)));
+        }
         model.addAttribute("hasServerDraft", draft.isPresent());
         model.addAttribute("draftUpdatedAt", draft.map(AutomationApplicationService.ArticleDraft::updatedAt).orElse(null));
         model.addAttribute("editable", article.status().isEditable());
@@ -121,6 +123,7 @@ public class ContentLibraryPortalController {
                                 @Valid @ModelAttribute UpdateArticleForm form, BindingResult bindingResult,
                                 RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
+            redirectAttributes.addFlashAttribute("updateArticleForm", form);
             redirectAttributes.addFlashAttribute("error", firstError(bindingResult));
             return "redirect:/articles/" + articleId;
         }
@@ -138,9 +141,11 @@ public class ContentLibraryPortalController {
                         splitValues(form.getKeywordsEn()));
             }
             automation.deleteDraft(actors.currentActor(), articleId);
+            redirectAttributes.addFlashAttribute("articleSaved", true);
             redirectAttributes.addFlashAttribute("success",
                     prepare ? "已保存新版本并准备发布" : "文章已保存为新版本");
         } catch (ApplicationException | IllegalArgumentException exception) {
+            redirectAttributes.addFlashAttribute("updateArticleForm", form);
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
         return "redirect:/articles/" + articleId;

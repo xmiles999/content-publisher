@@ -385,7 +385,7 @@
         refresh();
     });
 
-    document.querySelectorAll('[data-dirty-form]').forEach(form => {
+    document.querySelectorAll('[data-dirty-form]:not([data-draft-url])').forEach(form => {
         let dirty = false;
         form.addEventListener('input', () => { dirty = true; });
         form.addEventListener('change', () => { dirty = true; });
@@ -425,84 +425,6 @@
     };
     const splitEditorValues = value => (value || '').split(/[\n,，]+/)
         .map(item => item.trim()).filter((item, index, values) => item && values.indexOf(item) === index);
-    const draftForm = document.querySelector('form[data-draft-url]');
-    if (draftForm) {
-        const state = document.querySelector('[data-draft-state]');
-        const storageKey = `content-publisher:draft:${draftForm.dataset.draftUrl}`;
-        let timer = null;
-        let conflict = false;
-        let submitting = false;
-        const fields = ['title', 'summary', 'markdown', 'tags', 'keywords',
-            'titleEn', 'summaryEn', 'markdownEn', 'tagsEn', 'keywordsEn'];
-        const payload = () => ({
-            baseVersion: Number(draftForm.elements.namedItem('expectedVersion')?.value || 0),
-            title: draftForm.elements.namedItem('title')?.value || '',
-            summary: draftForm.elements.namedItem('summary')?.value || '',
-            markdown: draftForm.elements.namedItem('markdown')?.value || '',
-            tags: splitEditorValues(draftForm.elements.namedItem('tags')?.value),
-            keywords: splitEditorValues(draftForm.elements.namedItem('keywords')?.value),
-            titleEn: draftForm.elements.namedItem('titleEn')?.value || '',
-            summaryEn: draftForm.elements.namedItem('summaryEn')?.value || '',
-            markdownEn: draftForm.elements.namedItem('markdownEn')?.value || '',
-            tagsEn: splitEditorValues(draftForm.elements.namedItem('tagsEn')?.value),
-            keywordsEn: splitEditorValues(draftForm.elements.namedItem('keywordsEn')?.value)
-        });
-        const restoreLocal = () => {
-            if (draftForm.dataset.hasServerDraft === 'true') return;
-            try {
-                const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
-                if (!saved?.payload || !window.confirm('检测到上次网络失败时保存在本机的编辑内容，是否恢复？')) return;
-                fields.forEach(name => {
-                    const field = draftForm.elements.namedItem(name);
-                    const value = saved.payload[name];
-                    if (!field || value == null) return;
-                    field.value = Array.isArray(value) ? value.join('\n') : value;
-                    field.dispatchEvent(new Event('input', {bubbles: true}));
-                });
-                if (state) state.textContent = '已恢复本机应急草稿，正在同步到服务端。';
-            } catch (_error) { /* Invalid or unavailable local storage is ignored. */ }
-        };
-        const saveDraft = async () => {
-            if (submitting || conflict || !draftForm.checkValidity()) return;
-            if (state) state.textContent = '草稿保存中…';
-            const bodyPayload = payload();
-            try {
-                const response = await fetch(draftForm.dataset.draftUrl, {
-                    method: 'PUT', credentials: 'same-origin',
-                    headers: {'Content-Type': 'application/json', ...csrfHeaders(draftForm)},
-                    body: JSON.stringify(bodyPayload)
-                });
-                const result = await response.json().catch(() => ({}));
-                if (!response.ok) {
-                    if (response.status === 409) {
-                        conflict = true;
-                        if (state) state.textContent = result.message || '文章已有新版本，自动保存已暂停。';
-                        return;
-                    }
-                    throw new Error(result.message || `HTTP ${response.status}`);
-                }
-                try { window.localStorage.removeItem(storageKey); } catch (_error) { /* Ignore. */ }
-                if (state) state.textContent = `草稿已保存 · ${new Date(result.updatedAt).toLocaleTimeString()}`;
-            } catch (_error) {
-                try { window.localStorage.setItem(storageKey, JSON.stringify({savedAt: Date.now(), payload: bodyPayload})); }
-                catch (_storageError) { /* Ignore. */ }
-                if (state) state.textContent = '网络异常，内容已暂存本机并将在继续编辑时重试。';
-            }
-        };
-        draftForm.addEventListener('input', () => {
-            if (conflict || submitting) return;
-            window.clearTimeout(timer);
-            if (state) state.textContent = '等待自动保存…';
-            timer = window.setTimeout(saveDraft, 900);
-        });
-        draftForm.addEventListener('submit', () => {
-            submitting = true;
-            window.clearTimeout(timer);
-            try { window.localStorage.removeItem(storageKey); } catch (_error) { /* Ignore. */ }
-        });
-        restoreLocal();
-    }
-
     document.querySelectorAll('form[data-schedule-form]').forEach(form => {
         const localInput = form.querySelector('input[data-schedule-local]');
         const offsetInput = form.elements.namedItem('scheduledAtOffset');
