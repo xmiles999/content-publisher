@@ -9,7 +9,7 @@ Portal 主流程已经迁移为纯个人内容确认，不再提供待审核、�
 | 项目 | 内容 |
 |---|---|
 | 应用版本 | `0.1.0-SNAPSHOT` |
-| 文档基线 | 2026-09-10 |
+| 文档基线 | 2026-09-22 |
 | Java / 构建 | Java 17、Maven Wrapper 3.9.11 |
 | Spring Boot | 3.5.16 |
 | 数据迁移 | Flyway V1–V25 |
@@ -40,6 +40,9 @@ Portal 主流程已经迁移为纯个人内容确认，不再提供待审核、�
 
 ## 文档
 
+- [中文文档索引](docs/README.md)
+- [开发与启动说明](docs/开发文档.md)
+- [个人使用精简边界与验证限制](docs/个人使用精简说明.md)
 - [完整业务说明](docs/FUNCTIONAL_SPEC.md)
 - [详细技术设计](docs/TECHNICAL_DEVELOPMENT.md)
 - [REST API 参考](docs/API_REFERENCE.md)
@@ -83,6 +86,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 - 使用仓库自带的 `./mvnw`，不依赖全局 Maven。
 - PostgreSQL；正式运行不使用 H2。
 - 本地容器化数据库和真实 PostgreSQL 集成测试需要可访问的 Docker daemon。
+- 启动入口还需 Bash、curl、flock、ss；完整 `verify` 需 Node.js 18+ 和 Python 3（仅测试，无前端包安装）。
 - AI、Git、网站和渠道调用需要满足主机允许列表与公网地址策略。
 
 ## 常用自动化命令
@@ -93,10 +97,10 @@ cd /data/projects/content-publisher
 ./scripts/dev doctor          # 环境诊断
 ./scripts/dev compose-check   # 只渲染 Compose，不要求 daemon
 ./scripts/dev dev-up          # 启动本地 PostgreSQL
-./scripts/dev run             # DISABLED 模式本地运行
+./scripts/dev run             # 一键构建、启动、健康检查；默认回环地址与任务暂停
 ./scripts/dev browser         # 用独立持久浏览器资料打开应用并复用第三方登录
 ./scripts/dev browser status  # 查看应用地址、Profile 路径和浏览器检测状态
-./scripts/dev verify          # clean verify、测试、JaCoCo、SBOM
+./scripts/dev verify          # JS/Python 回归、clean verify、JaCoCo、SBOM
 ./scripts/openapi check       # 校验 OpenAPI 快照
 ./scripts/openapi update      # Controller 合法变化后更新快照
 ./scripts/dev security        # OWASP Dependency Check；优先读取 NVD_API_KEY，否则使用每日 NVD 缓存
@@ -116,7 +120,6 @@ cd /data/projects/content-publisher
 推荐使用开发 Compose：
 
 ```bash
-./scripts/dev dev-up
 ./scripts/dev run
 ```
 
@@ -125,6 +128,12 @@ cd /data/projects/content-publisher
 ```bash
 curl --fail http://127.0.0.1:8080/actuator/health/readiness
 ```
+
+`run` 已包含开发数据库启动，随后构建 JAR 并在前台运行。默认只监听 `127.0.0.1`；
+重复启动会检查同一入口持有的锁与健康状态，不创建第二个进程；`Ctrl+C` 停止应用。
+自定义 `DB_URL` 时须同时设置数据库用户名与密码，脚本不调用 Docker。
+开发默认暂停 Worker，首页和任务页明确显示；确需执行生成或发布时，确认开发库待办安全后使用
+`PUBLISHER_JOBS_WORKER_ENABLED=true ./scripts/dev run`。启动细节见[开发文档](docs/开发文档.md)。
 
 首次使用人工平台时，从另一个普通终端启动专用浏览器：
 
@@ -155,7 +164,11 @@ PUBLISHER_APP_URL=https://publisher.example.com ./scripts/dev browser
 1. 在 `/projects` 选择 Git、主题或网站来源。
 2. 选择或保存生成预设并提交异步任务。
 3. 在文章编辑页使用服务端草稿自动保存；正式保存时仍要求正确版本。
-4. 写完后点击“保存并准备发布”，或对已保存版本点击“确认已保存版本”，文章进入 `READY`。已确认或已发布内容需先“重新编辑”或“修订已发布内容”。
+4. 写完后点击“保存并准备发布”，文章进入 `READY`；“保存版本”只创建正式草稿版本，不确认发布。旧的单独确认接口保留兼容，编辑页不再提供容易误确认旧内容的重复按钮。已确认或已发布内容需先“重新编辑”或“修订已发布内容”。
+
+个人工作区沿用服务端渲染与原生 CSS/JS：浅色采用雾白、灰绿和低饱和绿色，深色采用中性灰黑。
+左栏收敛为“工作区 / 流程与监测 / 设置与维护”，支持紧凑模式与小屏抽屉。
+任务、监控、渠道巡检、发布日历和失败恢复保留；低频设置折叠，不删除能力。
 
 ### API 发布
 
@@ -181,7 +194,7 @@ PUBLISHER_APP_URL=https://publisher.example.com ./scripts/dev browser
 - `/actions` 汇总待处理动作和站内通知。
 - `/publishing` 默认展示常用渠道覆盖矩阵；`/calendar` 展示计划任务与发布记录。
 - `/automation` 管理生成预设和通知 Webhook；生成预设使用服务端字段校验并在失败时保留输入。
-- 共享左侧导航按业务域分组，显示动作台、待发布和任务队列的租户真实计数；桌面端支持持久化紧凑模式，账户菜单集中提供角色、改密和退出入口，移动端使用支持键盘关闭和焦点恢复的抽屉。
+- 共享左侧导航显示待办、待发布和任务队列的真实计数；桌面支持持久化紧凑模式，低频设置折叠。账户菜单不展示角色和租户，仅 LOCAL 模式提供改密与退出；移动端使用支持键盘关闭和焦点恢复的抽屉。
 - 后台、登录、改密和错误页支持“跟随系统 → 浅色 → 深色”三态外观切换；选择保存在当前浏览器的 `localStorage` 中，不上传服务端，也不跨设备同步。
 - 渠道巡检按配置周期运行，失败及恢复只在状态变化时通知。
 - Webhook 可启用、停用并向指定端点异步排队测试通知；页面只显示掩码地址和最近投递状态。每个“通知 × 端点”唯一投递，失败按退避策略最多重试配置次数。

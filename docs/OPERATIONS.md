@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-09-10 |
+| 文档基线 | 2026-09-22 |
 | 应用版本 | `0.1.0-SNAPSHOT` |
 | 配置来源 | `publisher-web/src/main/resources/application.yml` |
 | 本地数据库 | `deploy/dev-compose.yaml` |
@@ -43,7 +43,6 @@
 ```bash
 ./scripts/dev doctor
 ./scripts/dev compose-check
-./scripts/dev dev-up
 ./scripts/dev run
 ./scripts/dev browser
 ./scripts/dev browser status
@@ -250,7 +249,14 @@ target/releases/<version>-<12位Git SHA>/
 jdbc:postgresql://127.0.0.1:55432/content_publisher
 ```
 
-`run` 默认使用 `DISABLED` 并关闭 Worker，只适合本机。停止或清空：
+`run` 一次完成开发数据库就绪、JAR 构建、启动与健康检查，默认绑定 `127.0.0.1`、
+使用 `DISABLED` 并关闭 Worker，只适合本机。端口冲突和相同入口的重复启动会先检查，
+不会接管或停止其他进程。自定义 `DB_URL` 时必须提供 `DB_USERNAME`、`DB_PASSWORD`，
+不会再强制启动 Docker。应用日志留在原终端，`Ctrl+C` 停止本次应用，数据库保留。
+默认暂停任务会在 Portal 显示；确需执行时显式设置 `PUBLISHER_JOBS_WORKER_ENABLED=true`。
+完整参数、权限、失败路径和验证范围见[开发文档](开发文档.md)。
+
+停止或清空：
 
 ```bash
 ./scripts/dev dev-down

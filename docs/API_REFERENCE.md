@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-09-10 |
+| 文档基线 | 2026-09-22 |
 | API 前缀 | `/api/v1` |
 | 实现入口 | `publisher-web/.../controller/*Controller.java` |
 | 请求模型 | `publisher-web/.../dto/*Request.java` |
@@ -171,7 +171,13 @@ REST `approve`/`reject` 仍可用，但已标记 deprecated，Portal 不调用�
 
 驳回原因必填，最长 500。
 
-REST 当前没有 `/confirm` 或 `/reopen` 端点。个人确认与重新编辑只通过 Portal 路由提供。`approve` 对 `READY/APPROVED/PUBLISHED` 保持幂等；对 `DRAFT/REJECTED` 仍可产生兼容 `APPROVED`。
+REST 提供 `/api/v1/articles/{articleId}/confirm` 和 `/api/v1/articles/{articleId}/reopen`，与 Portal 个人确认/重新编辑规则一致。`approve` 对 `READY/APPROVED/PUBLISHED` 保持幂等；对 `DRAFT/REJECTED` 仍可产生兼容 `APPROVED`。编辑页已移除单独确认按钮，主要路径为保存并准备发布。
+
+自动草稿 `PUT /api/v1/articles/{articleId}/draft` 要求可编辑状态和匹配的 `baseVersion`。
+标题/摘要/中英文正文上限分别为 500/2000/100000；标签最多 15 个且每项 50 字符，
+关键词最多 30 个且每项 100 字符。非法字段返回 `INVALID_ARGUMENT`，基线冲突返回
+`DRAFT_VERSION_CONFLICT`，不可编辑状态返回 `ARTICLE_STATE_CONFLICT`（后两者 HTTP 409）。
+超限数据不静默截断。
 
 ## 5. 渠道账号
 
@@ -308,7 +314,7 @@ API 和人工能力彼此独立。DEV、WordPress、GitHub Discussions、Twitter
 
 | 方法 | 路径 | 角色 | 说明 |
 |---|---|---|---|
-| POST | `/api/v1/markdown/preview` | Editor/Admin | 安全渲染最长 20000 字符的 Markdown |
+| POST | `/api/v1/markdown/preview` | Editor/Admin | 安全渲染最长 100000 字符的 Markdown |
 | GET | `/api/v1/monitoring/summary` | Viewer/Editor/Admin | 返回租户监控快照 |
 
 监控接口可选 `range` 参数：`24h`、`7d`、`30d`，缺省或未知值按 `24h`。响应包含项目、文章、来源、任务、发布、账号和渠道表现统计。

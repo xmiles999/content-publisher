@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-09-10 |
+| 文档基线 | 2026-09-22 |
 | 适用版本 | `0.1.0-SNAPSHOT` |
 | 架构形态 | 模块化单体 |
 | 主包名 | `io.contentpublisher.platform` |
@@ -13,7 +13,7 @@
 
 本文档描述当前代码真实采用的框架、模块、结构组件、依赖方向、数据流、持久化、安全、配置、测试和部署边界。代码、配置、依赖、迁移、Controller、DTO、端口、适配器或测试结构变化时，必须同步更新本文档。
 
-接口字段和错误契约见 [API_REFERENCE.md](API_REFERENCE.md)，完整配置和运维步骤见 [OPERATIONS.md](OPERATIONS.md)，业务规则见 [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md)。
+接口字段和错误契约见 [API_REFERENCE.md](API_REFERENCE.md)，完整配置和运维步骤见 [OPERATIONS.md](OPERATIONS.md)，业务规则见 [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md)。中文入口见[文档索引](README.md)，本地启动与回归入口见[开发文档](开发文档.md)，精简边界见[个人使用精简说明](个人使用精简说明.md)。
 
 ## 2. 设计目标与约束
 
@@ -458,7 +458,7 @@ OpenAPI 快照当前包含 50 个 REST 操作。完整路径与角色见 `API_RE
 | `JobReplayPortalController` | 失败任务重放 |
 | `PasswordController` | LOCAL 改密 |
 
-`PortalModelAdvice` 注入当前用户、租户、中文角色、导航状态和租户级真实计数；API、Actuator、静态资源与错误兜底请求不执行导航聚合。`PortalFormSupport` 统一通用表单错误处理，`AutomationPresetForm` 使用 Bean Validation 处理自动化预设字段，`PortalLabels` 统一中文标签。
+`PortalModelAdvice` 注入当前用户、草稿隔离所用租户标识、操作能力、登录模式、Worker 开关、导航状态和真实计数；不再注入无人消费的中文角色列表。API、Actuator、静态资源与错误兜底请求不执行导航聚合。`PortalFormSupport` 统一通用表单错误处理，`AutomationPresetForm` 使用 Bean Validation 处理自动化预设字段，`PortalLabels` 统一中文标签。
 
 ### 9.3 DTO 与表单
 
@@ -870,7 +870,13 @@ Git、网站、AI 和自托管渠道都执行：
 - 原生 `app.js` 提供主题三态循环、按钮可访问文案、系统配色监听和跨标签页 `storage` 同步；同时继续负责导航分组与紧凑模式持久化、仅导航容器内的当前项滚动、账户弹层焦点管理、移动端抽屉焦点约束、Escape 关闭与焦点恢复，以及复制、字数统计、脏表单提醒、局部轮询和 CSRF Header。
 - 主题能力不引入第三方依赖或前端构建链；偏好只保存在当前浏览器 `localStorage`，不写入服务端、日志或页面业务数据。
 - 自动化 Controller 聚合项目、主题和网站三类生成预设、掩码 Webhook 视图和最近投递；模板只迭代准备好的列表，避免依赖 Thymeleaf 不提供的列表拼接工具方法，也不把完整 Webhook URL 写入 DOM。
-- 编辑页提供节流自动保存、离开保护和服务端草稿恢复；创建页支持生成预设。
+- 编辑页通过独立 `draft-autosave.js` 提供 900ms 防抖、串行自动保存、15 秒请求超时、离开保护与应急恢复；创建页支持生成预设。
+- 自动保存只确认请求对应的输入修订；新输入立即备份至带账号和文章标识的 `sessionStorage`。HTTP 重定向或非有效 JSON 不视为保存成功。冲突暂停写入；网络恢复可重试。
+- 正式提交等待在途草稿，应急备份在服务器成功 Flash 标记返回后删除；`ContentLibraryPortalController` 在校验/业务失败时返回 Flash 表单，避免输入丢失。并未新增跨标签页草稿锁。
+- Portal 的 `DISABLED` 展示能力由明确配置决定；首页只读取实际展示的数据，不再读取未展示任务与渠道数量。LOCAL/JWT 的权限校验不变。
+- 全局配色集中在 `app.css` 明暗主题语义变量：雾白/灰绿浅色、低饱和绿色动作和中性灰黑深色；不引入远程字体或新 UI 包。SVG 标志沿用项目图形，仅调整固定中性色与箭头色，作为明暗主题共用资源。
+- 原先自动注入的 `/support-bot/static/widget.js` 无本项目服务支撑且在本地逐页返回 404，已移除；监控刷新代码不受影响。
+- 侧栏只有工作区、流程监测及折叠设置；紧凑导航和移动抽屉保留。菜单 `<summary>` 纳入移动焦点循环，当前来源才高亮“写新稿”，内容库不再误高亮来源组。
 - 文章详情页以“确认内容并准备发布”和“重新编辑”表达个人工作流，不提供审核、批准或驳回表单；状态文字把 `READY` 显示为“可发布”，并明确标识兼容状态。
 - 渠道管理人工 Tab 使用紧凑表格而非平台卡片墙，支持平台启停、个人账号别名、默认标签/栏目、备注、排序和官方入口，并提示通过 `./scripts/dev browser` 使用专用持久浏览器 Profile；小屏以横向滚动和单列配置表单保持可操作。
 - API 账号表格的管理入口使用原生 `<dialog>` 进入顶层渲染，避免绝对定位操作面板被 `.table-wrap` 的滚动裁剪上下文截断；`app.js` 负责打开、遮罩关闭、旧浏览器降级和焦点恢复，服务端渲染测试校验每个触发按钮都关联唯一对话框。
@@ -916,6 +922,10 @@ Git、网站、AI 和自托管渠道都执行：
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
 | 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V25、`APPROVED → READY` 回填、JPA、自定义文章、配图、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
+| 个人工作区 | `PersonalWorkspaceIntegrationTest` | 无认证开发入口、监控入口保留、编辑权限、失败输入恢复 |
+| 草稿边界 | `AutomationApplicationServiceTest` | 10 万字符中英文正文、标签超限、状态门禁、基线冲突 |
+| 前端状态 | `publisher-web/src/test/js/*.test.cjs` | 原生 Node 测试，草稿串行/备份/失败/提交，主题对比度 |
+| 启动合同 | `scripts/test-dev.py` | 用本地 HTTP 替身验证启动、健康、重复执行、配置/依赖/端口/进程失败和停止；非真实 PostgreSQL 测试 |
 | 渠道巡检/Webhook | `ChannelHealthSchedulerTest`、`SecureWebhookEndpointPolicyTest`、自动化持久化测试 | 转换通知、去重、投递状态、SSRF |
 | 时区与重放 | `ScheduleParserTest`、`JobApplicationServiceTest` | DST、单个/批量原子重放和不确定发布门禁 |
 | OpenAPI | `OpenApiContractTest` | 快照生成与差异门禁 |
