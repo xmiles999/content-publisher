@@ -10,38 +10,36 @@
 <div class="app-layout">
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main">
-        <header th:replace="~{fragments/app-shell :: topbar('工作台', '写稿、确认、再发到常用平台')}"></header>
-        <main class="page-content">
-            <section class="hero-banner">
-                <div><p class="section-kicker">今日</p>
-                    <h2>继续写，或把已确认的稿发出去</h2>
-                    <p>一份主稿，多个平台。先写完并确认，再按你的常用渠道覆盖。</p></div>
-                <div class="hero-actions"><a class="primary-link" th:href="@{/projects(source='custom')}">写新稿</a>
-                    <a class="secondary-link" th:href="@{/publishing}">查看覆盖</a></div>
+        <header th:replace="~{fragments/app-shell :: topbar('工作台', '写作 → 确认 → 发布 → 追踪')}"></header>
+        <main class="page-content personal-dashboard">
+            <section class="page-header compact-page-header">
+                <div><h2>我的文稿</h2><p>继续上次的写作，或开始一篇新稿。</p></div>
+                <a class="primary-link" th:href="@{/projects(source='custom')}">写新稿</a>
             </section>
 
-            <section class="metric-grid" aria-label="文稿进度">
-                <article class="metric-card"><span>文稿</span><strong th:text="${articleCount}">0</strong><small>已保存的主稿</small></article>
-                <article class="metric-card"><span>写作中</span><strong th:text="${draftCount}">0</strong><small>待确认的草稿</small></article>
-                <article class="metric-card"><span>可发布</span><strong th:text="${readyCount}">0</strong><small>已确认当前版本</small></article>
-                <article class="metric-card"><span>待办</span><strong th:text="${actionCount}">0</strong><small>失败、待发或待确认</small></article>
-            </section>
+            <nav class="workflow-summary" aria-label="文稿进度">
+                <a th:href="@{/content}"><span>全部文稿</span><strong th:text="${articleCount}">0</strong></a>
+                <a th:href="@{/content(status='DRAFT')}"><span>写作中</span><strong th:text="${draftCount}">0</strong></a>
+                <a th:href="@{/publishing(tab='queue')}"><span>可发布</span><strong th:text="${readyCount}">0</strong></a>
+                <a th:href="@{/actions}"><span>待处理</span><strong th:text="${actionCount}">0</strong></a>
+            </nav>
 
-            <div class="grid-2 section-gap">
-                <section class="card">
-                    <div class="card-header"><div><p class="section-kicker">最近文稿</p><h3>继续编辑</h3></div>
+            <div class="dashboard-columns">
+                <section class="dashboard-manuscripts">
+                    <div class="workspace-panel-header"><h3>最近编辑</h3>
                         <a class="text-link" th:href="@{/content}">全部文稿</a></div>
-                    <div class="empty-state" th:if="${#lists.isEmpty(recentArticles)}">还没有文稿。从写新稿开始。</div>
+                    <div class="empty-state" th:if="${#lists.isEmpty(recentArticles)}"><p>还没有文稿。可直接编写，不需要配置 AI 或渠道。</p><a class="text-link" th:href="@{/projects(source='custom')}">开始第一篇文稿</a></div>
                     <div class="compact-list" th:unless="${#lists.isEmpty(recentArticles)}">
                         <a class="compact-item" th:each="article : ${recentArticles}" th:href="@{/articles/{id}(id=${article.id})}">
-                            <span><strong th:text="${article.title}">文章标题</strong><small th:text="|v${article.currentVersion}|">版本</small></span>
+                            <span><strong th:text="${article.title}">文章标题</strong><small>版本 <span th:text="${article.currentVersion}">1</span> · <time data-local-time th:datetime="${article.updatedAt}" th:text="${article.updatedAt}">更新时间</time></small></span>
                             <span class="status-pill" th:classappend="| status-${article.status.name().toLowerCase()}|" th:text="${articleStatusNames.get(article.status)}">草稿</span>
                         </a>
                     </div>
                 </section>
-                <section class="card">
-                    <div class="card-header"><div><p class="section-kicker">待办</p><h3>需要处理</h3></div>
+                <section class="dashboard-attention">
+                    <div class="workspace-panel-header"><h3>需要处理</h3>
                         <a class="text-link" th:href="@{/actions}">全部待办</a></div>
+                    <p th:unless="${jobWorkerEnabled}">任务执行已暂停。<a class="text-link" th:href="@{/jobs}">查看启用方式</a></p>
                     <div class="empty-state" th:if="${#lists.isEmpty(pendingActions)}">没有待处理事项。</div>
                     <div class="compact-list" th:unless="${#lists.isEmpty(pendingActions)}">
                         <a class="compact-item" th:each="item : ${pendingActions}" th:href="${item.targetUrl}">
@@ -49,6 +47,11 @@
                             <strong th:text="${item.count}">1</strong>
                         </a>
                     </div>
+                    <nav class="diagnostic-links" aria-label="流程与监测">
+                        <a class="text-link" th:href="@{/jobs}">任务进度与重试</a>
+                        <a class="text-link" th:href="@{/channels}">渠道连接与巡检</a>
+                        <a class="text-link" th:href="@{/monitoring}">运行监控</a>
+                    </nav>
                 </section>
             </div>
         </main>

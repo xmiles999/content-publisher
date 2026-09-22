@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
   <title id="title">Content Publisher</title>
   <desc id="desc">内容条目汇聚并向外发布的箭头标志</desc>
-  <rect x="2" y="2" width="60" height="60" rx="12" fill="#20333f"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="#425a4e"/>
   <path d="M14 20h22M14 31h17M14 42h22" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
-  <path d="M35 17.5 53 32 35 46.5v-9H27v-11h8v-9Z" fill="#63a994"/>
+  <path d="M35 17.5 53 32 35 46.5v-9H27v-11h8v-9Z" fill="#b1cbaa"/>
 </svg>

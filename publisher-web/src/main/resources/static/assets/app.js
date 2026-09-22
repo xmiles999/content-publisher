@@ -1,4 +1,12 @@
 (() => {
+    document.querySelectorAll('time[data-local-time]').forEach(time => {
+        const date = new Date(time.dateTime);
+        if (!Number.isFinite(date.getTime())) return;
+        time.title = date.toLocaleString();
+        time.textContent = date.toLocaleString(undefined, {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    });
     const themeStorageKey = 'content-publisher:theme';
     const themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
     const themeOrder = ['system', 'light', 'dark'];
@@ -50,7 +58,7 @@
     const sidebarClosers = [...document.querySelectorAll('[data-sidebar-close]')];
     const sidebarMedia = window.matchMedia('(max-width: 820px)');
     const sidebarNav = sidebar?.querySelector('.sidebar-nav');
-    const sidebarFocusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]';
+    const sidebarFocusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]';
     const sidebarTabIndexes = new Map();
     let sidebarOpener = null;
     let sidebarBackdrop = null;
@@ -974,12 +982,4 @@
         renderMonitorRegion(monitorScreen.querySelector('[data-monitor-live-region]'));
     }
 
-    if (body.classList.contains('app-page') && !document.querySelector('[data-support-bot]')) {
-        const supportBot = document.createElement('script');
-        supportBot.src = '/support-bot/static/widget.js';
-        supportBot.dataset.apiBase = '/support-bot';
-        supportBot.dataset.supportBot = 'true';
-        supportBot.async = true;
-        document.body.appendChild(supportBot);
-    }
 })();

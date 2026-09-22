@@ -10,7 +10,7 @@
         <main class="page-content">
             <section class="page-header compact-page-header"><div><h2>文稿</h2>
                 <p>这里编辑、确认和修订主稿。发布结果在覆盖矩阵里看。</p></div>
-                <div class="header-actions"><a class="secondary-link" th:href="@{/projects(source='custom')}">写新稿</a><a class="primary-link" th:href="@{/publishing}">去发布</a></div></section>
+                <div class="header-actions"><a class="primary-link" th:href="@{/projects(source='custom')}">写新稿</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
             <form class="filter-toolbar" method="get" th:action="@{/content}">
                 <div class="filter-search"><label for="content-search">搜索</label><input id="content-search" name="q" maxlength="120" th:value="${searchQuery}" placeholder="标题或摘要"></div>
@@ -20,12 +20,12 @@
                 <div class="filter-field"><label for="content-size">每页</label><select id="content-size" name="size"><option value="20" th:selected="${articlePage.pageSize == 20}">20</option><option value="50" th:selected="${articlePage.pageSize == 50}">50</option></select></div>
                 <div class="filter-actions"><button class="primary-button" type="submit">筛选</button><a class="secondary-link" th:href="@{/content}">重置</a></div>
             </form>
-            <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>全部内容</h3><p>发布结果在发布中心维护，这里聚焦主稿质量、版本和内容阶段。</p></div><strong th:text="|${articlePage.totalItems} 条|">0 条</strong></header>
-                <div class="empty-state" th:if="${#lists.isEmpty(articles)}">暂无内容记录，可先从内容工作台创建。</div>
+            <section class="workspace-panel"><header class="workspace-panel-header"><h3>文稿列表</h3><strong th:text="|${articlePage.totalItems} 条|">0 条</strong></header>
+                <div class="empty-state" th:if="${#lists.isEmpty(articles)}"><p>没有匹配的文稿。</p><a class="text-link" th:href="@{/content}" th:if="${!#strings.isEmpty(searchQuery) or selectedStatus != null or selectedSource != null or !#strings.isEmpty(selectedLanguage)}">清除筛选</a><a class="text-link" th:href="@{/projects(source='custom')}" th:unless="${!#strings.isEmpty(searchQuery) or selectedStatus != null or selectedSource != null or !#strings.isEmpty(selectedLanguage)}">写第一篇文稿</a></div>
                 <div class="table-wrap" th:unless="${#lists.isEmpty(articles)}"><table class="management-table"><thead><tr><th>内容</th><th>来源</th><th>内容阶段</th><th>版本 / 语言</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
                     <tbody><tr th:each="article : ${articles}"><td><a class="table-title" th:href="@{/articles/{id}(id=${article.id})}" th:text="${article.title}">标题</a><small class="line-clamp-1" th:text="${article.summary}">摘要</small></td>
                         <td><span class="source-badge" th:text="${articleSourceNames.get(article.sourceType)}">主题教程</span></td><td><span class="status-pill" th:classappend="| status-${article.status.name().toLowerCase()}|" th:text="${articleStatusNames.get(article.status)}">草稿</span></td>
-                        <td><strong th:text="|v${article.currentVersion}|">v1</strong><small th:text="${article.language}">zh-CN</small></td><td th:text="${article.updatedAt}">time</td>
+                        <td><strong th:text="|v${article.currentVersion}|">v1</strong><small th:text="${article.language}">zh-CN</small></td><td><time data-local-time th:datetime="${article.updatedAt}" th:text="${article.updatedAt}">time</time></td>
                         <td><div class="row-actions"><a class="quiet-button mini-button" th:href="@{/articles/{id}(id=${article.id})}">查看与编辑</a>
                             <form th:if="${canAdmin}" th:action="@{/articles/{id}/delete(id=${article.id})}" method="post" data-confirm="将内容、发布记录和关联终态任务移入回收站，确认继续？"><button class="danger-link mini-button" type="submit">移入回收站</button></form></div></td></tr></tbody></table></div>
                 <nav class="pagination" th:if="${articlePage.totalPages > 1}" aria-label="内容分页"><a th:if="${articlePage.hasPrevious()}" th:href="@{/content(q=${searchQuery},status=${selectedStatus},source=${selectedSource},language=${selectedLanguage},size=${articlePage.pageSize},page=${articlePage.previousPage()})}">上一页</a><span th:text="|第 ${articlePage.page + 1} / ${articlePage.totalPages} 页|">第 1 页</span><a th:if="${articlePage.hasNext()}" th:href="@{/content(q=${searchQuery},status=${selectedStatus},source=${selectedSource},language=${selectedLanguage},size=${articlePage.pageSize},page=${articlePage.nextPage()})}">下一页</a></nav>

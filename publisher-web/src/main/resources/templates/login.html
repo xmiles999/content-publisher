@@ -18,20 +18,20 @@
     <section class="brand-panel" aria-label="平台介绍">
         <img class="brand-mark" th:src="@{/assets/logo.svg}" alt="Content Publisher">
         <p class="eyebrow">CONTENT PUBLISHER</p>
-        <h1>技术内容发布与渠道管理</h1>
-        <p class="brand-copy">统一管理内容来源、编辑确认、渠道适配和发布记录。</p>
+        <h1>写好一篇，再发到各处</h1>
+        <p class="brand-copy">保存文稿、确认版本，跟进每个平台的发布结果。</p>
         <ul class="trust-list">
-            <li>租户级数据隔离</li>
-            <li>角色权限与审计追踪</li>
-            <li>凭据加密和安全外链</li>
+            <li>文稿与版本记录</li>
+            <li>任务进度与失败排查</li>
+            <li>个人渠道与安全发布</li>
         </ul>
     </section>
 
     <section class="login-panel">
         <div class="login-card">
-            <p class="eyebrow dark">管理工作台</p>
+            <p class="eyebrow dark">个人工作区</p>
             <h2>登录账号</h2>
-            <p class="form-intro">请输入管理员分配的用户名和密码。</p>
+            <p class="form-intro">使用你的本地账号继续。</p>
 
             <div class="alert error" th:if="${param.error}">用户名或密码不正确，请重新输入。</div>
             <div class="alert success" th:if="${param.logout}">你已安全退出系统。</div>

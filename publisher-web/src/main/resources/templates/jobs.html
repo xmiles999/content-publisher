@@ -11,6 +11,7 @@
             <section class="page-header compact-page-header"><div><h2>任务队列</h2><p>统一查看导入、生成和发布任务；业务内容与发布结果分别回到对应模块处理。</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/monitoring}">监控大屏</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
+            <div class="alert warning" role="status" th:unless="${jobWorkerEnabled}">任务执行已暂停：新任务只会入队，不会自动生成或发布。需要执行时，设置 PUBLISHER_JOBS_WORKER_ENABLED=true 并重启应用。</div>
             <form class="filter-toolbar" method="get" th:action="@{/jobs}">
                 <div class="filter-search"><label for="job-search">搜索</label><input id="job-search" name="q" maxlength="120" th:value="${searchQuery}" placeholder="进度、详情或失败原因"></div>
                 <div class="filter-field"><label for="job-type">任务类型</label><select id="job-type" name="type"><option value="">全部类型</option><option th:each="option : ${jobTypeOptions}" th:value="${option}" th:text="${jobTypeNames.get(option)}" th:selected="${selectedType == option}"></option></select></div>
