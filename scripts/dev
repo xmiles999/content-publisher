@@ -11,7 +11,7 @@ fail() { printf '\033[1;31m[error]\033[0m %s\n' "$*" >&2; exit 1; }
 
 select_java17() {
   if [[ -n "${JAVA_HOME:-}" ]] && [[ -x "$JAVA_HOME/bin/java" ]] \
-      && "$JAVA_HOME/bin/java" -version 2>&1 | head -1 | grep -Eq '"17(\.|")'; then
+      && "$JAVA_HOME/bin/java" -version 2>&1 | grep -Eq 'version "17(\.|")'; then
     return
   fi
   for candidate in \
@@ -20,7 +20,7 @@ select_java17() {
       "/usr/lib/jvm/openjdk-17" \
       "${HOME}/.sdkman/candidates/java/current"; do
     if [[ -x "$candidate/bin/java" ]] \
-        && "$candidate/bin/java" -version 2>&1 | head -1 | grep -Eq '"17(\.|")'; then
+        && "$candidate/bin/java" -version 2>&1 | grep -Eq 'version "17(\.|")'; then
       export JAVA_HOME="$candidate"
       export PATH="$JAVA_HOME/bin:$PATH"
       return
@@ -56,7 +56,7 @@ doctor() {
   local errors=0
   info "检查开发环境"
   if select_java17; then
-    info "JDK: $("$JAVA_HOME/bin/java" -version 2>&1 | head -1)"
+    info "JDK: $("$JAVA_HOME/bin/java" -version 2>&1 | grep 'version \"')"
   else
     errors=$((errors + 1))
   fi
@@ -122,18 +122,86 @@ case "${1:-help}" in
     ;;
   run)
     select_java17
-    require_command docker
-    compose up -d
-    wait_for_postgres
-    export DB_URL="${DB_URL:-jdbc:postgresql://127.0.0.1:${DEV_DB_PORT:-55432}/content_publisher}"
-    export DB_USERNAME="${DB_USERNAME:-content_publisher}"
-    export DB_PASSWORD="${DB_PASSWORD:-${DEV_DB_PASSWORD:-content-publisher-dev}}"
+    require_command curl
+    require_command flock
+    require_command ss
+    export SERVER_ADDRESS="${SERVER_ADDRESS:-127.0.0.1}"
+    export SERVER_PORT="${SERVER_PORT:-8080}"
     export PUBLISHER_SECURITY_MODE="${PUBLISHER_SECURITY_MODE:-DISABLED}"
+    [[ "$SERVER_PORT" =~ ^[0-9]{1,5}$ ]] && ((10#$SERVER_PORT >= 1 && 10#$SERVER_PORT <= 65535)) \
+      || fail "SERVER_PORT 必须为 1–65535"
+    SERVER_PORT=$((10#$SERVER_PORT))
+    if [[ "$PUBLISHER_SECURITY_MODE" == DISABLED && "$SERVER_ADDRESS" != 127.0.0.1 && "$SERVER_ADDRESS" != ::1 ]]; then
+      fail "DISABLED 模式只能绑定回环地址；远程访问请使用 LOCAL 或 JWT"
+    fi
+    health_host="$SERVER_ADDRESS"
+    [[ "$health_host" != 0.0.0.0 && "$health_host" != :: ]] || health_host=127.0.0.1
+    [[ "$health_host" != *:* ]] || health_host="[$health_host]"
+    health_url="http://$health_host:$SERVER_PORT/actuator/health/readiness"
+    mkdir -p "$ROOT_DIR/target"
+    exec 9>"$ROOT_DIR/target/dev-$SERVER_PORT.lock"
+    if ! flock -n 9; then
+      if curl --noproxy '*' -fsS --max-time 3 "$health_url" >/dev/null; then
+        info "该启动入口管理的应用已经运行：$health_url"
+        exit 0
+      fi
+      fail "相同端口的启动正在进行或应用未就绪，请检查原终端日志"
+    fi
+    if ss -ltnH | awk '{print $4}' | grep -Eq "(^|:)$SERVER_PORT$"; then
+      fail "端口 $SERVER_PORT 已被其他进程占用；不会停止或接管该进程"
+    fi
+    if [[ -z "${DB_URL:-}" ]]; then
+      require_command docker
+      compose up -d
+      wait_for_postgres
+      export DB_URL="jdbc:postgresql://127.0.0.1:${DEV_DB_PORT:-55432}/content_publisher"
+      export DB_USERNAME=content_publisher
+      export DB_PASSWORD="${DEV_DB_PASSWORD:-content-publisher-dev}"
+    else
+      [[ -n "${DB_USERNAME:-}" && -n "${DB_PASSWORD:-}" ]] \
+        || fail "使用自定义 DB_URL 时必须同时设置 DB_USERNAME 与 DB_PASSWORD"
+    fi
+    # Preserve the safe default: inspection must not execute pending external publications.
     export PUBLISHER_JOBS_WORKER_ENABLED="${PUBLISHER_JOBS_WORKER_ENABLED:-false}"
-    exec "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" -pl publisher-web -am spring-boot:run
+    if [[ "$PUBLISHER_JOBS_WORKER_ENABLED" != true ]]; then
+      warn "任务 Worker 已暂停；生成/发布只入队。需要执行时设置 PUBLISHER_JOBS_WORKER_ENABLED=true"
+    fi
+    info "构建应用（本地启动不重复执行测试；交付前运行 verify）"
+    "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" -pl publisher-web -am -DskipTests package
+    app_pid=""
+    stop_app() {
+      if [[ -n "$app_pid" ]] && kill -0 "$app_pid" 2>/dev/null; then
+        kill -TERM "$app_pid"
+        wait "$app_pid" || true
+      fi
+    }
+    trap stop_app EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    "$JAVA_HOME/bin/java" -jar "$ROOT_DIR/publisher-web/target/content-publisher.jar" &
+    app_pid=$!
+    ready=false
+    for ((attempt=0; attempt<60; attempt++)); do
+      if ! kill -0 "$app_pid" 2>/dev/null; then
+        wait "$app_pid" || fail "应用启动失败，请检查上方日志"
+        fail "应用在就绪前退出"
+      fi
+      if curl --noproxy '*' -fsS --max-time 2 "$health_url" >/dev/null 2>&1; then
+        ready=true
+        break
+      fi
+      sleep 1
+    done
+    [[ "$ready" == true ]] || fail "应用未在启动等待窗口内就绪；正在停止本次启动的进程"
+    info "应用已就绪：$health_url；Ctrl+C 停止应用，开发数据库保留"
+    wait "$app_pid"
     ;;
   verify)
     select_java17
+    require_command node
+    require_command python3
+    node --test "$ROOT_DIR"/publisher-web/src/test/js/*.test.cjs
+    python3 "$ROOT_DIR/scripts/test-dev.py"
     exec "$ROOT_DIR/mvnw" -f "$ROOT_DIR/pom.xml" clean verify
     ;;
   integration-container)
@@ -206,8 +274,8 @@ case "${1:-help}" in
   dev-up        启动本地 PostgreSQL
   dev-down      停止本地 PostgreSQL
   dev-reset     停止并删除本地开发数据库卷
-  run           启动 PostgreSQL，并以 DISABLED 安全模式运行应用
-  verify        使用 JDK 17 执行完整 Maven 验证
+  run           一键构建并启动；默认回环地址、任务暂停，可复用自定义数据库
+  verify        执行 Node 草稿测试、Python 启动测试及 Maven clean verify
   integration-container
                 在非 root Maven 容器中执行真实 PostgreSQL Testcontainers 测试
   security      执行 OWASP 依赖漏洞检查；优先使用 NVD_API_KEY，否则使用每日缓存
