@@ -32,6 +32,17 @@
         themePreference = normalizeThemePreference(preference);
         document.documentElement.dataset.themePreference = themePreference;
         document.documentElement.dataset.theme = resolveTheme(themePreference);
+        // Read the resolved CSS token instead of maintaining a second palette in JS.
+        const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+        if (themeColor) {
+            let meta = document.querySelector('meta[name="theme-color"]');
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.name = 'theme-color';
+                document.head.append(meta);
+            }
+            meta.content = themeColor;
+        }
         if (persist) {
             try { window.localStorage.setItem(themeStorageKey, themePreference); }
             catch (_error) { /* Theme switching still works without persisted state. */ }
