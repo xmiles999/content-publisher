@@ -82,6 +82,12 @@ public final class ProjectApplicationService {
         return projects.countProjects(actor.tenantId());
     }
 
+    public PagedResult<Article> searchPendingPublicationArticles(ActorContext actor, String query,
+                                                                 int page, int pageSize) {
+        requirePage(page, pageSize);
+        return articles.searchPendingPublicationArticles(actor.tenantId(), normalizeQuery(query), page, pageSize);
+    }
+
     public long countArticles(ActorContext actor) {
         return articles.countArticles(actor.tenantId());
     }

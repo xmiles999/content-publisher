@@ -121,6 +121,16 @@ public class JpaArticlePersistenceAdapter implements ArticleRepository {
 
     @Override
     @Transactional(readOnly = true)
+    public PagedResult<Article> searchPendingPublicationArticles(String tenantId, String query,
+                                                                 int page, int pageSize) {
+        var result = articles.searchPendingPublication(tenantId, query == null ? "" : query,
+                PageRequest.of(page, pageSize));
+        return new PagedResult<>(result.getContent().stream().map(mapper::article).toList(), page, pageSize,
+                result.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public long countArticles(String tenantId) {
         return articles.countByTenantIdAndDeletedAtIsNull(tenantId);
     }

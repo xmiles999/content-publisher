@@ -22,6 +22,7 @@ public interface ArticleRepository {
     List<Article> findRecentArticles(String tenantId, int limit);
     PagedResult<Article> searchArticles(String tenantId, String query, ArticleStatus status,
                                         ArticleSourceType sourceType, String language, int page, int pageSize);
+    PagedResult<Article> searchPendingPublicationArticles(String tenantId, String query, int page, int pageSize);
     long countArticles(String tenantId);
     List<Article> findRecentByProjectId(String tenantId, UUID projectId, int limit);
     List<ArticleVersion> findVersions(String tenantId, UUID articleId);

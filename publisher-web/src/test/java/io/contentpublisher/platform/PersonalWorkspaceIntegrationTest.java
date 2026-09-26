@@ -5,6 +5,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
+import io.contentpublisher.platform.application.PagedResult;
+import io.contentpublisher.platform.domain.Article;
+import org.jsoup.Jsoup;
+
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -18,6 +24,60 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class PersonalWorkspaceIntegrationTest {
     @Autowired MockMvc mvc;
+    @Autowired JdbcTemplate jdbc;
+
+    @Test
+    void publishingSearchAndPaginationReachBeyondTheLatestFiftyArticles() throws Exception {
+        String prefix = "coverage-" + UUID.randomUUID();
+        for (int i = 0; i < 55; i++) create(prefix + "-" + i);
+        var page = mvc.perform(get("/publishing").param("q", prefix).param("size", "20").param("page", "2"))
+                .andExpect(status().isOk()).andReturn();
+        var data = (PagedResult<?>) page.getModelAndView().getModel().get("articlePage");
+        org.assertj.core.api.Assertions.assertThat(data.totalItems()).isEqualTo(55);
+        org.assertj.core.api.Assertions.assertThat(data.items()).hasSize(15);
+        var html = Jsoup.parse(page.getResponse().getContentAsString());
+        org.assertj.core.api.Assertions.assertThat(html.select(".coverage-article")).hasSize(15);
+        org.assertj.core.api.Assertions.assertThat(html.select("nav[aria-label=覆盖矩阵分页]")).hasSize(1);
+        var filtered = mvc.perform(get("/publishing").param("q", prefix + "-0"))
+                .andExpect(status().isOk()).andReturn();
+        org.assertj.core.api.Assertions.assertThat(
+                Jsoup.parse(filtered.getResponse().getContentAsString()).select(".coverage-article")).hasSize(1);
+        var empty = mvc.perform(get("/publishing").param("q", prefix + "-missing"))
+                .andExpect(status().isOk()).andReturn();
+        org.assertj.core.api.Assertions.assertThat(
+                Jsoup.parse(empty.getResponse().getContentAsString()).select(".coverage-article")).isEmpty();
+    }
+
+    @Test
+    void pendingPublicationFiltersBeforePaginationAndExcludesPublishedAndDeletedArticles() throws Exception {
+        String prefix = "pending-" + UUID.randomUUID();
+        String ready = create(prefix + "-ready");
+        String legacy = create(prefix + "-legacy");
+        String published = create(prefix + "-published");
+        String deleted = create(prefix + "-deleted");
+        jdbc.update("update articles set status='READY' where id=?", id(ready));
+        jdbc.update("update articles set status='APPROVED' where id=?", id(legacy));
+        jdbc.update("update articles set status='PUBLISHED' where id=?", id(published));
+        jdbc.update("update articles set status='READY', deleted_at=current_timestamp where id=?", id(deleted));
+        // Newer drafts must not push the two pending manuscripts out of the query window.
+        for (int i = 0; i < 51; i++) create(prefix + "-draft-" + i);
+        var result = mvc.perform(get("/publishing").param("tab", "queue").param("q", prefix))
+                .andExpect(status().isOk()).andReturn();
+        var data = (PagedResult<?>) result.getModelAndView().getModel().get("articlePage");
+        org.assertj.core.api.Assertions.assertThat(data.totalItems()).isEqualTo(2);
+        org.assertj.core.api.Assertions.assertThat(data.items().stream().map(item -> ((Article) item).title()))
+                .containsExactlyInAnyOrder(prefix + "-ready", prefix + "-legacy");
+    }
+
+    private String create(String title) throws Exception {
+        return mvc.perform(post("/articles/custom").param("title", title).param("summary", "测试摘要")
+                        .param("markdown", "测试正文").param("language", "zh-CN"))
+                .andExpect(status().is3xxRedirection()).andReturn().getResponse().getRedirectedUrl();
+    }
+
+    private UUID id(String articleUrl) {
+        return UUID.fromString(articleUrl.substring(articleUrl.lastIndexOf('/') + 1));
+    }
 
     @Test
     void localWorkspaceWorksWithoutAuthenticationAndKeepsDiagnostics() throws Exception {

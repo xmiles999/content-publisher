@@ -42,10 +42,20 @@ interface ArticleJpaRepository extends JpaRepository<ArticleEntity, UUID> {
               and (:status is null or a.status = :status)
               and (:sourceType is null or a.sourceType = :sourceType)
               and (:language = '' or lower(a.language) = lower(:language))
-            order by a.updatedAt desc
+            order by a.updatedAt desc, a.id desc
             """)
     Page<ArticleEntity> search(String tenantId, String query, String status, String sourceType, String language,
                                Pageable pageable);
+
+    @Query("""
+            select a from ArticleEntity a
+            where a.tenantId = :tenantId and a.deletedAt is null
+              and a.status in ('READY', 'APPROVED')
+              and (:query = '' or lower(a.title) like lower(concat('%', :query, '%'))
+                   or lower(a.summary) like lower(concat('%', :query, '%')))
+            order by a.updatedAt desc, a.id desc
+            """)
+    Page<ArticleEntity> searchPendingPublication(String tenantId, String query, Pageable pageable);
 }
 
 interface ArticleVersionJpaRepository extends JpaRepository<ArticleVersionEntity, ArticleVersionKey> {

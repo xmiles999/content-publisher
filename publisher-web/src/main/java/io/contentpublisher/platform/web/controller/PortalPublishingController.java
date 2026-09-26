@@ -15,6 +15,7 @@ import io.contentpublisher.platform.domain.Article;
 import io.contentpublisher.platform.domain.ChannelAccountStatus;
 import io.contentpublisher.platform.domain.ChannelType;
 import io.contentpublisher.platform.domain.ManualChannelProfile;
+import io.contentpublisher.platform.domain.JobPayload;
 import io.contentpublisher.platform.domain.PublicationStatus;
 import io.contentpublisher.platform.web.form.BatchPublishArticleForm;
 import io.contentpublisher.platform.web.form.CreateChannelAccountForm;
@@ -88,37 +89,54 @@ public class PortalPublishingController {
                              @RequestParam(defaultValue = "20") int size,
                              Model model) {
         var actor = actors.currentActor();
-        var articles = projects.listArticles(actor, 50);
+        String selectedTab = normalizeTab(tab);
+        String search = normalizeSearch(q);
+        int selectedPage = Math.min(selectedTab.equals("records") ? 100 : 100_000, Math.max(0, page));
+        int selectedSize = size == 50 ? 50 : 20;
+        var articlePage = selectedTab.equals("queue")
+                ? projects.searchPendingPublicationArticles(actor, search, selectedPage, selectedSize)
+                : projects.searchArticles(actor, search, null, null, null, selectedPage, selectedSize);
+        var articles = articlePage.items();
         var accountViews = publishing.listAccounts(actor).stream().map(ChannelAccountView::from).toList();
         var channelNames = channelNames();
         Map<UUID, String> articleNames = new java.util.HashMap<>();
         articles.forEach(article -> articleNames.put(article.id(), article.title()));
         Map<UUID, ChannelAccountView> accountsById = new java.util.HashMap<>();
         accountViews.forEach(account -> accountsById.put(account.id(), account));
-        var publicationBatches = PublicationBatchView.aggregate(jobs.listJobs(actor, 100), articleNames,
+        var recentJobs = jobs.listJobs(actor, 100);
+        if (selectedTab.equals("batches")) {
+            recentJobs.stream().map(job -> job.payload())
+                    .filter(JobPayload.PublishArticle.class::isInstance)
+                    .map(JobPayload.PublishArticle.class::cast)
+                    .map(JobPayload.PublishArticle::articleId).distinct()
+                    .filter(id -> !articleNames.containsKey(id)).forEach(id -> {
+                        try {
+                            articleNames.put(id, projects.getArticle(actor, id).title());
+                        } catch (ApplicationException ex) {
+                            if (!"ARTICLE_NOT_FOUND".equals(ex.code())) throw ex;
+                            articleNames.put(id, "已删除文稿");
+                        }
+                    });
+        }
+        var publicationBatches = PublicationBatchView.aggregate(recentJobs, articleNames,
                 accountsById, channelNames);
-        String selectedTab = normalizeTab(tab);
-        String search = normalizeSearch(q);
         ChannelType selectedChannel = parseEnum(ChannelType.class, channel);
         PublicationStatus selectedStatus = parseEnum(PublicationStatus.class, status);
         PublicationMethod selectedMethod = parseEnum(PublicationMethod.class, method);
-        int selectedPage = Math.min(100, Math.max(0, page));
-        int selectedSize = size == 50 ? 50 : 20;
         var publicationRecordPage = publishing.searchPublicationRecords(actor, search, selectedChannel,
-                selectedStatus, selectedMethod, selectedPage, selectedSize);
+                selectedStatus, selectedMethod, selectedTab.equals("records") ? selectedPage : 0, selectedSize);
         long totalRecordCount = publishing.searchPublicationRecords(actor, "", null, null,
                 null, 0, 1).totalItems();
         long publishedCount = publishing.searchPublicationRecords(actor, "", null,
                 PublicationStatus.PUBLISHED, null, 0, 1).totalItems();
-        List<Article> filteredArticles = articles.stream()
-                .filter(article -> matchesText(search, article.title(), article.summary()))
-                .toList();
         List<PublicationBatchView> filteredBatches = publicationBatches.stream()
                 .filter(batch -> matchesBatch(batch, search))
                 .toList();
 
         model.addAttribute("articles", articles);
-        model.addAttribute("articlePage", PortalPage.from(filteredArticles, selectedPage, selectedSize));
+        model.addAttribute("articlePage", articlePage);
+        model.addAttribute("pendingArticleCount",
+                projects.searchPendingPublicationArticles(actor, "", 0, 1).totalItems());
         model.addAttribute("publicationRecordPage", publicationRecordPage);
         model.addAttribute("publicationBatchPage", PortalPage.from(filteredBatches, selectedPage, selectedSize));
         model.addAttribute("publicationRecords", publicationRecordPage.items());
