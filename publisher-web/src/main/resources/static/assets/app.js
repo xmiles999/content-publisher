@@ -404,6 +404,12 @@
             event.returnValue = '';
         });
     });
+    document.querySelectorAll('form').forEach(form => {
+        form.addEventListener('invalid', event => {
+            let details = event.target.closest('details');
+            while (details) { details.open = true; details = details.parentElement?.closest('details'); }
+        }, true);
+    });
 
     document.querySelectorAll('[data-generation-preset]').forEach(select => {
         const form = select.closest('[data-generation-form]');
@@ -483,7 +489,7 @@
                     method: 'PUT', credentials: 'same-origin', headers, body: JSON.stringify(progress)
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                if (state) state.textContent = '操作进度已保存。确认平台发布成功后再提交记录。';
+                if (state) state.textContent = '步骤进度已保存；标题、正文和链接尚未提交。确认平台发布成功后再保存记录。';
             } catch (_error) {
                 if (state) state.textContent = '进度保存失败，不影响当前页面操作；请保持页面打开后重试。';
             }
@@ -544,23 +550,66 @@
         activateEditorTab(tabs.find(tab => tab.getAttribute('aria-selected') === 'true') || tabs[0]);
 
         const editorForm = editorWorkspace.querySelector('#article-edit-form') || editorWorkspace.querySelector('form');
+        const viewButtons = [...editorWorkspace.querySelectorAll('[data-editor-view]')];
+        const narrowEditor = window.matchMedia('(max-width: 820px)');
+        let preferredView = 'split';
+        try {
+            const saved = window.localStorage.getItem('content-publisher:editor-view');
+            if (['edit', 'split', 'preview'].includes(saved)) preferredView = saved;
+        } catch (_) { /* The editor remains usable without storage. */ }
+        const applyEditorView = () => {
+            const mode = narrowEditor.matches && preferredView === 'split' ? 'edit' : preferredView;
+            editorWorkspace.dataset.editorMode = mode;
+            viewButtons.forEach(button => button.setAttribute('aria-pressed',
+                String(button.dataset.editorView === mode)));
+        };
+        viewButtons.forEach(button => button.addEventListener('click', () => {
+            preferredView = button.dataset.editorView;
+            applyEditorView();
+            try { window.localStorage.setItem('content-publisher:editor-view', preferredView); } catch (_) {}
+        }));
+        narrowEditor.addEventListener('change', applyEditorView);
+        const viewControls = editorWorkspace.querySelector('[data-editor-view-controls]');
+        if (viewControls) viewControls.hidden = false;
+        applyEditorView();
+        // Native validation must be able to focus fields inside collapsed metadata or a hidden tab.
+        editorForm?.addEventListener('invalid', event => {
+            const panel = event.target.closest('[data-editor-panel]');
+            if (panel) activateEditorTab(tabs.find(tab => tab.dataset.editorTab === panel.dataset.editorPanel));
+            let details = event.target.closest('details');
+            while (details) { details.open = true; details = details.parentElement?.closest('details'); }
+            if (event.target.matches('[data-preview-source]')) {
+                preferredView = 'edit';
+                applyEditorView();
+            }
+        }, true);
         const previewUrl = editorForm?.dataset.previewUrl || '/api/v1/markdown/preview';
+        const previewRevisions = {zh: 0, en: 0};
         const renderPreview = async language => {
             const source = editorWorkspace.querySelector(`[data-preview-source="${language}"]`);
             const target = editorWorkspace.querySelector(`[data-live-preview="${language}"]`);
             if (!source || !target) return;
+            const revision = ++previewRevisions[language];
+            const markdown = source.value || '';
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
             try {
                 const response = await fetch(previewUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...csrfHeaders(editorForm) },
                     credentials: 'same-origin',
-                    body: JSON.stringify({ markdown: source.value || '' })
+                    signal: controller.signal,
+                    body: JSON.stringify({ markdown })
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const payload = await response.json();
+                if (revision !== previewRevisions[language] || source.value !== markdown) return;
                 target.innerHTML = payload.html || '<p>暂无内容。</p>';
             } catch (_error) {
-                target.textContent = '预览生成失败。';
+                if (revision === previewRevisions[language] && source.value === markdown)
+                    target.textContent = '预览暂时不可用；正文仍保留，可继续编辑后重试。';
+            } finally {
+                window.clearTimeout(timeout);
             }
         };
         const debouncePreview = (language => {
@@ -634,6 +683,15 @@
         translateButton?.addEventListener('click', async () => {
             const url = editorForm?.dataset.translateUrl;
             if (!url) return;
+            const englishFields = ['titleEn', 'summaryEn', 'markdownEn', 'tagsEn', 'keywordsEn'];
+            const englishSnapshot = () => JSON.stringify(englishFields.map(name =>
+                editorForm.elements.namedItem(name)?.value || ''));
+            const beforeEnglish = englishSnapshot();
+            if (englishFields.some(name => editorForm.elements.namedItem(name)?.value.trim())
+                    && !window.confirm('生成结果将替换当前英文稿。是否继续？原正式版本不会被修改。')) return;
+            const chineseSnapshot = () => JSON.stringify(['title', 'summary', 'markdown', 'tags', 'keywords']
+                .map(name => editorForm.elements.namedItem(name)?.value || ''));
+            const beforeChinese = chineseSnapshot();
             translateButton.disabled = true;
             if (translateState) translateState.textContent = '正在生成英文稿…';
             try {
@@ -651,16 +709,22 @@
                 });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok) throw new Error(payload.message || '英文稿生成失败');
+                if (beforeEnglish !== englishSnapshot() || beforeChinese !== chineseSnapshot()) {
+                    if (translateState) translateState.textContent = '生成期间文稿已修改，未覆盖你的输入。请核对后重新生成。';
+                    return;
+                }
                 const setValue = (name, value) => {
                     const field = editorForm.elements.namedItem(name);
-                    if (field) field.value = value || '';
+                    if (field) {
+                        field.value = value || '';
+                        field.dispatchEvent(new Event('input', {bubbles: true}));
+                    }
                 };
                 setValue('titleEn', payload.titleEn);
                 setValue('summaryEn', payload.summaryEn);
                 setValue('markdownEn', payload.markdownEn);
                 setValue('tagsEn', (payload.tagsEn || []).join('\n'));
                 setValue('keywordsEn', (payload.keywordsEn || []).join('\n'));
-                renderPreview('en');
                 const englishTab = tabs.find(tab => tab.dataset.editorTab === 'en');
                 if (englishTab) activateEditorTab(englishTab);
                 if (translateState) translateState.textContent = '英文稿已填入，请核对后保存。';

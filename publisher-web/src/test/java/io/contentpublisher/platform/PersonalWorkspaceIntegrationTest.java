@@ -69,6 +69,19 @@ class PersonalWorkspaceIntegrationTest {
                 .containsExactlyInAnyOrder(prefix + "-ready", prefix + "-legacy");
     }
 
+    @Test
+    void editorAndCreatePageExposeAccessibleProgressiveControls() throws Exception {
+        String url = create("编辑工作区控件");
+        var page = mvc.perform(get(url)).andExpect(status().isOk()).andReturn();
+        var html = Jsoup.parse(page.getResponse().getContentAsString());
+        org.assertj.core.api.Assertions.assertThat(html.select(".editor-metadata")).hasSize(2);
+        org.assertj.core.api.Assertions.assertThat(html.select("[data-editor-view]")).hasSize(3);
+        var createPage = mvc.perform(get("/projects").param("source", "custom"))
+                .andExpect(status().isOk()).andReturn();
+        org.assertj.core.api.Assertions.assertThat(Jsoup.parse(createPage.getResponse().getContentAsString())
+                .select("form[action='/articles/custom'][data-dirty-form]")).hasSize(1);
+    }
+
     private String create(String title) throws Exception {
         return mvc.perform(post("/articles/custom").param("title", title).param("summary", "测试摘要")
                         .param("markdown", "测试正文").param("language", "zh-CN"))

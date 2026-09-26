@@ -33,14 +33,24 @@
                         <button id="editor-tab-zh" type="button" role="tab" aria-selected="true" aria-controls="editor-panel-zh" data-editor-tab="zh">中文主稿</button>
                         <button id="editor-tab-en" type="button" role="tab" aria-selected="false" aria-controls="editor-panel-en" data-editor-tab="en">English <span th:if="${!article.hasEnglishContent()}">待补充</span></button>
                     </nav>
+                    <div class="editor-view-controls" role="group" aria-label="正文显示方式" hidden data-editor-view-controls>
+                        <button type="button" class="quiet-button mini-button" data-editor-view="edit" aria-pressed="false">编辑</button>
+                        <button type="button" class="quiet-button mini-button" data-editor-view="split" aria-pressed="true">分栏</button>
+                        <button type="button" class="quiet-button mini-button" data-editor-view="preview" aria-pressed="false">预览</button>
+                    </div>
 
                     <form id="article-edit-form" class="stack-form editor-form" th:action="@{/articles/{id}/edit(id=${article.id})}" th:object="${updateArticleForm}" method="post" data-dirty-form
                           th:attr="data-draft-url=@{/api/v1/articles/{id}/draft(id=${article.id})},data-draft-owner=${currentTenant + ':' + currentUsername},data-draft-editable=${editable and canEdit},data-save-succeeded=${articleSaved == true},data-asset-url=@{/api/v1/articles/{id}/assets(id=${article.id})},data-translate-url=@{/api/v1/articles/{id}/english-translations(id=${article.id})},data-preview-url=@{/api/v1/markdown/preview}">
                         <input type="hidden" th:field="*{expectedVersion}">
                         <section id="editor-panel-zh" class="editor-tab-panel" role="tabpanel" aria-labelledby="editor-tab-zh" data-editor-panel="zh">
                             <div class="field"><label for="article-title">文章标题</label><input id="article-title" th:field="*{title}" maxlength="500" required th:readonly="${!editable or !canEdit}"></div>
-                            <div class="field"><label for="article-summary">摘要 / Meta Description</label><textarea id="article-summary" th:field="*{summary}" rows="4" maxlength="2000" required th:readonly="${!editable or !canEdit}"></textarea><small>建议保持 50–200 字符，准确说明文章内容。</small></div>
-                            <div class="form-grid"><div class="field"><label for="article-tags">发布标签</label><textarea id="article-tags" th:field="*{tags}" rows="3" placeholder="每行或逗号分隔" th:readonly="${!editable or !canEdit}"></textarea></div><div class="field"><label for="article-keywords">SEO 关键词</label><textarea id="article-keywords" th:field="*{keywords}" rows="3" placeholder="第一项为主关键词" th:readonly="${!editable or !canEdit}"></textarea></div></div>
+                            <details class="editor-metadata">
+                                <summary>文章信息 <small>摘要、标签与关键词</small></summary>
+                                <div class="editor-metadata-content">
+                                    <div class="field"><label for="article-summary">摘要 / Meta Description</label><textarea id="article-summary" th:field="*{summary}" rows="4" maxlength="2000" required th:readonly="${!editable or !canEdit}"></textarea><small>建议保持 50–200 字符，准确说明文章内容。</small></div>
+                                    <div class="form-grid"><div class="field"><label for="article-tags">发布标签</label><textarea id="article-tags" th:field="*{tags}" rows="3" placeholder="每行或逗号分隔" th:readonly="${!editable or !canEdit}"></textarea></div><div class="field"><label for="article-keywords">SEO 关键词</label><textarea id="article-keywords" th:field="*{keywords}" rows="3" placeholder="第一项为主关键词" th:readonly="${!editable or !canEdit}"></textarea></div></div>
+                                </div>
+                            </details>
                             <div class="field"><div class="editor-markdown-heading"><label for="article-markdown">Markdown 正文</label>
                                 <div class="editor-media-toolbar" th:if="${editable and canEdit}"><label class="secondary-button mini-button">插入图片<input type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden data-image-input="zh"></label><small>也可直接粘贴图片</small></div></div>
                                 <div class="editor-split"><textarea id="article-markdown" class="markdown-editor" th:field="*{markdown}" rows="30" maxlength="100000" required th:readonly="${!editable or !canEdit}" data-preview-source="zh"></textarea>
@@ -48,10 +58,15 @@
                         </section>
 
                         <section id="editor-panel-en" class="editor-tab-panel" role="tabpanel" aria-labelledby="editor-tab-en" data-editor-panel="en" hidden>
-                            <div class="editor-language-note">国外渠道需要英文标题、摘要和正文。可从中文主稿一键生成后继续修改。<button class="secondary-button mini-button" type="button" data-translate-english th:if="${editable and canEdit}">从中文生成英文稿</button><small data-translate-state></small></div>
+                            <div class="editor-language-note">国外渠道需要英文标题、摘要和正文。生成后仍需核对。<button class="secondary-button mini-button" type="button" data-translate-english th:if="${editable and canEdit}">从中文生成英文稿</button><small data-translate-state aria-live="polite"></small></div>
                             <div class="field"><label for="article-title-en">English Title</label><input id="article-title-en" th:field="*{titleEn}" maxlength="500" th:readonly="${!editable or !canEdit}"></div>
-                            <div class="field"><label for="article-summary-en">English Summary</label><textarea id="article-summary-en" th:field="*{summaryEn}" rows="4" maxlength="2000" th:readonly="${!editable or !canEdit}"></textarea></div>
-                            <div class="form-grid"><div class="field"><label for="article-tags-en">English Tags</label><textarea id="article-tags-en" th:field="*{tagsEn}" rows="3" placeholder="One per line or comma separated" th:readonly="${!editable or !canEdit}"></textarea></div><div class="field"><label for="article-keywords-en">English Keywords</label><textarea id="article-keywords-en" th:field="*{keywordsEn}" rows="3" th:readonly="${!editable or !canEdit}"></textarea></div></div>
+                            <details class="editor-metadata">
+                                <summary>Article information <small>Summary, tags and keywords</small></summary>
+                                <div class="editor-metadata-content">
+                                    <div class="field"><label for="article-summary-en">English Summary</label><textarea id="article-summary-en" th:field="*{summaryEn}" rows="4" maxlength="2000" th:readonly="${!editable or !canEdit}"></textarea></div>
+                                    <div class="form-grid"><div class="field"><label for="article-tags-en">English Tags</label><textarea id="article-tags-en" th:field="*{tagsEn}" rows="3" placeholder="One per line or comma separated" th:readonly="${!editable or !canEdit}"></textarea></div><div class="field"><label for="article-keywords-en">English Keywords</label><textarea id="article-keywords-en" th:field="*{keywordsEn}" rows="3" th:readonly="${!editable or !canEdit}"></textarea></div></div>
+                                </div>
+                            </details>
                             <div class="field"><div class="editor-markdown-heading"><label for="article-markdown-en">English Markdown Body</label>
                                 <div class="editor-media-toolbar" th:if="${editable and canEdit}"><label class="secondary-button mini-button">Insert image<input type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden data-image-input="en"></label></div></div>
                                 <div class="editor-split"><textarea id="article-markdown-en" class="markdown-editor" th:field="*{markdownEn}" rows="30" maxlength="100000" th:readonly="${!editable or !canEdit}" data-preview-source="en"></textarea>

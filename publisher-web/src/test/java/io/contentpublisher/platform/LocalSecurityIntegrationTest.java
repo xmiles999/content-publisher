@@ -267,7 +267,7 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("编写或导入文章笔记")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("支持粘贴 Markdown 笔记，无需配置 AI。")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/projects?source=custom")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/projects?source=website")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("主题教程")));
@@ -311,7 +311,7 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("直接编写，或从资料生成")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("直接编写，或从主题、网站和 Git 资料生成。")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-group=\"content\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-active=\"true\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-toggle")))
@@ -351,7 +351,7 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").param("source", "custom").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("编写或导入文章笔记")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("支持粘贴 Markdown 笔记，无需配置 AI。")));
 
         mockMvc.perform(post("/articles/custom").session(session)
                         .param("title", "Java 21 虚拟线程笔记")
