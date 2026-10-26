@@ -8,6 +8,7 @@ import io.contentpublisher.platform.application.port.ChannelAccountRepository;
 import io.contentpublisher.platform.application.port.CredentialVault;
 import io.contentpublisher.platform.application.port.JobRepository;
 import io.contentpublisher.platform.application.AiSettingsApplicationService;
+import io.contentpublisher.platform.infrastructure.ai.OpenAiCompatibleContentGenerator;
 import io.contentpublisher.platform.application.AutomationApplicationService.NotificationEndpoint;
 import io.contentpublisher.platform.domain.Article;
 import io.contentpublisher.platform.domain.ArticleStatus;
@@ -28,6 +29,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -67,6 +69,7 @@ class LocalSecurityIntegrationTest {
     @Autowired ProjectRepository projects;
     @Autowired ArticleRepository articles;
     @Autowired AiSettingsApplicationService aiSettings;
+    @MockitoBean OpenAiCompatibleContentGenerator availabilityProbe;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired ManualPublicationRepository manualPublications;
@@ -565,8 +568,17 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/settings/ai").session(session))
                 .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("测试当前配置")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("已安全配置")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(apiKey))));
+
+        mockMvc.perform(post("/settings/ai/test").session(session))
+                .andExpect(status().is3xxRedirection());
+        org.mockito.Mockito.verifyNoInteractions(availabilityProbe);
+        mockMvc.perform(post("/settings/ai/test").session(session).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/settings/ai"));
+        org.mockito.Mockito.verify(availabilityProbe).check("tenant-local");
     }
 
     @Test

@@ -250,7 +250,7 @@ publisher-infrastructure → publisher-application → publisher-domain
 | 端口组 | 接口 |
 |---|---|
 | 项目与内容 | `ProjectRepository`、`RepositorySnapshotStore`、`RepositoryInspector`、`ArticleRepository` |
-| AI 与网站 | `ContentGenerator`、`WebsiteInspector`、`AiProviderSettingsRepository`、`AiEndpointPolicy` |
+| AI 与网站 | `ContentGenerator`、`AiAvailabilityProbe`、`WebsiteInspector`、`AiProviderSettingsRepository`、`AiEndpointPolicy` |
 | 任务与审计 | `JobRepository`、`JobProgressReporter`、`AuditRecorder`、`MonitoringQuery` |
 | 自动化 | `AutomationRepository`、`WebhookEndpointPolicy` |
 | 发布 | `ChannelAccountRepository`、`ManualChannelProfileRepository`、`PublicationRepository`、`ManualPublicationRepository`、`ChannelPublisher` |
@@ -459,7 +459,7 @@ OpenAPI 快照当前包含 50 个 REST 操作。完整路径与角色见 `API_RE
 | `JobPortalController` | 任务列表、详情和取消 |
 | `PortalMonitoringController` | 监控大屏与局部刷新 |
 | `RecycleBinPortalController` | 软删除和恢复 |
-| `PortalAiSettingsController` | 租户 AI 设置 |
+| `PortalAiSettingsController` | 租户 AI 设置；经 `AiAvailabilityProbe` 测试当前配置，端口由 `OpenAiCompatibleContentGenerator` 实现，复用租户配置解析、地址策略、凭据和 Chat Completions 请求，超时不超过 15 秒 |
 | `AutomationPortalController` | 动作台、发布日历、生成预设和 Webhook 管理 |
 | `JobReplayPortalController` | 失败任务重放 |
 | `PasswordController` | LOCAL 改密 |

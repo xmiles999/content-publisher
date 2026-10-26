@@ -30,6 +30,26 @@ class OpenAiCompatibleContentGeneratorTest {
     private HttpServer server;
     private String lastRequestBody;
 
+    @Test
+    void shouldCheckAvailabilityWithTheConfiguredModel() throws Exception {
+        OpenAiCompatibleContentGenerator generator = generator(
+                "{\"choices\":[{\"message\":{\"content\":\"{\\\"status\\\":\\\"ok\\\"}\"}}]}");
+
+        generator.check("tenant-test");
+
+        assertThat(lastRequestBody).contains("test-model", "连接测试", "json_object");
+    }
+
+    @Test
+    void shouldRejectInvalidAvailabilityResponse() throws Exception {
+        OpenAiCompatibleContentGenerator generator = generator(
+                "{\"choices\":[{\"message\":{\"content\":\"{\\\"status\\\":\\\"failed\\\"}\"}}]}");
+
+        assertThatThrownBy(() -> generator.check("tenant-test"))
+                .isInstanceOfSatisfying(ApplicationException.class,
+                        exception -> assertThat(exception.code()).isEqualTo("AI_RESPONSE_INVALID"));
+    }
+
     @AfterEach
     void stopServer() {
         if (server != null) server.stop(0);

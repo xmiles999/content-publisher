@@ -6,6 +6,8 @@
         <section class="page-header"><div><p class="section-kicker">服务配置</p><h2>OpenAI 兼容接口</h2><p>配置当前租户的内容生成服务。保存后立即生效，API Key 只以加密形式存入 PostgreSQL。</p></div><div class="header-actions"><a class="secondary-link" th:href="@{/projects}">返回内容中心</a></div></section>
         <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
         <section class="card settings-summary"><div><span>配置来源</span><strong th:text="${savedInDatabase} ? 'PostgreSQL 租户配置' : '服务器环境默认值'">来源</strong></div><div><span>API Key</span><strong th:text="${apiKeyConfigured} ? '已安全配置' : '未配置'">状态</strong></div><div><span>最后更新</span><strong th:text="${updatedAt ?: '-'}">时间</strong></div></section>
+        <section class="card"><div class="card-header"><div><h3>可用性测试</h3><p>使用当前生效的配置发送一次简短请求，验证模型能否返回有效结果。修改配置后请先保存；测试可能产生少量服务费用。</p></div></div>
+            <form th:action="@{/settings/ai/test}" method="post"><button class="secondary-button" type="submit">测试当前配置</button></form></section>
         <section class="card"><div class="card-header"><div><p class="section-kicker">连接设置</p><h3>服务连接与模型</h3><p>兼容 OpenAI Chat Completions 协议的服务均可接入。</p></div><span class="service-badge">仅管理员</span></div>
             <form class="stack-form" th:action="@{/settings/ai}" th:object="${aiSettingsForm}" method="post" autocomplete="off"><input type="hidden" th:field="*{expectedVersion}">
                 <label class="toggle-row"><span><strong>启用 AI 内容生成</strong><small>关闭后不会向外部 AI 服务发送任何仓库内容。</small></span><input th:field="*{enabled}" type="checkbox"></label>

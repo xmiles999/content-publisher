@@ -2,6 +2,7 @@ package io.contentpublisher.platform.infrastructure.ai;
 
 import io.contentpublisher.platform.application.ApplicationException;
 import io.contentpublisher.platform.application.port.AiEndpointPolicy;
+import io.contentpublisher.platform.application.port.AiAvailabilityProbe;
 import io.contentpublisher.platform.application.port.AiProviderSettingsRepository;
 import io.contentpublisher.platform.application.port.ContentGenerator;
 import io.contentpublisher.platform.application.port.SecretCipher;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.time.Duration;
 
 @Component
-public class OpenAiCompatibleContentGenerator implements ContentGenerator {
+public class OpenAiCompatibleContentGenerator implements ContentGenerator, AiAvailabilityProbe {
     private static final List<String> WEBSITE_META_NARRATION_MARKERS = List.of(
             "已抓取的公开页面", "抓取到的公开页面", "从公开页面可以确认", "根据抓取",
             "抓取结果", "根据提供的信息", "从页面信息来看", "页面展示了", "页面显示了", "在可见文本中",
@@ -82,6 +83,25 @@ public class OpenAiCompatibleContentGenerator implements ContentGenerator {
     private final AiEndpointPolicy endpointPolicy;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
+
+    @Override
+    public void check(String tenantId) {
+        RuntimeSettings runtime = runtimeSettings(tenantId);
+        if (!runtime.enabled()) {
+            throw new ApplicationException("AI_DISABLED", "请先启用并保存 AI 服务配置，再测试可用性");
+        }
+        RuntimeSettings probe = new RuntimeSettings(true, runtime.baseUrl(), runtime.apiKey(), runtime.model(),
+                runtime.timeout().compareTo(Duration.ofSeconds(15)) > 0
+                        ? Duration.ofSeconds(15) : runtime.timeout(), 0);
+        try {
+            JsonNode result = chatJson(probe, "只返回 JSON 对象：{\"status\":\"ok\"}。", "连接测试");
+            if (!"ok".equals(result.path("status").asText())) {
+                throw new ApplicationException("AI_RESPONSE_INVALID", "AI 服务未返回预期的测试结果");
+            }
+        } catch (JsonProcessingException exception) {
+            throw new ApplicationException("AI_RESPONSE_INVALID", "AI 服务返回格式无效", exception);
+        }
+    }
 
     public OpenAiCompatibleContentGenerator(AiProperties properties,
                                             AiProviderSettingsRepository settingsRepository,

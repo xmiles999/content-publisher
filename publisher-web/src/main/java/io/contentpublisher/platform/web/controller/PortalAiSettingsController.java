@@ -2,6 +2,7 @@ package io.contentpublisher.platform.web.controller;
 
 import io.contentpublisher.platform.application.AiSettingsApplicationService;
 import io.contentpublisher.platform.application.ApplicationException;
+import io.contentpublisher.platform.application.port.AiAvailabilityProbe;
 import io.contentpublisher.platform.domain.AiProviderSettings;
 import io.contentpublisher.platform.infrastructure.config.AiProperties;
 import io.contentpublisher.platform.web.form.AiSettingsForm;
@@ -20,12 +21,26 @@ public class PortalAiSettingsController {
     private final AiSettingsApplicationService settingsService;
     private final RequestActorProvider actors;
     private final AiProperties defaults;
+    private final AiAvailabilityProbe availabilityProbe;
 
     public PortalAiSettingsController(AiSettingsApplicationService settingsService,
-                                      RequestActorProvider actors, AiProperties defaults) {
+                                      RequestActorProvider actors, AiProperties defaults,
+                                      AiAvailabilityProbe availabilityProbe) {
         this.settingsService = settingsService;
         this.actors = actors;
         this.defaults = defaults;
+        this.availabilityProbe = availabilityProbe;
+    }
+
+    @PostMapping("/settings/ai/test")
+    public String testConnection(RedirectAttributes redirectAttributes) {
+        try {
+            availabilityProbe.check(actors.currentActor().tenantId());
+            redirectAttributes.addFlashAttribute("success", "AI 服务可用：已通过当前模型完成测试请求");
+        } catch (ApplicationException exception) {
+            redirectAttributes.addFlashAttribute("error", "AI 服务不可用：" + exception.getMessage());
+        }
+        return "redirect:/settings/ai";
     }
 
     @GetMapping("/settings/ai")
