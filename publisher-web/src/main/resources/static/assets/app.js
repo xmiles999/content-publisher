@@ -25,7 +25,7 @@
             button.setAttribute('aria-label', `当前外观：${themeNames[themePreference]}。切换为${themeNames[nextPreference]}`);
             button.setAttribute('title', `当前：${themeNames[themePreference]}；点击切换为${themeNames[nextPreference]}`);
             const label = button.querySelector('[data-theme-label]');
-            if (label) label.textContent = themeNames[themePreference];
+            if (label) label.textContent = `切换为${themeNames[nextPreference]}`;
         });
     };
     const applyThemePreference = (preference, persist = false) => {

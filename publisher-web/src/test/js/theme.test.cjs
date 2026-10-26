@@ -140,6 +140,7 @@ test('theme-color follows cycle, persistence and accessible labels without dupli
         assert.equal(h.metas.length, 1);
         assert.equal(h.metas[0].content, (preference === 'dark' ? dark : light).bg);
         assert.match(h.button['aria-label'], /当前外观：.+。切换为/);
+        assert.equal(h.label.textContent, `切换为${{light: '深色', dark: '跟随系统', system: '浅色'}[preference]}`);
     }
 });
 

@@ -82,7 +82,7 @@ class LocalSecurityIntegrationTest {
     void shouldRenderLoginAndCreateAuthenticatedTenantSession() throws Exception {
         mockMvc.perform(get("/login"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("安全登录")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<button type=\"submit\">登录</button>")));
 
         var login = mockMvc.perform(formLogin().user("admin").password("enterprise-password-001"))
                 .andExpect(status().is3xxRedirection())
