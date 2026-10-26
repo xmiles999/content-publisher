@@ -49,6 +49,7 @@ Content Publisher 是一个面向长期纯个人使用的技术内容生产与�
 - [REST API 参考](docs/API_REFERENCE.md)
 - [OpenAPI JSON 快照](docs/openapi.json)
 - [配置、Dokploy 部署与运维](docs/OPERATIONS.md)
+- [发布检查记录与当前门禁结果](docs/发布检查记录.md)
 - [内容生成与发布流程](docs/PUBLISHING_WORKFLOW.md)
 - [环境变量模板](.env.example)
 
