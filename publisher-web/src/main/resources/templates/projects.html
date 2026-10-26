@@ -1,16 +1,26 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="robots" content="noindex,nofollow"><title>内容工作台 · Content Publisher</title>
+    <meta name="robots" content="noindex,nofollow"><title>写新稿 · Content Publisher</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
     <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="app-page"><div class="app-layout">
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
-    <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('内容工作台', '从可信来源创建可编辑的内容主稿')}"></header>
+    <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('写新稿', '编写文章，保存后选择发布渠道')}"></header>
         <main class="page-content projects-page">
             <section class="page-header projects-page-header"><div><h2>写新稿</h2>
-                <p>直接编写，或从主题、网站和 Git 资料生成。</p></div>
-                <div class="header-actions"><a class="secondary-link" th:href="@{/content}">进入内容库</a></div></section>
+                <p>写标题和正文即可，其他信息按需补充。</p></div>
+                <div class="header-actions"><a class="secondary-link" th:href="@{/content}">返回文稿</a></div></section>
+
+            <details class="advanced-settings source-choices" th:if="${canEdit}" th:open="${activeSourcePanel != 'custom'}">
+                <summary>其他写作方式 <small>从资料生成</small></summary>
+                <nav class="workspace-tabs" aria-label="写稿来源">
+                    <a th:href="@{/projects(source='custom')}" th:attr="aria-current=${activeSourcePanel == 'custom' ? 'page' : null}">直接编写</a>
+                    <a th:href="@{/projects(source='topic')}" th:attr="aria-current=${activeSourcePanel == 'topic' ? 'page' : null}">主题教程</a>
+                    <a th:href="@{/projects(source='website')}" th:attr="aria-current=${activeSourcePanel == 'website' ? 'page' : null}">网站推荐</a>
+                    <a th:href="@{/projects(source='git')}" th:attr="aria-current=${activeSourcePanel == 'git' ? 'page' : null}">Git 项目</a>
+                </nav>
+            </details>
 
             <div class="alert error" th:if="${error}" th:text="${error}"></div>
             <div class="alert success" th:if="${success}" th:text="${success}"></div>
@@ -23,7 +33,6 @@
                     <span class="service-badge" th:if="${activeSourcePanel != 'custom'}" th:classappend="${aiEnabled} ? ' online' : ' offline'" th:text="${aiEnabled} ? 'AI 已就绪' : 'AI 未配置'">AI 状态</span></div>
 
                 <div id="source-panel-custom" class="source-panel" th:if="${activeSourcePanel == 'custom'}">
-                    <div class="source-panel-intro"><div><h3>直接编写</h3><p>支持粘贴 Markdown 笔记，无需配置 AI。</p></div></div>
                     <form class="stack-form" th:action="@{/articles/custom}" th:object="${customArticleForm}" method="post" data-dirty-form>
                         <div class="field"><label for="custom-title">文章标题</label><input id="custom-title" th:field="*{title}" maxlength="500" placeholder="例如：深入理解 Java 21 虚拟线程调度机制" required><small class="field-error" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></small></div>
                         <div class="field"><label for="custom-markdown">Markdown 正文 / 笔记内容</label><textarea id="custom-markdown" class="markdown-editor" th:field="*{markdown}" rows="22" maxlength="100000" placeholder="在此直接编写或粘贴 Markdown 笔记内容..." required></textarea><small class="field-error" th:if="${#fields.hasErrors('markdown')}" th:errors="*{markdown}"></small></div>
@@ -43,9 +52,8 @@
                                 <div class="field"><label for="custom-keywords-en">English Keywords</label><textarea id="custom-keywords-en" th:field="*{keywordsEn}" rows="2" maxlength="3200"></textarea></div></div>
                             <div class="field"><label for="custom-markdown-en">English Markdown Body</label><textarea id="custom-markdown-en" class="markdown-editor" th:field="*{markdownEn}" rows="14" maxlength="100000" placeholder="Optional English markdown text"></textarea></div>
                         </details>
-                        <div class="form-footer"><small>正文输入会受当前页面离开保护；提交后生成可编辑主稿，再到内容库核对预览或进入发布中心。</small><button class="primary-button" type="submit">保存并进入主稿</button></div>
+                        <div class="form-footer"><small>先保存草稿，再预览、修改或准备发布。</small><button class="primary-button" type="submit">保存并进入主稿</button></div>
                     </form>
-                    <div class="source-hints"><span>✓ 支持直接粘贴笔记</span><span>✓ 自动提取文章摘要</span><span>✓ 接入统一发布预检</span></div>
                 </div>
 
                 <div id="source-panel-git" class="source-panel" th:if="${activeSourcePanel == 'git'}">

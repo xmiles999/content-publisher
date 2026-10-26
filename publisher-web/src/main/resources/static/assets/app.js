@@ -214,35 +214,6 @@
     syncSidebarAccessibility();
     syncCompactSidebar();
 
-    const sidebarGroups = [...document.querySelectorAll('[data-sidebar-group]')];
-    const activeSidebarGroup = sidebarGroups.find(group => group.dataset.sidebarActive === 'true');
-    const readSidebarGroupState = group => {
-        try { return window.localStorage.getItem(`content-publisher:sidebar:${group.dataset.sidebarGroup}`); }
-        catch (_error) { return null; }
-    };
-    const setSidebarGroupState = (group, expanded, persist = false) => {
-        group.classList.toggle('expanded', expanded);
-        group.querySelector('[data-sidebar-toggle]')?.setAttribute('aria-expanded', String(expanded));
-        group.querySelector('.sidebar-subnav')?.setAttribute('aria-hidden', String(!expanded));
-        if (!persist) return;
-        try {
-            window.localStorage.setItem(`content-publisher:sidebar:${group.dataset.sidebarGroup}`,
-                expanded ? 'expanded' : 'collapsed');
-        } catch (_error) { /* The menu still works without persisted state. */ }
-    };
-    const savedSidebarGroup = activeSidebarGroup ? null
-        : sidebarGroups.find(group => readSidebarGroupState(group) === 'expanded');
-    sidebarGroups.forEach(group => {
-        setSidebarGroupState(group, group === activeSidebarGroup || group === savedSidebarGroup);
-        group.querySelector('[data-sidebar-toggle]')?.addEventListener('click', () => {
-            const shouldExpand = !group.classList.contains('expanded');
-            if (shouldExpand) {
-                sidebarGroups.filter(candidate => candidate !== group)
-                    .forEach(candidate => setSidebarGroupState(candidate, false, true));
-            }
-            setSidebarGroupState(group, shouldExpand, true);
-        });
-    });
     const activeSidebarLink = sidebar?.querySelector('a[aria-current="page"]');
     if (activeSidebarLink && sidebarNav) {
         window.requestAnimationFrame(() => {

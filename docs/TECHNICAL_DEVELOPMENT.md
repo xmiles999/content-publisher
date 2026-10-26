@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-09-22 |
+| 文档基线 | 2026-10-26 |
 | 适用版本 | `0.1.0-SNAPSHOT` |
 | 架构形态 | 模块化单体 |
 | 主包名 | `io.contentpublisher.platform` |
@@ -16,6 +16,12 @@
 接口字段和错误契约见 [API_REFERENCE.md](API_REFERENCE.md)，完整配置和运维步骤见 [OPERATIONS.md](OPERATIONS.md)，业务规则见 [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md)。中文入口见[文档索引](README.md)，本地启动与回归入口见[开发文档](开发文档.md)，精简边界见[个人使用精简说明](个人使用精简说明.md)。
 
 ## 2. 设计目标与约束
+
+2026-10-26 个人发布精简：复用现有 MVC、Thymeleaf 和原生 CSS/JS；删除重复首页模板、专用样式与 Controller 中的概览数据依赖，移除旧多层侧栏的状态保存脚本。常驻导航为文稿/写新稿/发布/渠道，低频工具使用原生 details 按需展开；来源切换移至写新稿页面。文稿筛选字段与 URL 参数保持兼容，更多筛选在有值时自动展开。发布 tab 缺省和非法值统一为 queue，导航同步；coverage 仍可显式访问。无 API 账号时省略文章发布页侧栏。没有新增依赖、配置、数据库迁移或 REST 变更。
+
+回归映射：PersonalWorkspaceIntegrationTest 覆盖首页重定向、四项导航、筛选保留、发布默认值、列表直接发布链接及无 API 面板；LocalSecurityIntegrationTest 验证登录后首页重定向和受保护文稿页面。页面继续服务端渲染，保持 noindex,nofollow；这是私有工作区，无公开收录与 Sitemap 需求。
+
+文稿列表复用同一份服务端数据和链接，通过限定于 manuscript-table 的响应式样式在 820px 及以下排列为文章行，隐藏来源、版本列并直接展示操作；没有第二套移动端查询或前端状态。浏览器验收同时检查操作按钮位于视口内，不能只用页面无横向溢出代替可操作性。
 
 ### 2.1 目标
 
@@ -446,7 +452,7 @@ OpenAPI 快照当前包含 50 个 REST 操作。完整路径与角色见 `API_RE
 
 | Controller | 职责 |
 |---|---|
-| `PortalController` | 登录、工作台、权限错误 |
+| `PortalController` | 登录、首页重定向到文稿、权限错误 |
 | `ContentCreationPortalController` | Git、主题、网站和自定义文章/笔记内容创建 |
 | `ContentLibraryPortalController` | 内容库、编辑、版本、个人确认和重新编辑 |
 | `PortalPublishingController` | 发布中心、API 渠道、人工平台个人配置、API/人工发布和失败重试 |
@@ -876,7 +882,7 @@ Git、网站、AI 和自托管渠道都执行：
 - 英文生成通过输入事件进入同一保存链；请求前记录中英文快照，回包时若输入已变更则拒绝应用。Markdown 预览使用语言级请求序号及输入快照阻止旧回包覆盖新预览，并在 15 秒超时后保留正文、显示可恢复错误。
 - `app.js` 管理编辑/分栏/预览模式，非敏感偏好写入 `content-publisher:editor-view`；小屏不同时堆叠编辑与预览。原生 `invalid` 事件展开折叠字段和对应语言面板。
 - 正式提交等待在途草稿，应急备份在服务器成功 Flash 标记返回后删除；`ContentLibraryPortalController` 在校验/业务失败时返回 Flash 表单，避免输入丢失。并未新增跨标签页草稿锁。
-- Portal 的 `DISABLED` 展示能力由明确配置决定；首页只读取实际展示的数据，不再读取未展示任务与渠道数量。LOCAL/JWT 的权限校验不变。
+- Portal 的 `DISABLED` 展示能力由明确配置决定；首页重定向到文稿列表，不再维护独立首页查询与 dashboard 模板。LOCAL/JWT 的权限校验不变。
 - 全局配色集中在 `app.css` 明暗主题语义变量：雾白/灰绿浅色、低饱和绿色动作和中性灰黑深色；不引入远程字体或新 UI 包。SVG 标志沿用项目图形，仅调整固定中性色与箭头色，作为明暗主题共用资源。
 - 原先自动注入的 `/support-bot/static/widget.js` 无本项目服务支撑且在本地逐页返回 404，已移除；监控刷新代码不受影响。
 - 侧栏只有工作区、流程监测及折叠设置；紧凑导航和移动抽屉保留。菜单 `<summary>` 纳入移动焦点循环，当前来源才高亮“写新稿”，内容库不再误高亮来源组。

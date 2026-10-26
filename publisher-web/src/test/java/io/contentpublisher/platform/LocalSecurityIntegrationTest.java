@@ -89,6 +89,9 @@ class LocalSecurityIntegrationTest {
         assertThat(session).isNotNull();
 
         mockMvc.perform(get("/").session(session))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/content"));
+        mockMvc.perform(get("/content").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("个人工作区")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("写新稿")))
@@ -267,7 +270,7 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("支持粘贴 Markdown 笔记，无需配置 AI。")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("写标题和正文即可，其他信息按需补充。")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/projects?source=custom")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/projects?source=website")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("主题教程")));
@@ -311,10 +314,10 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("直接编写，或从主题、网站和 Git 资料生成。")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-group=\"content\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-active=\"true\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-sidebar-toggle")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("写标题和正文即可，其他信息按需补充。")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("其他写作方式")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("source-choices")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("更多工具")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("sidebar-icon-sprite")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("nav-icon")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("aria-controls=\"app-sidebar\"")))
@@ -325,7 +328,7 @@ class LocalSecurityIntegrationTest {
                         org.hamcrest.Matchers.containsString("已删除记录"))));
         mockMvc.perform(get("/content").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("这里编辑、确认和修订主稿")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("管理自己的文章和发布进度。")));
         mockMvc.perform(get("/jobs").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("任务队列")));
@@ -335,12 +338,9 @@ class LocalSecurityIntegrationTest {
         var calendarHtml = mockMvc.perform(get("/calendar").session(session))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-        var publishingGroup = org.jsoup.Jsoup.parse(calendarHtml)
-                .selectFirst("div[data-sidebar-group=publishing]");
-        assertThat(publishingGroup).isNotNull();
-        assertThat(publishingGroup.attr("data-sidebar-active")).isEqualTo("true");
-        assertThat(publishingGroup.hasClass("expanded")).isTrue();
-        var calendarLink = publishingGroup.selectFirst("a[href='/calendar']");
+        var tools = org.jsoup.Jsoup.parse(calendarHtml).selectFirst("details.sidebar-tools[open]");
+        assertThat(tools).isNotNull();
+        var calendarLink = tools.selectFirst("a[href='/calendar']");
         assertThat(calendarLink).isNotNull();
         assertThat(calendarLink.attr("aria-current")).isEqualTo("page");
     }
@@ -351,7 +351,7 @@ class LocalSecurityIntegrationTest {
 
         mockMvc.perform(get("/projects").param("source", "custom").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("支持粘贴 Markdown 笔记，无需配置 AI。")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("写标题和正文即可，其他信息按需补充。")));
 
         mockMvc.perform(post("/articles/custom").session(session)
                         .param("title", "Java 21 虚拟线程笔记")
@@ -608,7 +608,7 @@ class LocalSecurityIntegrationTest {
         MockHttpSession session = login();
 
         mockMvc.perform(get("/publishing").session(session)).andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("发布覆盖")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("待发布内容")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("已连接接口"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(

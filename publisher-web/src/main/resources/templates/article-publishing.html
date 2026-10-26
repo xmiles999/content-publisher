@@ -9,9 +9,10 @@
                 <div class="header-actions"><a class="secondary-link" th:href="@{/articles/{id}(id=${article.id})}">查看主稿</a><a class="secondary-link" th:href="@{/publishing}">返回发布中心</a></div></section>
             <div class="alert warning" th:unless="${publishable}">当前版本尚未确认。请返回主稿检查并确认当前内容后再发布。</div>
 
-            <div class="content-aside-grid">
+            <div th:class="${#lists.isEmpty(channelAccounts)} ? 'manual-only-publishing' : 'content-aside-grid'">
                 <div>
-                    <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>我的发布包</h3><p>只列出已启用的人工平台。在渠道管理中停用后不会出现在这里。</p></div><strong th:text="|${manualTargets.size()} 个平台|">0 个平台</strong></header>
+                    <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>选择发布平台</h3><p>准备内容后，到平台发布并记录结果。</p></div><a class="text-link" th:href="@{/channels}">管理渠道</a></header>
+                        <div class="empty-state" th:if="${#lists.isEmpty(manualTargets)}">还没有启用人工发布平台。<a class="text-link" th:href="@{/channels}">选择常用平台</a></div>
                         <div class="manual-channel-list"><div class="manual-channel-row" th:each="channel : ${manualTargets}">
                             <span><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'OVERSEAS' ? '国外 / 英文版' : '国内 / 中文版'} · ${channel.channel.contentFormat()} · ${channel.accountLabel()}|">平台要求</small><small>继续使用当前设备的持久浏览器登录状态</small></span>
                             <a class="text-link" th:if="${canEdit and publishable}" th:href="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.channel.type()})}">准备发布</a>
@@ -26,9 +27,8 @@
                     </section>
                 </div>
 
-                <aside class="sticky-column">
+                <aside class="sticky-column" th:if="${!#lists.isEmpty(channelAccounts)}">
                     <section class="side-panel"><header class="side-panel-header"><h3>批量 API 发布</h3><p>每个渠道独立执行，失败任务可以单独重试。</p></header>
-                        <div class="alert warning" th:if="${#lists.isEmpty(channelAccounts)}">尚未配置 API 渠道。前往 <a class="text-link" th:href="@{/channels}">渠道管理</a>添加账号。</div>
                         <div class="alert warning" th:if="${!#lists.isEmpty(channelAccounts) and readyChannelAccountCount == 0}">当前没有通过发布预检的 API 账号。请按账号提示补齐英文稿、更新凭据或重新验证连接。</div>
                         <form class="stack-form" data-schedule-form th:if="${canEdit and !#lists.isEmpty(channelAccounts)}" th:action="@{/articles/{id}/publication-batches(id=${article.id})}" th:object="${batchPublishArticleForm}" method="post">
                             <input type="hidden" th:field="*{idempotencyKey}"><div class="field"><label>发布账号（可多选）</label><div class="compact-list">

@@ -66,7 +66,7 @@ public class PortalModelAdvice {
     @ModelAttribute("activeItem")
     public String activeItem(HttpServletRequest request) {
         String path = request.getRequestURI();
-        if ("/".equals(path)) return "dashboard";
+        if ("/".equals(path)) return "content";
         if (path.startsWith("/projects")) {
             String source = normalized(request.getParameter("source"));
             return switch (source) {
@@ -83,10 +83,10 @@ public class PortalModelAdvice {
         if (path.equals("/publishing")) {
             String tab = normalized(request.getParameter("tab"));
             return switch (tab) {
-                case "queue" -> "publishing-queue";
+                case "coverage" -> "publishing-coverage";
                 case "batches" -> "publishing-batches";
                 case "records" -> "publishing-records";
-                default -> "publishing-coverage";
+                default -> "publishing-queue";
             };
         }
         if (path.startsWith("/channels")) return "channels";

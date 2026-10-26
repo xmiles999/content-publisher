@@ -13,18 +13,18 @@
         <header th:replace="~{fragments/app-shell :: topbar('发布中心', '处理待发布内容、执行批次和发布结果')}"></header>
         <main class="page-content">
             <section class="page-header compact-page-header">
-                <div><h2>发布覆盖</h2><p>默认看常用渠道有没有发过；渠道包在「我的渠道」里启停。</p></div>
-                <div class="header-actions"><a class="secondary-link" th:href="@{/channels}">渠道管理</a><a class="primary-link" th:href="@{/projects}">创建内容</a></div>
+                <div><h2>发布</h2><p>选择待发布文章，或查看已经发布的结果。</p></div>
+                <div class="header-actions"><a class="secondary-link" th:href="@{/channels}">渠道管理</a></div>
             </section>
 
             <nav class="workspace-tabs" aria-label="发布中心视图">
-                <a th:href="@{/publishing(tab='coverage')}" th:classappend="${selectedTab == 'coverage'} ? ' active'" th:attr="aria-current=${selectedTab == 'coverage' ? 'page' : null}">覆盖矩阵 <span th:text="${publishPackSize}">0</span></a>
                 <a th:href="@{/publishing(tab='queue')}" th:classappend="${selectedTab == 'queue'} ? ' active'" th:attr="aria-current=${selectedTab == 'queue' ? 'page' : null}">待发布 <span th:text="${pendingArticleCount}">0</span></a>
+                <a th:href="@{/publishing(tab='coverage')}" th:classappend="${selectedTab == 'coverage'} ? ' active'" th:attr="aria-current=${selectedTab == 'coverage' ? 'page' : null}">渠道覆盖 <span th:text="${publishPackSize}">0</span></a>
                 <a th:href="@{/publishing(tab='records')}" th:classappend="${selectedTab == 'records'} ? ' active'" th:attr="aria-current=${selectedTab == 'records' ? 'page' : null}">发布记录 <span th:text="${totalRecordCount}">0</span></a>
                 <a class="workspace-tab-secondary" th:href="@{/publishing(tab='batches')}" th:classappend="${selectedTab == 'batches'} ? ' active'" th:attr="aria-current=${selectedTab == 'batches' ? 'page' : null}">执行批次 <span th:text="${publicationBatches.size()}">0</span></a>
             </nav>
 
-            <div class="publishing-summary" aria-label="发布运行摘要">
+            <div class="publishing-summary" aria-label="发布运行摘要" th:if="${selectedTab == 'batches'}">
                 <span>近期批次执行中 <strong th:text="${activeBatchCount}">0</strong></span>
                 <span>近期异常批次 <strong th:text="${failedBatchCount}">0</strong></span>
                 <span>成功记录总数 <strong th:text="${publishedCount}">0</strong></span>

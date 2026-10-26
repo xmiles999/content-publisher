@@ -30,7 +30,7 @@ class PersonalWorkspaceIntegrationTest {
     void publishingSearchAndPaginationReachBeyondTheLatestFiftyArticles() throws Exception {
         String prefix = "coverage-" + UUID.randomUUID();
         for (int i = 0; i < 55; i++) create(prefix + "-" + i);
-        var page = mvc.perform(get("/publishing").param("q", prefix).param("size", "20").param("page", "2"))
+        var page = mvc.perform(get("/publishing").param("tab", "coverage").param("q", prefix).param("size", "20").param("page", "2"))
                 .andExpect(status().isOk()).andReturn();
         var data = (PagedResult<?>) page.getModelAndView().getModel().get("articlePage");
         org.assertj.core.api.Assertions.assertThat(data.totalItems()).isEqualTo(55);
@@ -38,11 +38,11 @@ class PersonalWorkspaceIntegrationTest {
         var html = Jsoup.parse(page.getResponse().getContentAsString());
         org.assertj.core.api.Assertions.assertThat(html.select(".coverage-article")).hasSize(15);
         org.assertj.core.api.Assertions.assertThat(html.select("nav[aria-label=覆盖矩阵分页]")).hasSize(1);
-        var filtered = mvc.perform(get("/publishing").param("q", prefix + "-0"))
+        var filtered = mvc.perform(get("/publishing").param("tab", "coverage").param("q", prefix + "-0"))
                 .andExpect(status().isOk()).andReturn();
         org.assertj.core.api.Assertions.assertThat(
                 Jsoup.parse(filtered.getResponse().getContentAsString()).select(".coverage-article")).hasSize(1);
-        var empty = mvc.perform(get("/publishing").param("q", prefix + "-missing"))
+        var empty = mvc.perform(get("/publishing").param("tab", "coverage").param("q", prefix + "-missing"))
                 .andExpect(status().isOk()).andReturn();
         org.assertj.core.api.Assertions.assertThat(
                 Jsoup.parse(empty.getResponse().getContentAsString()).select(".coverage-article")).isEmpty();
@@ -82,6 +82,44 @@ class PersonalWorkspaceIntegrationTest {
                 .select("form[action='/articles/custom'][data-dirty-form]")).hasSize(1);
     }
 
+    @Test
+    void personalNavigationAndFiltersKeepSecondaryToolsOutOfTheMainFlow() throws Exception {
+        var page = mvc.perform(get("/content")).andExpect(status().isOk()).andReturn();
+        var html = Jsoup.parse(page.getResponse().getContentAsString());
+        org.assertj.core.api.Assertions.assertThat(html.select(".sidebar-nav > a").eachText())
+                .containsExactly("文稿", "写新稿", "发布", "渠道");
+        org.assertj.core.api.Assertions.assertThat(html.select(".sidebar-tools[open], .filter-more[open]"))
+                .isEmpty();
+        org.assertj.core.api.Assertions.assertThat(html.select(".sidebar-tools a[href='/monitoring']"))
+                .hasSize(1);
+        var filtered = mvc.perform(get("/content").param("language", "en").param("size", "50"))
+                .andExpect(status().isOk()).andReturn();
+        org.assertj.core.api.Assertions.assertThat(Jsoup.parse(filtered.getResponse().getContentAsString())
+                .select(".filter-more[open] input[name=language][value=en]")).hasSize(1);
+    }
+
+    @Test
+    void publishingDefaultsToReadyManuscriptsAndSkipsUnconfiguredApiPanel() throws Exception {
+        for (String tab : new String[]{"", "unknown"}) {
+            mvc.perform(get("/publishing").param("tab", tab))
+                    .andExpect(status().isOk())
+                    .andExpect(model().attribute("selectedTab", "queue"))
+                    .andExpect(model().attribute("activeItem", "publishing-queue"));
+        }
+        mvc.perform(get("/publishing")).andExpect(status().isOk())
+                .andExpect(model().attribute("selectedTab", "queue"));
+        String articleUrl = create("个人发布入口");
+        jdbc.update("update articles set status='READY' where id=?", id(articleUrl));
+        var content = mvc.perform(get("/content").param("q", "个人发布入口"))
+                .andExpect(status().isOk()).andReturn();
+        org.assertj.core.api.Assertions.assertThat(Jsoup.parse(content.getResponse().getContentAsString())
+                .select(".row-actions a[href='/publishing" + articleUrl + "']").eachText())
+                .containsExactly("去发布");
+        mvc.perform(get("/publishing" + articleUrl)).andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("批量 API 发布"))))
+                .andExpect(content().string(containsString("选择发布平台")));
+    }
+
     private String create(String title) throws Exception {
         return mvc.perform(post("/articles/custom").param("title", title).param("summary", "测试摘要")
                         .param("markdown", "测试正文").param("language", "zh-CN"))
@@ -94,11 +132,13 @@ class PersonalWorkspaceIntegrationTest {
 
     @Test
     void localWorkspaceWorksWithoutAuthenticationAndKeepsDiagnostics() throws Exception {
-        mvc.perform(get("/")).andExpect(status().isOk())
-                .andExpect(content().string(containsString("我的文稿")))
+        mvc.perform(get("/")).andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/content"));
+        mvc.perform(get("/content")).andExpect(status().isOk())
+                .andExpect(content().string(containsString("文稿")))
                 .andExpect(content().string(containsString("local-developer")))
-                .andExpect(content().string(containsString("任务进度与重试")))
-                .andExpect(content().string(containsString("渠道连接与巡检")))
+                .andExpect(content().string(containsString("任务与重试")))
+                .andExpect(content().string(containsString("更多工具")))
                 .andExpect(content().string(containsString("运行监控")))
                 .andExpect(content().string(containsString("noindex,nofollow")))
                 .andExpect(content().string(not(containsString("服务运行中"))))

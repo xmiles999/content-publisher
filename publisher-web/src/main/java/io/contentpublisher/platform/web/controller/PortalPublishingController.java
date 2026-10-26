@@ -80,7 +80,7 @@ public class PortalPublishingController {
     }
 
     @GetMapping("/publishing")
-    public String publishing(@RequestParam(defaultValue = "coverage") String tab,
+    public String publishing(@RequestParam(defaultValue = "queue") String tab,
                              @RequestParam(required = false) String q,
                              @RequestParam(required = false) String channel,
                              @RequestParam(required = false) String status,
@@ -189,7 +189,7 @@ public class PortalPublishingController {
 
     private String normalizeTab(String tab) {
         String normalized = tab == null ? "" : tab.trim().toLowerCase(Locale.ROOT);
-        return Set.of("queue", "batches", "records", "coverage").contains(normalized) ? normalized : "coverage";
+        return Set.of("queue", "batches", "records", "coverage").contains(normalized) ? normalized : "queue";
     }
 
     private String normalizeSearch(String value) {
