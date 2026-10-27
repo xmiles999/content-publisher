@@ -130,6 +130,7 @@ public class SecurityConfiguration {
                 .requestMatchers(HttpMethod.GET, "/channels", "/publishing/**")
                     .hasAnyRole("VIEWER", "EDITOR", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/articles/*/publications",
+                        "/publishing/articles/*/readership/**",
                         "/articles/*/publication-batches", "/articles/*/manual/**",
                         "/jobs/*/publication-retry", "/jobs/*/replay", "/jobs/*/cancel")
                     .hasAnyRole("EDITOR", "ADMIN")

@@ -22,6 +22,7 @@ import org.springframework.web.servlet.ModelAndView;
         JobPortalController.class,
         RecycleBinPortalController.class,
         PortalPublishingController.class,
+        io.contentpublisher.platform.web.controller.PortalReadershipController.class,
         PortalAiSettingsController.class
 })
 public class PortalExceptionHandler {

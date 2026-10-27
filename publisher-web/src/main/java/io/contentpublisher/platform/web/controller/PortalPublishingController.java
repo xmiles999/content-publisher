@@ -68,6 +68,7 @@ public class PortalPublishingController {
     private final RequestActorProvider actors;
     private final MarkdownRenderer markdownRenderer;
     private final ChannelCopyOptimizationService copyOptimizer;
+    private final io.contentpublisher.platform.application.ReadershipApplicationService readership;
 
     public PortalPublishingController(PublishingApplicationService publishing,
                                       ProjectApplicationService projects,
@@ -76,7 +77,8 @@ public class PortalPublishingController {
                                       ManualChannelProfileApplicationService manualProfiles,
                                       ScheduleParser scheduleParser,
                                       RequestActorProvider actors, MarkdownRenderer markdownRenderer,
-                                      ChannelCopyOptimizationService copyOptimizer) {
+                                      ChannelCopyOptimizationService copyOptimizer,
+                                      io.contentpublisher.platform.application.ReadershipApplicationService readership) {
         this.publishing = publishing;
         this.projects = projects;
         this.jobs = jobs;
@@ -86,6 +88,7 @@ public class PortalPublishingController {
         this.actors = actors;
         this.markdownRenderer = markdownRenderer;
         this.copyOptimizer = copyOptimizer;
+        this.readership = readership;
     }
 
     @GetMapping("/publishing")
@@ -149,6 +152,8 @@ public class PortalPublishingController {
         model.addAttribute("publicationRecordPage", publicationRecordPage);
         model.addAttribute("publicationBatchPage", PortalPage.from(filteredBatches, selectedPage, selectedSize));
         model.addAttribute("publicationRecords", publicationRecordPage.items());
+        model.addAttribute("readershipSnapshots", selectedTab.equals("records")
+                ? readership.snapshots(actor, publicationRecordPage.items()) : Map.of());
         model.addAttribute("totalRecordCount", totalRecordCount);
         model.addAttribute("publicationBatches", publicationBatches);
         model.addAttribute("activeBatchCount", publicationBatches.stream()
@@ -266,6 +271,7 @@ public class PortalPublishingController {
                 .filter(ManualChannelProfileView::enabled).toList());
         var records = publishing.getArticlePublicationRecords(actor, articleId);
         model.addAttribute("publicationRecords", records);
+        model.addAttribute("readershipSnapshots", readership.snapshots(actor, records));
         Map<ChannelType, PublicationRecord> publishedChannels = new EnumMap<>(ChannelType.class);
         records.stream().filter(record -> record.status() == PublicationStatus.PUBLISHED)
                 .forEach(record -> publishedChannels.putIfAbsent(record.channelType(), record));

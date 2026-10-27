@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow"><title>阅读统计 · Content Publisher</title>
+    <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}"><script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
+<body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside><div class="app-main">
+    <header th:replace="~{fragments/app-shell :: topbar('发布中心', '阅读统计')}"></header>
+    <main class="page-content">
+        <section class="page-header"><div><h2 th:text="|${channelName} · 阅读统计|">阅读统计</h2><p th:text="${publication.articleTitle}">文章</p></div>
+            <div class="header-actions"><a class="secondary-link" th:href="@{/publishing/articles/{id}(id=${publication.articleId})}">返回文章发布页</a><a class="secondary-link" th:if="${publication.externalUrl != null}" th:href="${publication.externalUrl}" target="_blank" rel="noopener noreferrer">打开平台文章</a></div></section>
+        <div class="alert success" role="status" th:if="${successMessage}" th:text="${successMessage}"></div>
+        <div class="alert error" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+        <section class="workspace-panel"><header class="workspace-panel-header"><div><h3>当前统计</h3><p>每条发布记录单独保存；各平台口径不同，不合计去重人数。</p></div><a class="text-link" th:href="${readershipPath}">重新读取统计</a></header>
+            <div th:replace="~{fragments/readership :: counts(${readership})}"></div>
+            <p class="field-help" th:if="${readership.recordedAt != null}" th:text="|${readership.source == 'API' ? '官方接口' : '手动录入'} · 记录于 ${readership.recordedAt}|">来源和时间</p>
+            <p class="field-help" th:if="${readership.lastSyncAt != null}" th:text="|上次同步开始于 ${readership.lastSyncAt}|">同步时间</p>
+            <p class="record-error" role="status" th:if="${readership.syncError != null}" th:text="|同步失败：${readership.syncError}；已有统计保留。|">同步失败</p>
+            <p class="field-help" th:if="${readership.lastSyncAt != null and readership.syncError == null and (readership.recordedAt == null or readership.lastSyncAt.isAfter(readership.recordedAt))}">同步进行中或未完成；已有统计保留，请稍后重新读取。</p>
+            <form class="stack-form" method="post" th:if="${canEdit}" th:action="${readershipPath}" th:object="${readershipForm}" data-dirty-form>
+                <input type="hidden" th:field="*{version}">
+                <div class="alert error" role="alert" th:if="${#fields.hasAnyErrors()}">请填写有效的非负整数，未知项留空。数字不能超过 9223372036854775807。</div>
+                <div class="field"><label for="views">阅读 / 浏览次数</label><input type="number" min="0" step="1" inputmode="numeric" th:field="*{views}" aria-describedby="views-help"><small id="views-help">可包含同一读者多次阅读，按平台后台口径填写；未知请留空，确实为零才填 0。</small></div>
+                <div class="field"><label for="uniqueReaders">去重阅读人数（可选）</label><input type="number" min="0" step="1" inputmode="numeric" th:field="*{uniqueReaders}" aria-describedby="readers-help"><small id="readers-help">仅在平台明确提供去重人数时填写；不能超过阅读次数。至少填写一项。</small></div>
+                <div class="row-actions"><button type="submit" class="primary-button">保存统计</button><a class="secondary-link" th:href="@{/publishing/articles/{id}(id=${publication.articleId})}">返回</a></div>
+            </form>
+            <div class="section-gap" th:if="${supportsSync and canEdit}"><h3>官方接口</h3><p class="field-help">使用原发布账号同步浏览次数，接口不提供去重人数。同步成功会替换当前统计并清空去重人数；失败保留原数据。每次同步至少间隔 30 秒。</p>
+                <form method="post" th:action="|${readershipPath}/sync|" data-confirm="同步成功后将替换当前统计，并清空接口未提供的去重人数。继续同步？"><input type="hidden" name="version" th:value="${readership.version}"><button class="secondary-button" type="submit">同步官方浏览次数</button></form>
+            </div>
+            <p class="field-help" th:unless="${supportsSync}">此发布记录暂不支持官方接口同步，可根据平台后台手动录入。</p>
+        </section>
+    </main>
+</div></div></body></html>

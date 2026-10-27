@@ -15,7 +15,7 @@
                         <div class="empty-state" th:if="${#lists.isEmpty(manualTargets)}">还没有启用人工发布平台。<a class="text-link" th:href="@{/channels}">选择常用平台</a></div>
                         <p class="field-help" th:if="${!#maps.isEmpty(publishedChannels)}">已发布表示该平台有历史成功记录；主稿修订后是否已同步，请核对平台内容。</p>
                         <div class="manual-channel-list"><div class="manual-channel-row" th:each="channel : ${manualTargets}" th:with="published=${publishedChannels.get(channel.channel.type())}">
-                            <span><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.contentFormat()} · ${channel.accountLabel()}|">平台要求</small><small>默认使用主稿，可在准备页面选择英文稿。</small></span>
+                            <div><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.contentFormat()} · ${channel.accountLabel()}|">平台要求</small><small>默认使用主稿，可在准备页面选择英文稿。</small><div th:if="${published != null}"><div th:replace="~{fragments/readership :: summary(${published}, ${readershipSnapshots})}"></div></div></div>
                             <div class="row-actions" th:if="${published != null}"><span class="status-pill status-published">已发布</span><a class="text-link" th:if="${published.externalUrl != null}" th:href="${published.externalUrl}" target="_blank" rel="noopener noreferrer">查看结果</a><details class="table-action-menu" th:if="${canEdit and publishable}"><summary>更多</summary><div class="account-action-panel"><a class="text-link" th:href="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.channel.type()})}">再次发布</a></div></details></div>
                             <a class="text-link" th:if="${published == null and canEdit and publishable}" th:href="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.channel.type()})}">准备发布</a>
                             <span class="muted-action" th:if="${published == null and !(canEdit and publishable)}" th:text="${canEdit} ? '等待确认当前内容' : '只读'">等待确认当前内容</span>
@@ -24,7 +24,7 @@
 
                     <section class="workspace-panel section-gap"><header class="workspace-panel-header"><div><h3>文章发布历史</h3><p>API 与人工发布结果统一归档。</p></div><strong th:text="|${publicationRecords.size()} 条|">0 条</strong></header>
                         <div class="empty-state" th:if="${#lists.isEmpty(publicationRecords)}">暂无发布记录。</div><div class="compact-list" th:unless="${#lists.isEmpty(publicationRecords)}">
-                            <div class="compact-item" th:each="item : ${publicationRecords}"><span><strong th:text="${channelNames.get(item.channelType)}">平台</strong><small th:text="|${item.method.name() == 'API' ? 'API 自动发布' : '人工发布'} · ${item.updatedAt}|">time</small></span><span>
+                            <div class="compact-item" th:each="item : ${publicationRecords}"><div><strong th:text="${channelNames.get(item.channelType)}">平台</strong><small th:text="|${item.method.name() == 'API' ? 'API 自动发布' : '人工发布'} · ${item.updatedAt}|">time</small><div th:replace="~{fragments/readership :: summary(${item}, ${readershipSnapshots})}"></div></div><span>
                                 <a class="text-link" th:if="${item.externalUrl != null}" th:href="${item.externalUrl}" target="_blank" rel="noopener noreferrer">打开结果</a><span class="status-pill" th:classappend="| status-${item.status.name().toLowerCase()}|" th:text="${item.status.name() == 'PUBLISHED' ? '已发布' : (item.status.name() == 'FAILED' ? '发布失败' : '发布中')}">已发布</span></span></div></div>
                     </section>
                 </div>

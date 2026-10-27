@@ -730,7 +730,10 @@ td small { display: block; max-width: 430px; overflow: hidden; color: var(--mute
 .manual-channel-list { display: grid; }
 .manual-channel-row { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 58px; padding: 9px 0; border-bottom: 1px solid var(--line); }
 .manual-channel-row:last-child { border-bottom: 0; }
-.manual-channel-row > span { min-width: 0; }
+.manual-channel-row > span, .manual-channel-row > div { min-width: 0; }
+.readership-summary { margin-top: 6px; font-size: 12px; overflow-wrap: anywhere; }
+.readership-counts { display: flex; flex-wrap: wrap; gap: 4px 12px; overflow-wrap: anywhere; }
+.readership-summary > small { display: block; color: var(--muted); margin: 4px 0; }
 .manual-channel-row strong, .manual-channel-row small { display: block; }
 .manual-channel-row small { margin-top: 4px; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .muted-action { flex: 0 0 auto; color: var(--muted); font-size: 12px; }

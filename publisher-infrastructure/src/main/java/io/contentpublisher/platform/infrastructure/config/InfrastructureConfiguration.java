@@ -57,6 +57,15 @@ import java.util.List;
         AutomationProperties.class, AssetProperties.class})
 public class InfrastructureConfiguration {
     @Bean
+    io.contentpublisher.platform.application.ReadershipApplicationService readershipApplicationService(
+            PublishingApplicationService publishing, PublicationRepository publications, ChannelAccountRepository accounts,
+            io.contentpublisher.platform.application.port.ReadershipRepository repository,
+            io.contentpublisher.platform.application.port.PublicationReadershipReader reader, AuditRecorder audit, Clock clock) {
+        return new io.contentpublisher.platform.application.ReadershipApplicationService(
+                publishing, publications, accounts, repository, reader, audit, clock);
+    }
+
+    @Bean
     Clock clock() {
         return Clock.systemUTC();
     }

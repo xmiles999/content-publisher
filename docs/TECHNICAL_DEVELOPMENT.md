@@ -13,6 +13,8 @@
 
 本文档描述当前代码真实采用的框架、模块、结构组件、依赖方向、数据流、持久化、安全、配置、测试和部署边界。代码、配置、依赖、迁移、Controller、DTO、端口、适配器或测试结构变化时，必须同步更新本文档。
 
+发布阅读统计的应用服务、JDBC 条件写入、官方读取适配器、并发/失败模型和 V26 表结构见[发布阅读统计](阅读统计.md)。发布页仅从本地快照读取，外部接口只由显式同步 POST 触发。
+
 接口字段和错误契约见 [API_REFERENCE.md](API_REFERENCE.md)，完整配置和运维步骤见 [OPERATIONS.md](OPERATIONS.md)，业务规则见 [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md)。中文入口见[文档索引](README.md)，本地启动与回归入口见[开发文档](开发文档.md)，精简边界见[个人使用精简说明](个人使用精简说明.md)。
 
 ## 2. 设计目标与约束
@@ -76,7 +78,7 @@
 |---|---|---|
 | Spring Data JPA / Hibernate | Boot 管理 | ORM 和事务 |
 | PostgreSQL Driver | 42.7.13 | 生产数据库连接 |
-| Flyway Core + PostgreSQL | Boot 管理 | V1–V25 迁移 |
+| Flyway Core + PostgreSQL | Boot 管理 | V1–V26 迁移 |
 | Eclipse JGit | 7.3.0.202506031305-r | 安全浅克隆和仓库分析 |
 | Jsoup | 1.18.3 | 网站 HTML 文本提取 |
 | CommonMark | 0.24.0 | Markdown 解析与安全渲染 |
@@ -720,6 +722,7 @@ delay = min(initialRetryDelay × 2^(attempt - 1), maxRetryDelay)
 | `manual_channel_profiles` | 人工平台个人配置 | `(tenant_id, channel_type)` 唯一、启停、默认设置、登录确认和配置版本 |
 | `publications` | API 发布事实 | 发布任务唯一、文章和账号外键、软删除 |
 | `manual_publications` | 人工发布快照 | 文章外键、软删除 |
+| `publication_readership` | 每条成功发布的最新阅读统计 | 租户/方式/记录复合主键、文章外键、非负次数/人数、来源、同步状态、乐观锁 |
 | `article_drafts` | 当前主体服务端草稿 | `(tenant_id, article_id, actor_subject)` 唯一 |
 | `generation_presets` | 租户生成预设 | 来源类型和名称唯一、使用次数排序 |
 | `notifications` | 去重站内通知 | 租户 `dedup_key` 唯一、确认/恢复状态 |
@@ -779,6 +782,7 @@ V16 为 `articles`、`jobs`、`publications`、`manual_publications` 添加 `del
 | V23 | 渠道账号软删除时间/操作者和活跃账号查询索引 |
 | V24 | 更新 `ck_articles_source` 检查约束，支持 `CUSTOM` 来源类型（`project_id is null`） |
 | V25 | 文章配图元数据表 `article_assets` |
+| V26 | 发布阅读统计表 `publication_readership` |
 
 已发布迁移不可修改。当前没有 Down Migration；数据库回滚依赖迁移前备份和兼容性评估。V22 引入旧应用无法识别的 `READY` 字符串状态，因此回滚到不含该枚举的旧 JAR 通常必须恢复迁移前备份，不能只切换应用制品。V23 的字段均可空且采用向前迁移，但旧应用不识别软删除语义，直接回滚可能让已移除账号重新出现在列表或任务选择中；同时已销毁的账号凭据不可恢复，回滚前必须评估旧实体映射和删除数据可见性，必要时恢复迁移前备份。
 
@@ -943,7 +947,7 @@ Git、网站、AI 和自托管渠道都执行：
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | 平台字数优化 | `ChannelCopyOptimizationServiceTest`、`ChannelOptimizationIntegrationTest`、`OpenAiCompatibleContentGeneratorTest`、`channel-optimization.test.cjs` | 零 AI 的限内路径、字段保留、超限/错误输出拒绝、并发上限、主稿不变、租户/版本/CSRF/角色、注入资料隔离、X 加权、过期响应、撤销与失败保留；模型响应使用本地模拟，不验证实际模型质量 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
-| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V25、`APPROVED → READY` 回填、JPA、自定义文章、配图、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
+| 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V26、`APPROVED → READY` 回填、JPA、自定义文章、配图、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 个人工作区 | `PersonalWorkspaceIntegrationTest` | 无认证开发入口、监控入口保留、编辑权限、失败输入恢复 |
 | 渠道精简与覆盖 | `ChannelOptimizationIntegrationTest` | 默认未启用、批量选择与配置保留、事务冲突回滚、API-only 覆盖、平台去重、成功链接保留、显式英文与富文本清洗 |
@@ -958,6 +962,7 @@ Git、网站、AI 和自托管渠道都执行：
 | 架构 | `ArchitectureBoundaryTest` | 模块依赖和入口边界 |
 | 上下文 | `PublisherApplicationTest` | Bean、Flyway、Hibernate 装配 |
 | SEO | `ArticleSeoViewTest` | 评分规则 |
+| 阅读统计 | `ReadershipApplicationServiceTest`、`OfficialPublicationReadershipReaderTest`、`ReadershipIntegrationTest` | V26、次数/人数口径、租户和角色、CAS、响应限额、完整超时、失败保留与同步/手动编辑竞争 |
 
 ### 17.2 验证命令
 
