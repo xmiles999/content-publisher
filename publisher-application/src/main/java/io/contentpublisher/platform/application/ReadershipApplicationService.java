@@ -53,8 +53,10 @@ public class ReadershipApplicationService {
     }
 
     public static boolean supportsSync(PublicationRecord record) {
-        return record.status() == PublicationStatus.PUBLISHED && record.method() == PublicationMethod.API
-                && (record.channelType() == ChannelType.DEV || record.channelType() == ChannelType.DISCOURSE);
+        return record.status() == PublicationStatus.PUBLISHED
+                && ((record.method() == PublicationMethod.API
+                    && (record.channelType() == ChannelType.DEV || record.channelType() == ChannelType.DISCOURSE))
+                    || PublicReadershipArticle.articleId(record.channelType(), record.externalUrl()).isPresent());
     }
 
     public void saveManual(ActorContext actor, UUID articleId, PublicationMethod method, UUID publicationId,
@@ -74,19 +76,24 @@ public class ReadershipApplicationService {
 
     public void sync(ActorContext actor, UUID articleId, PublicationMethod method, UUID publicationId, int version) {
         var record = publication(actor, articleId, method, publicationId);
-        if (!supportsSync(record)) throw error("READERSHIP_UNSUPPORTED", "该发布记录暂不支持接口同步，请手动录入");
+        if (!supportsSync(record)) throw error("READERSHIP_UNSUPPORTED", "该发布记录暂不支持自动同步，请查看渠道接入说明");
         var previous = snapshot(actor, record);
         checkVersion(previous, version);
         if (previous.lastSyncAt() != null && previous.lastSyncAt().plusSeconds(30).isAfter(clock.instant())) {
             throw error("READERSHIP_COOLDOWN", "请在上次同步开始 30 秒后重试");
         }
-        var publication = publications.findPublicationById(actor.tenantId(), publicationId)
+        boolean publicArticle = PublicReadershipArticle.articleId(record.channelType(), record.externalUrl()).isPresent();
+        Publication publication = null;
+        ChannelAccount account = null;
+        if (!publicArticle) {
+            publication = publications.findPublicationById(actor.tenantId(), publicationId)
                 .filter(p -> p.articleId().equals(articleId) && p.status() == PublicationStatus.PUBLISHED
                         && p.channelType() == record.channelType())
                 .orElseThrow(() -> error("READERSHIP_NOT_FOUND", "发布记录已不可用"));
-        var account = accounts.findChannelAccountById(actor.tenantId(), publication.channelAccountId())
+            account = accounts.findChannelAccountById(actor.tenantId(), publication.channelAccountId())
                 .filter(a -> a.status() == ChannelAccountStatus.ACTIVE && a.type() == record.channelType())
                 .orElseThrow(() -> error("READERSHIP_ACCOUNT_UNAVAILABLE", "发布账号已停用或移除；仍可手动录入统计"));
+        }
         if (!requests.tryAcquire()) throw error("READERSHIP_BUSY", "正在同步其他统计，请稍后重试");
         try {
             var claimed = new PublicationReadership(actor.tenantId(), articleId, method, publicationId,
@@ -94,7 +101,10 @@ public class ReadershipApplicationService {
                     previous.recordedBy(), clock.instant(), null, version + 1);
             save(claimed, version);
             long views;
-            try { views = reader.readViews(account, publication.externalId()); }
+            try {
+                views = publicArticle ? reader.readPublicViews(record.channelType(), record.externalUrl())
+                        : reader.readViews(account, publication.externalId());
+            }
             catch (ApplicationException failure) {
                 save(new PublicationReadership(actor.tenantId(), articleId, method, publicationId,
                         previous.views(), previous.uniqueReaders(), previous.source(), previous.recordedAt(),

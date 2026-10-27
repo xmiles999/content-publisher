@@ -65,15 +65,20 @@ class ReadershipIntegrationTest {
     @Test void persistsZeroAndDistinctReaderCountAndShowsSourceOnBothLists() throws Exception {
         String path = path(PublicationMethod.MANUAL);
         var first = page(path);
-        assertThat(first.text()).contains("未录入 / 未同步");
+        assertThat(first.text()).contains("暂无阅读数据", "暂未接入自动统计", "无需手动填写");
+        assertThat(first.selectFirst("details.readership-manual").hasAttr("open")).isFalse();
+        assertThat(first.select(".readership-sync form")).isEmpty();
         mvc.perform(post(path).session(session).with(csrf()).param("version", "0").param("views", "0"))
                 .andExpect(redirectedUrl(path));
-        assertThat(page(path).text()).contains("阅读 / 浏览 0 次", "去重人数未提供", "手动录入");
+        assertThat(page(path).text()).contains("阅读 / 浏览 0 次", "手动录入");
         mvc.perform(post(path).session(session).with(csrf()).param("version", "1").param("views", "125").param("uniqueReaders", "80"))
                 .andExpect(redirectedUrl(path));
         assertThat(repository.find(TENANT, PublicationMethod.MANUAL, publicationId).orElseThrow().uniqueReaders()).isEqualTo(80);
-        for (String list : List.of("/publishing?tab=records", "/publishing/articles/" + articleId))
-            assertThat(page(list).text()).contains("阅读 / 浏览 125 次", "去重 80 人", "手动录入");
+        for (String list : List.of("/publishing?tab=records", "/publishing/articles/" + articleId)) {
+            var document = page(list);
+            assertThat(document.text()).contains("阅读 / 浏览 125 次", "去重 80 人", "手动录入", "暂未接入自动统计");
+            assertThat(document.select(".readership-summary a").eachText()).contains("查看统计").doesNotContain("更新统计");
+        }
         verifyNoInteractions(reader);
     }
 
@@ -92,6 +97,7 @@ class ReadershipIntegrationTest {
         var conflict = mvc.perform(post(path).session(session).with(csrf()).param("version", "0").param("views", "200"))
                 .andExpect(status().isOk()).andExpect(model().attributeExists("errorMessage")).andReturn();
         assertThat(Jsoup.parse(conflict.getResponse().getContentAsString()).selectFirst("#views").val()).isEqualTo("200");
+        assertThat(Jsoup.parse(conflict.getResponse().getContentAsString()).selectFirst("details.readership-manual").hasAttr("open")).isTrue();
         assertThat(repository.find(TENANT, PublicationMethod.MANUAL, publicationId).orElseThrow().views()).isEqualTo(100);
     }
 
@@ -110,12 +116,18 @@ class ReadershipIntegrationTest {
     @Test void syncsOfficialViewsAndPreventsImmediateRepeat() throws Exception {
         apiRecord(ChannelType.DEV);
         String path = path(PublicationMethod.API);
+        var before = page(path);
+        assertThat(before.text()).contains("支持接口同步", "无需自行填写");
+        assertThat(before.selectFirst("details.readership-manual").hasAttr("open")).isFalse();
+        assertThat(before.selectFirst(".readership-sync form").hasAttr("data-confirm")).isFalse();
+        assertThat(before.selectFirst(".readership-sync button").text()).isEqualTo("同步阅读量");
+        assertThat(before.html().indexOf("class=\"readership-sync\"")).isLessThan(before.html().indexOf("class=\"readership-manual"));
         when(reader.readViews(any(), eq("123"))).thenReturn(77L);
         mvc.perform(post(path + "/sync").session(session).with(csrf()).param("version", "0")).andExpect(redirectedUrl(path));
         var saved = repository.find(TENANT, PublicationMethod.API, publicationId).orElseThrow();
         assertThat(saved.views()).isEqualTo(77);
         assertThat(saved.uniqueReaders()).isNull();
-        assertThat(page(path).text()).contains("官方接口", "阅读 / 浏览 77 次");
+        assertThat(page(path).text()).contains("自动读取", "阅读 / 浏览 77 次");
         mvc.perform(post(path + "/sync").session(session).with(csrf()).param("version", "2"))
                 .andExpect(flash().attributeExists("errorMessage"));
         verify(reader, times(1)).readViews(any(), any());
@@ -126,6 +138,7 @@ class ReadershipIntegrationTest {
         String path = path(PublicationMethod.API);
         mvc.perform(post(path).session(session).with(csrf()).param("version", "0").param("views", "100").param("uniqueReaders", "80"))
                 .andExpect(status().is3xxRedirection());
+        assertThat(page(path).selectFirst(".readership-sync form").attr("data-confirm")).contains("替换手动统计");
         when(reader.readViews(any(), any())).thenThrow(new ApplicationException("READERSHIP_PERMISSION", "平台拒绝访问统计"));
         mvc.perform(post(path + "/sync").session(session).with(csrf()).param("version", "1"))
                 .andExpect(redirectedUrl(path)).andExpect(flash().attributeExists("errorMessage"));
@@ -162,6 +175,45 @@ class ReadershipIntegrationTest {
                     .andExpect(redirectedUrl("/access-denied"));
         }
         assertThat(repository.find(TENANT, PublicationMethod.MANUAL, publicationId).orElseThrow().views()).isEqualTo(42);
+    }
+
+    @Test void clearlyExplainsCoverageForPersonalChannelsAndUnlinkedManualRecords() throws Exception {
+        for (ChannelType type : List.of(ChannelType.CSDN, ChannelType.JUEJIN, ChannelType.XIAOHONGSHU, ChannelType.DEV)) {
+            publicationId = UUID.randomUUID();
+            manual.save(new ManualPublication(publicationId, TENANT, articleId, type, ContentFormat.PLAIN_TEXT,
+                    "统计", "正文", "https://example.com/test", "admin", Instant.now()));
+            var html = page(path(PublicationMethod.MANUAL));
+            assertThat(html.select(".readership-sync form")).isEmpty();
+            assertThat(html.selectFirst("details.readership-manual").hasAttr("open")).isFalse();
+            if (type == ChannelType.DEV) assertThat(html.text()).contains("人工发布记录未关联 API 发布账号");
+            else if (type == ChannelType.JUEJIN) assertThat(html.text()).contains("需要有效的掘金文章链接", "无需手动填写");
+            else assertThat(html.text()).contains("暂未接入自动统计", "无需手动填写");
+        }
+        var records = page("/publishing/articles/" + articleId);
+        assertThat(records.select(".readership-summary a").eachText()).containsOnly("查看说明");
+        verifyNoInteractions(reader);
+    }
+
+    @Test void manualJuejinLinkCanSyncWithoutAnApiAccountAndGetNeverCallsPlatform() throws Exception {
+        publicationId = UUID.randomUUID();
+        String url = "https://juejin.cn/post/7698382188488048649";
+        manual.save(new ManualPublication(publicationId, TENANT, articleId, ChannelType.JUEJIN, ContentFormat.MARKDOWN,
+                "统计", "正文", url, "admin", Instant.now()));
+        String path = path(PublicationMethod.MANUAL);
+        var html = page(path);
+        assertThat(html.text()).contains("支持链接读取", "无需配置账号");
+        assertThat(html.select(".readership-sync form")).hasSize(1);
+        assertThat(html.selectFirst("details.readership-manual").hasAttr("open")).isFalse();
+        verifyNoInteractions(reader);
+        when(reader.readPublicViews(ChannelType.JUEJIN, url)).thenReturn(321L);
+        mvc.perform(post(path + "/sync").session(session).with(csrf()).param("version", "0"))
+                .andExpect(redirectedUrl(path)).andExpect(flash().attributeExists("successMessage"));
+        assertThat(page(path).text()).contains("阅读 / 浏览 321 次", "自动读取");
+        for (String list : List.of("/publishing?tab=records", "/publishing/articles/" + articleId))
+            assertThat(page(list).text()).contains("阅读 / 浏览 321 次", "自动读取");
+        assertThat(repository.find(TENANT, PublicationMethod.MANUAL, publicationId).orElseThrow().uniqueReaders()).isNull();
+        verify(reader, times(1)).readPublicViews(ChannelType.JUEJIN, url);
+        verify(reader, never()).readViews(any(), any());
     }
 
     private org.jsoup.nodes.Document page(String path) throws Exception {

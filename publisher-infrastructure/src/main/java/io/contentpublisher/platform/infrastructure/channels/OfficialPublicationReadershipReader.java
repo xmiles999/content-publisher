@@ -3,6 +3,7 @@ package io.contentpublisher.platform.infrastructure.channels;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.contentpublisher.platform.application.ApplicationException;
+import io.contentpublisher.platform.application.PublicReadershipArticle;
 import io.contentpublisher.platform.application.port.ChannelEndpointPolicy;
 import io.contentpublisher.platform.application.port.CredentialVault;
 import io.contentpublisher.platform.application.port.PublicationReadershipReader;
@@ -42,6 +43,46 @@ public class OfficialPublicationReadershipReader implements PublicationReadershi
         this.properties = properties;
         this.endpoints = endpoints;
         this.vault = vault;
+    }
+
+    /** Public web endpoint, not an authenticated creator analytics API. Never requests the supplied URL. */
+    @Override public long readPublicViews(ChannelType channel, String externalUrl) {
+        if (!properties.enabled()) throw error("READERSHIP_DISABLED", "渠道接口服务未启用，请联系管理员启用");
+        String articleId = PublicReadershipArticle.articleId(channel, externalUrl)
+                .orElseThrow(() -> error("READERSHIP_EXTERNAL_ID_INVALID", "请先保存有效的掘金文章链接"));
+        CompletableFuture<HttpResponse<byte[]>> pending = null;
+        try {
+            Duration timeout = properties.timeout().compareTo(Duration.ofSeconds(15)) > 0
+                    ? Duration.ofSeconds(15) : properties.timeout();
+            byte[] body = json.writeValueAsBytes(Map.of("article_id", articleId, "req_from", 1,
+                    "client_type", 2608, "forbid_count", false, "is_pre_load", false, "need_theme", true));
+            var request = HttpRequest.newBuilder(URI.create("https://api.juejin.cn/content_api/v1/article/detail?aid=2608"))
+                    .timeout(timeout).header("Content-Type", "application/json").header("Accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
+            pending = client.sendAsync(request, ignored -> new LimitedBodySubscriber());
+            HttpResponse<byte[]> response = pending.get(Math.max(1, timeout.toMillis()), TimeUnit.MILLISECONDS);
+            if (response.statusCode() == 429) throw error("READERSHIP_RATE_LIMIT", "平台请求过于频繁，请稍后再试");
+            if (response.statusCode() == 401 || response.statusCode() == 403)
+                throw error("READERSHIP_PERMISSION", "平台暂不允许公开读取，请打开文章查看或稍后重试");
+            if (response.statusCode() < 200 || response.statusCode() >= 300)
+                throw error("READERSHIP_HTTP_ERROR", "平台暂未返回有效统计，请稍后重试");
+            JsonNode root = json.readTree(response.body());
+            JsonNode info = root.path("data").path("article_info");
+            JsonNode count = info.path("view_count");
+            if (!root.path("err_no").isIntegralNumber() || !root.path("err_no").canConvertToInt() || root.path("err_no").intValue() != 0
+                    || !info.path("article_id").isTextual() || !info.path("article_id").textValue().equals(articleId)
+                    || !count.isIntegralNumber() || !count.canConvertToLong() || count.longValue() < 0)
+                throw error("READERSHIP_RESPONSE_INVALID", "平台未返回匹配文章的有效阅读次数，已有数据未更新");
+            return count.longValue();
+        } catch (ApplicationException expected) { throw expected; }
+        catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw error("READERSHIP_INTERRUPTED", "同步已中断，请稍后重试");
+        } catch (TimeoutException timeout) {
+            throw error("READERSHIP_TIMEOUT", "平台统计请求超时，请稍后重试");
+        } catch (Exception failure) {
+            throw error("READERSHIP_UNAVAILABLE", "无法读取公开统计，请稍后重试或打开平台文章查看");
+        } finally { if (pending != null && !pending.isDone()) pending.cancel(true); }
     }
 
     @Override public long readViews(ChannelAccount account, String externalId) {

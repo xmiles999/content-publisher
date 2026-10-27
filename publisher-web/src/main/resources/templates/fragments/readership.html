@@ -1,16 +1,17 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><body>
 <div th:fragment="counts(snapshot)" class="readership-counts">
-    <span th:if="${snapshot == null or !snapshot.hasCounts()}">未录入 / 未同步</span>
+    <span th:if="${snapshot == null or !snapshot.hasCounts()}">暂无阅读数据</span>
     <span th:if="${snapshot != null and snapshot.views != null}" th:text="|阅读 / 浏览 ${snapshot.views} 次|">次数</span>
     <span th:if="${snapshot != null and snapshot.uniqueReaders != null}" th:text="|去重 ${snapshot.uniqueReaders} 人|">人数</span>
-    <small th:if="${snapshot != null and snapshot.hasCounts() and snapshot.uniqueReaders == null}">去重人数未提供</small>
 </div>
-<div th:fragment="summary(record, snapshots)" th:if="${record.status.name() == 'PUBLISHED'}" class="readership-summary" th:with="snapshot=${snapshots.get(record.method.name() + ':' + record.id)}">
-    <div th:replace="~{fragments/readership :: counts(${snapshot})}"></div>
-    <small th:if="${snapshot != null and snapshot.recordedAt != null}" th:text="|${snapshot.source == 'API' ? '官方接口' : '手动录入'} · ${snapshot.recordedAt}|">来源与时间</small>
-    <small class="record-error" th:if="${snapshot != null and snapshot.syncError != null}">同步失败，已有数据保留</small>
+<div th:fragment="summary(record, snapshots)" th:if="${record.status.name() == 'PUBLISHED'}" class="readership-summary" th:with="key=${record.method.name() + ':' + record.id},snapshot=${snapshots.get(key)},availability=${readershipAvailability.get(key)}">
+    <div th:if="${snapshot != null and snapshot.hasCounts()}"><div th:replace="~{fragments/readership :: counts(${snapshot})}"></div></div>
+    <span th:unless="${availability.syncSupported}" th:text="${availability.label}">暂未接入自动统计</span>
+    <span th:if="${availability.syncSupported and (snapshot == null or !snapshot.hasCounts())}">尚未同步阅读量</span>
+    <small th:if="${snapshot != null and snapshot.recordedAt != null}" th:text="|${snapshot.source == 'API' ? '自动读取' : '手动录入'} · ${snapshot.recordedAt}|">来源与时间</small>
+    <small class="record-error" th:if="${snapshot != null and snapshot.syncError != null}" th:text="${snapshot.hasCounts()} ? '同步失败，已有数据保留' : '同步失败，尚无统计数据'">同步失败</small>
     <small th:if="${snapshot != null and snapshot.lastSyncAt != null and snapshot.syncError == null and (snapshot.recordedAt == null or snapshot.lastSyncAt.isAfter(snapshot.recordedAt))}">同步中或未完成，已有数据保留</small>
-    <a class="text-link" th:href="@{/publishing/articles/{articleId}/readership/{method}/{id}(articleId=${record.articleId},method=${record.method},id=${record.id})}" th:text="${canEdit} ? '更新统计' : '查看统计'">更新统计</a>
+    <a class="text-link" th:href="@{/publishing/articles/{articleId}/readership/{method}/{id}(articleId=${record.articleId},method=${record.method},id=${record.id})}" th:text="${availability.syncSupported or (snapshot != null and snapshot.hasCounts())} ? '查看统计' : '查看说明'">查看统计</a>
 </div>
 </body></html>

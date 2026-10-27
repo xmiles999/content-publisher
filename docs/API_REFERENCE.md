@@ -13,7 +13,7 @@
 
 本文档描述当前代码中已经存在的 REST API。新增、删除或修改 Controller、DTO、角色要求、错误码或状态码时，必须在同一变更中更新本文档。
 
-阅读统计采用认证后的 Portal HTML 表单，不新增 REST 合同。GET/POST `/publishing/articles/{articleId}/readership/{method}/{publicationId}` 用于查看/手动录入，POST 同路径 `/sync` 用于 DEV、Discourse API 记录同步；写操作限 Editor/Admin + CSRF，Viewer 只读。字段、校验、错误和完整路径说明见[发布阅读统计](阅读统计.md)。
+阅读统计采用认证后的 Portal HTML 表单，不新增 REST 合同。GET/POST `/publishing/articles/{articleId}/readership/{method}/{publicationId}` 用于查看/可选补录，POST 同路径 `/sync` 用于 DEV、Discourse API 记录同步及掘金文章链接读取（包括人工发布记录，不要求 API 账号）；写操作限 Editor/Admin + CSRF，Viewer 只读。页面优先展示同步能力，补录默认折叠，POST 校验失败或版本冲突时展开并保留输入；路由和字段不变。字段、校验、错误和完整路径说明见[发布阅读统计](阅读统计.md)。
 
 产品长期采用纯个人模式。Portal 已使用 `READY` 和本人内容确认；REST 仍保留多租户、Viewer/Editor/Admin、`approve/reject`、`APPROVED/REJECTED` 与旧错误码作为历史兼容合同。人工平台配置和个人确认通过 Session + CSRF 的 Portal 表单实现，不新增 `/api/v1` 路径。
 

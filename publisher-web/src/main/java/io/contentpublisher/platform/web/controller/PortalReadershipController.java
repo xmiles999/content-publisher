@@ -40,6 +40,7 @@ public class PortalReadershipController {
                        @PathVariable UUID publicationId, @Valid @ModelAttribute ReadershipForm readershipForm,
                        BindingResult binding, Model model, RedirectAttributes redirect) {
         load(articleId, method, publicationId, model);
+        model.addAttribute("manualFormOpen", true);
         if (!binding.hasErrors()) {
             try {
                 readership.saveManual(actors.currentActor(), articleId, method, publicationId,
@@ -58,7 +59,7 @@ public class PortalReadershipController {
         readership.publication(actors.currentActor(), articleId, method, publicationId);
         try {
             readership.sync(actors.currentActor(), articleId, method, publicationId, version);
-            redirect.addFlashAttribute("successMessage", "已同步官方浏览次数；接口不提供去重人数");
+            redirect.addFlashAttribute("successMessage", "已同步平台阅读 / 浏览次数；平台未提供去重人数");
         } catch (ApplicationException failure) { redirect.addFlashAttribute("errorMessage", failure.getMessage()); }
         return "redirect:" + path(articleId, method, publicationId);
     }
@@ -67,7 +68,7 @@ public class PortalReadershipController {
         var record = readership.publication(actors.currentActor(), articleId, method, publicationId);
         model.addAttribute("publication", record);
         model.addAttribute("readership", readership.snapshot(actors.currentActor(), record));
-        model.addAttribute("supportsSync", ReadershipApplicationService.supportsSync(record));
+        model.addAttribute("readershipAvailability", io.contentpublisher.platform.web.dto.ReadershipAvailability.from(record));
         model.addAttribute("channelName", ChannelCatalog.definition(record.channelType()).displayName());
         model.addAttribute("readershipPath", path(articleId, method, publicationId));
         return record;

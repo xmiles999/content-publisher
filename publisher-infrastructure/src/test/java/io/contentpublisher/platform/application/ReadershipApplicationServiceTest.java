@@ -138,6 +138,42 @@ class ReadershipApplicationServiceTest {
         verifyNoInteractions(reader);
     }
 
+    @Test void manualJuejinRecordReadsPublicLinkWithoutAnApiAccountAndKeepsCooldown() {
+        String url = "https://juejin.cn/post/7698382188488048649?utm_source=share#heading";
+        when(publishing.getArticlePublicationRecords(actor, articleId)).thenReturn(List.of(
+                new PublicationRecord(publicationId, articleId, "文章", ChannelType.JUEJIN, PublicationMethod.MANUAL,
+                        PublicationStatus.PUBLISHED, null, null, ContentFormat.MARKDOWN, url, null, null, "owner", now, now)));
+        when(reader.readPublicViews(ChannelType.JUEJIN, url)).thenReturn(123L);
+        service.sync(actor, articleId, PublicationMethod.MANUAL, publicationId, 0);
+        assertThat(stored.get().views()).isEqualTo(123);
+        assertThat(stored.get().uniqueReaders()).isNull();
+        assertThat(stored.get().source()).isEqualTo("API");
+        assertThatThrownBy(() -> service.sync(actor, articleId, PublicationMethod.MANUAL, publicationId, 2))
+                .hasMessageContaining("30 秒");
+        verifyNoInteractions(publications, accounts);
+        verify(reader, never()).readViews(any(), any());
+    }
+
+    @Test void publicReadFailureKeepsManualCountsAndConcurrentEditWinsOverLateResult() {
+        String url = "https://juejin.cn/post/123";
+        when(publishing.getArticlePublicationRecords(actor, articleId)).thenReturn(List.of(
+                new PublicationRecord(publicationId, articleId, "文章", ChannelType.JUEJIN, PublicationMethod.MANUAL,
+                        PublicationStatus.PUBLISHED, null, null, ContentFormat.MARKDOWN, url, null, null, "owner", now, now)));
+        service.saveManual(actor, articleId, PublicationMethod.MANUAL, publicationId, 0, 100L, 90L);
+        when(reader.readPublicViews(any(), any())).thenThrow(new ApplicationException("READERSHIP_UNAVAILABLE", "无法读取公开统计"));
+        assertThatThrownBy(() -> service.sync(actor, articleId, PublicationMethod.MANUAL, publicationId, 1)).hasMessageContaining("无法读取");
+        assertThat(stored.get().views()).isEqualTo(100);
+        assertThat(stored.get().uniqueReaders()).isEqualTo(90);
+        assertThat(stored.get().source()).isEqualTo("MANUAL");
+        stored.set(null);
+        doAnswer(i -> {
+            service.saveManual(actor, articleId, PublicationMethod.MANUAL, publicationId, stored.get().version(), 500L, null);
+            return 789L;
+        }).when(reader).readPublicViews(any(), any());
+        assertThatThrownBy(() -> service.sync(actor, articleId, PublicationMethod.MANUAL, publicationId, 0)).hasMessageContaining("已被修改");
+        assertThat(stored.get().views()).isEqualTo(500);
+    }
+
     private PublicationRecord record(PublicationMethod method, PublicationStatus status) {
         return new PublicationRecord(publicationId, articleId, "文章", ChannelType.DEV, method, status, accountId,
                 "个人账号", ContentFormat.MARKDOWN, "https://dev.to/author/test", null, null, "owner", now, now);

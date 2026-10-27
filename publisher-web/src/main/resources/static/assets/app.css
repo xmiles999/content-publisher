@@ -734,6 +734,11 @@ td small { display: block; max-width: 430px; overflow: hidden; color: var(--mute
 .readership-summary { margin-top: 6px; font-size: 12px; overflow-wrap: anywhere; }
 .readership-counts { display: flex; flex-wrap: wrap; gap: 4px 12px; overflow-wrap: anywhere; }
 .readership-summary > small { display: block; color: var(--muted); margin: 4px 0; }
+.readership-availability { margin-bottom: 18px; }
+.readership-sync { margin-top: 18px; }
+.readership-manual { padding-top: 18px; border-top: 1px solid var(--line); }
+.readership-manual > summary { min-height: 44px; display: list-item; align-content: center; cursor: pointer; font-weight: 650; }
+.readership-manual > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 .manual-channel-row strong, .manual-channel-row small { display: block; }
 .manual-channel-row small { margin-top: 4px; overflow-wrap: anywhere; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .muted-action { flex: 0 0 auto; color: var(--muted); font-size: 12px; }

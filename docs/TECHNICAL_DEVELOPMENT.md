@@ -13,7 +13,7 @@
 
 本文档描述当前代码真实采用的框架、模块、结构组件、依赖方向、数据流、持久化、安全、配置、测试和部署边界。代码、配置、依赖、迁移、Controller、DTO、端口、适配器或测试结构变化时，必须同步更新本文档。
 
-发布阅读统计的应用服务、JDBC 条件写入、官方读取适配器、并发/失败模型和 V26 表结构见[发布阅读统计](阅读统计.md)。发布页仅从本地快照读取，外部接口只由显式同步 POST 触发。
+发布阅读统计的应用服务、JDBC 条件写入、账号接口与公开链接读取适配器、并发/失败模型和 V26 表结构见[发布阅读统计](阅读统计.md)。`PublicReadershipArticle` 校验掘金链接并仅提取编号，适配器向固定公开端点读取准确次数，不请求用户链接或读取 Cookie。Web DTO `ReadershipAvailability` 统一支持接口/支持链接/链接无效/未接入/人工记录未关联的说明，列表按本页记录一次生成映射；统计页将同步作为主操作，以原生 details 折叠可选补录，错误回显时展开。发布页仅从本地快照读取，外部接口只由显式同步 POST 触发；接入状态不代表凭据已在线验证。无新依赖或迁移，`source=API` 兼容表示自动读取。
 
 接口字段和错误契约见 [API_REFERENCE.md](API_REFERENCE.md)，完整配置和运维步骤见 [OPERATIONS.md](OPERATIONS.md)，业务规则见 [FUNCTIONAL_SPEC.md](FUNCTIONAL_SPEC.md)。中文入口见[文档索引](README.md)，本地启动与回归入口见[开发文档](开发文档.md)，精简边界见[个人使用精简说明](个人使用精简说明.md)。
 
@@ -962,7 +962,7 @@ Git、网站、AI 和自托管渠道都执行：
 | 架构 | `ArchitectureBoundaryTest` | 模块依赖和入口边界 |
 | 上下文 | `PublisherApplicationTest` | Bean、Flyway、Hibernate 装配 |
 | SEO | `ArticleSeoViewTest` | 评分规则 |
-| 阅读统计 | `ReadershipApplicationServiceTest`、`OfficialPublicationReadershipReaderTest`、`ReadershipIntegrationTest` | V26、次数/人数口径、租户和角色、CAS、响应限额、完整超时、失败保留与同步/手动编辑竞争 |
+| 阅读统计 | `ReadershipApplicationServiceTest`、`OfficialPublicationReadershipReaderTest`、`PublicPublicationReadershipReaderTest`、`ReadershipIntegrationTest` | V26、次数/人数口径、租户和角色、CAS、掘金链接标识提取与固定公开端点、响应限额、完整超时、失败保留与同步/手动编辑竞争 |
 
 ### 17.2 验证命令
 

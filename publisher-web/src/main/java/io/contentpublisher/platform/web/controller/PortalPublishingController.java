@@ -152,6 +152,7 @@ public class PortalPublishingController {
         model.addAttribute("publicationRecordPage", publicationRecordPage);
         model.addAttribute("publicationBatchPage", PortalPage.from(filteredBatches, selectedPage, selectedSize));
         model.addAttribute("publicationRecords", publicationRecordPage.items());
+        model.addAttribute("readershipAvailability", readershipAvailability(publicationRecordPage.items()));
         model.addAttribute("readershipSnapshots", selectedTab.equals("records")
                 ? readership.snapshots(actor, publicationRecordPage.items()) : Map.of());
         model.addAttribute("totalRecordCount", totalRecordCount);
@@ -271,6 +272,7 @@ public class PortalPublishingController {
                 .filter(ManualChannelProfileView::enabled).toList());
         var records = publishing.getArticlePublicationRecords(actor, articleId);
         model.addAttribute("publicationRecords", records);
+        model.addAttribute("readershipAvailability", readershipAvailability(records));
         model.addAttribute("readershipSnapshots", readership.snapshots(actor, records));
         Map<ChannelType, PublicationRecord> publishedChannels = new EnumMap<>(ChannelType.class);
         records.stream().filter(record -> record.status() == PublicationStatus.PUBLISHED)
@@ -278,6 +280,13 @@ public class PortalPublishingController {
         model.addAttribute("publishedChannels", publishedChannels);
         model.addAttribute("channelNames", channelNames());
         return "article-publishing";
+    }
+
+    private Map<String, io.contentpublisher.platform.web.dto.ReadershipAvailability> readershipAvailability(
+            List<PublicationRecord> records) {
+        return records.stream().collect(java.util.stream.Collectors.toMap(
+                io.contentpublisher.platform.application.ReadershipApplicationService::key,
+                io.contentpublisher.platform.web.dto.ReadershipAvailability::from));
     }
 
     @GetMapping("/channels")
