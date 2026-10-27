@@ -217,6 +217,7 @@ node --check publisher-web/src/main/resources/static/assets/app.js
 说明：
 
 - `verify` 执行 Reactor `clean verify`、单元/集成测试、JaCoCo 和 CycloneDX SBOM。
+- GitHub Verify 的秘密扫描显式传入 GitHub 自动生成的 `GITHUB_TOKEN`，供固定版本的 Gitleaks Action 认证调用 GitHub API，避免共享 Runner 的匿名限流使个人账号识别失败并转而要求许可证。令牌不写入仓库或日志，仍保持工作流现有 `contents: read` 权限；不修改扫描范围或抑制项。组织仓库的许可证要求仍按 Action 官方规则处理。
 - `openapi check` 对比 Controller 生成结果与 `docs/openapi.json`。
 - `security` 使用 OWASP Dependency Check。存在 `NVD_API_KEY` 时，仅向 Maven
   传递环境变量名，不把密钥放入命令行；没有 Key 时自动使用 OWASP
