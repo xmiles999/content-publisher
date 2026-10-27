@@ -182,7 +182,7 @@ PUBLISHER_APP_URL=https://publisher.example.com ./scripts/dev browser
 
 ### 人工发布
 
-- 在 `/channels?view=manual` 配置 24 个具有官方创作入口的平台；未保存配置的平台默认启用。DEV、WordPress、GitHub Discussions、Twitter/X、Reddit、Hashnode 和 Medium 即使没有 API 账号也可直接人工发布。
+- 在 `/channels` 选择常用平台；24 个具有官方创作入口的平台在未保存配置时不自动启用。DEV、WordPress、GitHub Discussions、Twitter/X、Reddit、Hashnode 和 Medium 即使没有 API 账号，也可在启用后直接人工发布。
 - Discourse、Mastodon 和 Ghost 需要用户自己的站点或实例地址，当前没有可安全复用的固定编辑入口，因此不进入人工发布列表。
 - 可保存个人账号别名、默认标签、默认栏目/分类、发布备注、排序和启停状态；停用的平台不会出现在文章发布目标中。
 - 使用 `./scripts/dev browser` 打开系统，并在第一次使用时登录各平台；后续人工发布复用同一设备上的持久浏览器 Profile。
@@ -194,7 +194,9 @@ PUBLISHER_APP_URL=https://publisher.example.com ./scripts/dev browser
 ### 运营自动化
 
 - `/actions` 汇总待处理动作和站内通知。
-- `/publishing` 默认展示待发布文稿；渠道覆盖视图支持数据库搜索与分页；待发布仅展示 `READY/APPROVED`，已发布文稿从覆盖矩阵继续添加渠道；`/calendar` 展示计划任务与发布记录。
+- `/publishing` 默认展示待发布文稿；渠道覆盖合并启用的人工平台和 API 渠道，保留成功链接及最近失败提示，支持数据库搜索与分页；待发布仅展示 `READY/APPROVED`，已发布文稿从覆盖矩阵继续添加渠道；`/calendar` 展示计划任务与发布记录。
+- `/channels` 默认进入“我的渠道”；未配置的平台不自动启用，可勾选常用平台后统一保存，已有别名、标签和备注保持不变。API 配置在独立页签中。
+- API 发布使用主稿；人工发布可选择主稿或完整英文稿，不按渠道地区强制语言。人工工作区支持复制主稿富文本，图片仍需在目标平台检查或上传。
 - `/automation` 管理生成预设和通知 Webhook；生成预设使用服务端字段校验并在失败时保留输入。
 - 共享左侧导航显示待办、待发布和任务队列的真实计数；桌面支持持久化紧凑模式，低频设置折叠。账户菜单不展示角色和租户，仅 LOCAL 模式提供改密与退出；移动端使用支持键盘关闭和焦点恢复的抽屉。
 - 后台、登录、改密和错误页支持“跟随系统 → 浅色 → 深色”三态外观切换；选择保存在当前浏览器的 `localStorage` 中，不上传服务端，也不跨设备同步。

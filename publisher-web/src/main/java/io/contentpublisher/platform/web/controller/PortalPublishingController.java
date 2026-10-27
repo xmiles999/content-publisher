@@ -21,6 +21,8 @@ import io.contentpublisher.platform.web.form.BatchPublishArticleForm;
 import io.contentpublisher.platform.web.form.CreateChannelAccountForm;
 import io.contentpublisher.platform.web.form.ManualChannelProfileForm;
 import io.contentpublisher.platform.web.form.ManualPublicationForm;
+import io.contentpublisher.platform.web.form.ChannelSelectionForm;
+import io.contentpublisher.platform.application.port.MarkdownRenderer;
 import io.contentpublisher.platform.web.form.PublishArticleForm;
 import io.contentpublisher.platform.web.dto.ChannelAccountView;
 import io.contentpublisher.platform.web.dto.ManualChannelProfileView;
@@ -62,6 +64,7 @@ public class PortalPublishingController {
     private final ManualChannelProfileApplicationService manualProfiles;
     private final ScheduleParser scheduleParser;
     private final RequestActorProvider actors;
+    private final MarkdownRenderer markdownRenderer;
 
     public PortalPublishingController(PublishingApplicationService publishing,
                                       ProjectApplicationService projects,
@@ -69,7 +72,7 @@ public class PortalPublishingController {
                                       AutomationApplicationService automation,
                                       ManualChannelProfileApplicationService manualProfiles,
                                       ScheduleParser scheduleParser,
-                                      RequestActorProvider actors) {
+                                      RequestActorProvider actors, MarkdownRenderer markdownRenderer) {
         this.publishing = publishing;
         this.projects = projects;
         this.jobs = jobs;
@@ -77,6 +80,7 @@ public class PortalPublishingController {
         this.manualProfiles = manualProfiles;
         this.scheduleParser = scheduleParser;
         this.actors = actors;
+        this.markdownRenderer = markdownRenderer;
     }
 
     @GetMapping("/publishing")
@@ -146,9 +150,10 @@ public class PortalPublishingController {
                 .filter(batch -> batch.activeCount() > 0).count());
         model.addAttribute("failedBatchCount", publicationBatches.stream()
                 .filter(batch -> batch.failedCount() > 0).count());
+        var pack = publishPack(actor, accountViews);
         model.addAttribute("publicationMatrix", selectedTab.equals("coverage")
-                ? publicationMatrix(actor, articles) : List.of());
-        model.addAttribute("publishPackSize", publishPack(actor).size());
+                ? publicationMatrix(actor, articles, pack) : List.of());
+        model.addAttribute("publishPackSize", pack.size());
         model.addAttribute("articleNames", articleNames);
         model.addAttribute("publishedCount", publishedCount);
         model.addAttribute("channelNames", channelNames);
@@ -168,23 +173,33 @@ public class PortalPublishingController {
     }
 
     private List<PublicationMatrixRow> publicationMatrix(io.contentpublisher.platform.domain.ActorContext actor,
-                                                          List<Article> articles) {
+                                                          List<Article> articles,
+                                                          List<ChannelCatalog.ChannelDefinition> pack) {
         var matrixRecords = publishing.listPublicationRecordsForArticles(actor,
                 articles.stream().map(Article::id).toList());
         Map<ArticleChannelKey, PublicationRecord> latest = new java.util.HashMap<>();
+        Map<ArticleChannelKey, PublicationRecord> published = new java.util.HashMap<>();
         matrixRecords.forEach(record -> latest.putIfAbsent(
                 new ArticleChannelKey(record.articleId(), record.channelType()), record));
-        List<ChannelCatalog.ChannelDefinition> pack = publishPack(actor);
+        matrixRecords.stream().filter(record -> record.status() == PublicationStatus.PUBLISHED)
+                .forEach(record -> published.putIfAbsent(new ArticleChannelKey(record.articleId(), record.channelType()), record));
         return articles.stream().map(article -> new PublicationMatrixRow(article, pack.stream()
                 .map(channel -> new PublicationMatrixCell(channel,
-                        latest.get(new ArticleChannelKey(article.id(), channel.type())))).toList())).toList();
+                        latest.get(new ArticleChannelKey(article.id(), channel.type())),
+                        published.get(new ArticleChannelKey(article.id(), channel.type())))).toList())).toList();
     }
 
-    private List<ChannelCatalog.ChannelDefinition> publishPack(ActorContext actor) {
-        return manualProfileViews(actor).stream()
+    private List<ChannelCatalog.ChannelDefinition> publishPack(ActorContext actor, List<ChannelAccountView> accounts) {
+        Map<ChannelType, ChannelCatalog.ChannelDefinition> pack = new LinkedHashMap<>();
+        manualProfileViews(actor).stream()
                 .filter(ManualChannelProfileView::enabled)
                 .map(ManualChannelProfileView::channel)
-                .toList();
+                .forEach(channel -> pack.put(channel.type(), channel));
+        accounts.stream().filter(account -> account.status() == ChannelAccountStatus.ACTIVE)
+                .map(account -> ChannelCatalog.definition(account.type()))
+                .filter(ChannelCatalog.ChannelDefinition::existingAccountOperational)
+                .forEach(channel -> pack.putIfAbsent(channel.type(), channel));
+        return List.copyOf(pack.values());
     }
 
     private String normalizeTab(String tab) {
@@ -246,20 +261,17 @@ public class PortalPublishingController {
                 .filter(ManualChannelProfileView::enabled).toList());
         model.addAttribute("publicationRecords", publishing.getArticlePublicationRecords(actor, articleId));
         model.addAttribute("channelNames", channelNames());
-        Map<ChannelType, ChannelCatalog.ChannelRegion> channelRegions = new java.util.EnumMap<>(ChannelType.class);
-        ChannelCatalog.all().forEach(channel -> channelRegions.put(channel.type(), channel.region()));
-        model.addAttribute("channelRegions", channelRegions);
         return "article-publishing";
     }
 
     @GetMapping("/channels")
-    public String channels(@RequestParam(defaultValue = "api") String view, Model model) {
+    public String channels(@RequestParam(defaultValue = "manual") String view, Model model) {
         if (!model.containsAttribute("channelAccountForm")) {
             CreateChannelAccountForm form = new CreateChannelAccountForm();
             form.setIdempotencyKey(idempotencyKey("channel"));
             model.addAttribute("channelAccountForm", form);
         }
-        model.addAttribute("selectedChannelView", "manual".equalsIgnoreCase(view) ? "manual" : "api");
+        model.addAttribute("selectedChannelView", "api".equalsIgnoreCase(view) ? "api" : "manual");
         populateChannels(model);
         return "channels";
     }
@@ -276,7 +288,7 @@ public class PortalPublishingController {
             publishing.createAccount(actors.currentActor(), form.getType(), form.getDisplayName(),
                     blankToNull(form.getBaseUrl()), credentials(form), form.getIdempotencyKey());
             redirectAttributes.addFlashAttribute("success", "渠道账号已加密保存，可以用于自动发布");
-            return "redirect:/channels";
+            return "redirect:/channels?view=api";
         } catch (ApplicationException | IllegalArgumentException exception) {
             model.addAttribute("error", exception.getMessage());
             populateChannels(model);
@@ -297,7 +309,7 @@ public class PortalPublishingController {
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
-        return "redirect:/channels#account-" + accountId;
+        return "redirect:/channels?view=api#account-" + accountId;
     }
 
     @PostMapping("/channels/{accountId}/status")
@@ -312,7 +324,7 @@ public class PortalPublishingController {
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
-        return "redirect:/channels#account-" + accountId;
+        return "redirect:/channels?view=api#account-" + accountId;
     }
 
     @PostMapping("/channels/{accountId}/credentials")
@@ -333,7 +345,7 @@ public class PortalPublishingController {
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
-        return "redirect:/channels#account-" + accountId;
+        return "redirect:/channels?view=api#account-" + accountId;
     }
 
     @PostMapping("/channels/{accountId}/verify")
@@ -350,7 +362,7 @@ public class PortalPublishingController {
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
-        return "redirect:/channels#account-" + accountId;
+        return "redirect:/channels?view=api#account-" + accountId;
     }
 
     @PostMapping("/channels/{accountId}/delete")
@@ -364,7 +376,7 @@ public class PortalPublishingController {
         } catch (ApplicationException | IllegalArgumentException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
-        return "redirect:/channels";
+        return "redirect:/channels?view=api";
     }
 
     @PostMapping("/channels/manual/{channelType}/profile")
@@ -389,6 +401,19 @@ public class PortalPublishingController {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
         return redirect;
+    }
+
+    @PostMapping("/channels/manual/selection")
+    public String selectManualChannels(@ModelAttribute ChannelSelectionForm form, BindingResult bindingResult,
+                                       RedirectAttributes redirectAttributes) {
+        try {
+            if (bindingResult.hasErrors()) throw new IllegalArgumentException("渠道选择无效，请刷新后重试");
+            manualProfiles.selectChannels(actors.currentActor(), form.getEnabled(), form.getVersions());
+            redirectAttributes.addFlashAttribute("success", "常用渠道已保存，其他个人配置保持不变");
+        } catch (ApplicationException | IllegalArgumentException exception) {
+            redirectAttributes.addFlashAttribute("error", exception.getMessage());
+        }
+        return "redirect:/channels?view=manual";
     }
 
     @PostMapping("/channels/manual/{channelType}/login-confirmation")
@@ -463,7 +488,8 @@ public class PortalPublishingController {
     }
 
     @GetMapping("/articles/{articleId}/manual/{channelType}")
-    public String manualPublish(@PathVariable UUID articleId, @PathVariable ChannelType channelType, Model model,
+    public String manualPublish(@PathVariable UUID articleId, @PathVariable ChannelType channelType,
+                                @RequestParam(defaultValue = "original") String language, Model model,
                                 RedirectAttributes redirectAttributes) {
         var actor = actors.currentActor();
         var article = publishing.getArticle(actor, articleId);
@@ -471,7 +497,7 @@ public class PortalPublishingController {
         ManualChannelProfile profile = manualProfiles.findProfile(actor, channelType).orElse(null);
         AdaptedContent adapted;
         try {
-            adapted = publishing.adaptContent(actor, articleId, channelType, null);
+            adapted = publishing.adaptContent(actor, articleId, channelType, null, language);
         } catch (ApplicationException exception) {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
             return "redirect:/publishing/articles/" + articleId;
@@ -482,11 +508,14 @@ public class PortalPublishingController {
             form.setContentFormat(adapted.format());
             form.setTitle(adapted.title());
             form.setContent(adapted.body());
+            form.setLanguage(language);
             model.addAttribute("manualPublicationForm", form);
         }
         model.addAttribute("article", article);
         model.addAttribute("channel", definition);
         model.addAttribute("adapted", adapted);
+        model.addAttribute("selectedLanguage", language);
+        model.addAttribute("richTextHtml", markdownRenderer.render("en".equals(language) ? article.markdownEn() : article.markdown()));
         model.addAttribute("manualProfile", ManualChannelProfileView.from(definition, profile,
                 manualProfiles.defaultSortOrder(channelType)));
         model.addAttribute("history", publishing.getManualPublications(actor, articleId).stream()
@@ -506,7 +535,7 @@ public class PortalPublishingController {
                                         BindingResult bindingResult, Model model,
                                         RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
-            return manualPublish(articleId, channelType, model, redirectAttributes);
+            return manualPublish(articleId, channelType, form.getLanguage(), model, redirectAttributes);
         }
         try {
             var actor = actors.currentActor();
@@ -519,7 +548,7 @@ public class PortalPublishingController {
             return "redirect:/publishing/articles/" + articleId;
         } catch (ApplicationException | IllegalArgumentException exception) {
             model.addAttribute("error", exception.getMessage());
-            return manualPublish(articleId, channelType, model, redirectAttributes);
+            return manualPublish(articleId, channelType, form.getLanguage(), model, redirectAttributes);
         }
     }
 
@@ -529,7 +558,9 @@ public class PortalPublishingController {
         model.addAttribute("accounts", publishing.listAccounts(actor).stream()
                 .map(ChannelAccountView::from).toList());
         model.addAttribute("apiChannels", ChannelCatalog.automated());
-        model.addAttribute("manualChannels", manualProfileViews(actor));
+        var manualChannels = manualProfileViews(actor);
+        model.addAttribute("manualChannels", manualChannels);
+        model.addAttribute("enabledManualChannelCount", manualChannels.stream().filter(ManualChannelProfileView::enabled).count());
         model.addAttribute("channelNames", channelNames());
         Map<ChannelType, ChannelCatalog.ChannelDefinition> definitions = new EnumMap<>(ChannelType.class);
         ChannelCatalog.all().forEach(definition -> definitions.put(definition.type(), definition));
@@ -543,7 +574,8 @@ public class PortalPublishingController {
         return ManualChannelProfileApplicationService.configurableChannels().stream()
                 .map(channel -> ManualChannelProfileView.from(channel, savedProfiles.get(channel.type()),
                         manualProfiles.defaultSortOrder(channel.type())))
-                .sorted(Comparator.comparingInt(ManualChannelProfileView::sortOrder)
+                .sorted(Comparator.comparing(ManualChannelProfileView::enabled).reversed()
+                        .thenComparingInt(ManualChannelProfileView::sortOrder)
                         .thenComparing(view -> view.channel().type().name()))
                 .toList();
     }

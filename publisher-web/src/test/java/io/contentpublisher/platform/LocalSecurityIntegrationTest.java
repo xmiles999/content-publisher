@@ -656,7 +656,7 @@ class LocalSecurityIntegrationTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("DEV 主账号")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("X 主账号")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("2 个渠道")));
-        String channelsHtml = mockMvc.perform(get("/channels").session(session))
+        String channelsHtml = mockMvc.perform(get("/channels").param("view", "api").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-channel-dialog-open")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("data-channel-dialog")))
@@ -711,6 +711,12 @@ class LocalSecurityIntegrationTest {
                         "如果平台主动注销会话，请在打开的官方页面重新登录一次")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("PLAIN_TEXT")));
         mockMvc.perform(get("/articles/" + articleId + "/manual/DEV").session(session))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/channels/manual/DEV/profile").session(session).with(csrf())
+                        .param("channelType", "DEV").param("expectedVersion", "0")
+                        .param("enabled", "true").param("sortOrder", "10"))
+                .andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/articles/" + articleId + "/manual/DEV").session(session))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("DEV Community")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("MARKDOWN")));
@@ -761,6 +767,17 @@ class LocalSecurityIntegrationTest {
     }
 
     @Test
+    void shouldProtectBulkChannelSelectionWithAdminAndCsrf() throws Exception {
+        MockHttpSession session = login();
+        mockMvc.perform(post("/channels/manual/selection").session(session))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/access-denied"));
+        mockMvc.perform(post("/channels/manual/selection").with(csrf())
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                                .user("selection-editor").roles("EDITOR")))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/access-denied"));
+    }
+
+    @Test
     void shouldRequireAdminAndCsrfWhenRemovingPortalChannelAccount() throws Exception {
         Instant now = Instant.parse("2026-08-11T06:00:00Z");
         UUID accountId = UUID.randomUUID();
@@ -780,7 +797,7 @@ class LocalSecurityIntegrationTest {
         mockMvc.perform(post("/channels/" + accountId + "/delete").session(session).with(csrf())
                         .param("expectedVersion", "1"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/channels"));
+                .andExpect(redirectedUrl("/channels?view=api"));
         assertThat(channelAccounts.findChannelAccountById("tenant-local", accountId)).isEmpty();
         mockMvc.perform(get("/channels").session(session))
                 .andExpect(status().isOk())
@@ -811,10 +828,10 @@ class LocalSecurityIntegrationTest {
 
             mockMvc.perform(get("/channels?view=manual").session(session))
                     .andExpect(status().isOk())
-                    .andExpect(content().string(org.hamcrest.Matchers.containsString("人工发布平台")))
+                    .andExpect(content().string(org.hamcrest.Matchers.containsString("常用平台")))
                     .andExpect(content().string(org.hamcrest.Matchers.not(
                             org.hamcrest.Matchers.containsString("保存个人配置"))));
-            mockMvc.perform(get("/channels").session(session))
+            mockMvc.perform(get("/channels").param("view", "api").session(session))
                     .andExpect(status().isOk())
                     .andExpect(content().string(org.hamcrest.Matchers.containsString("Editor 只读账号")))
                     .andExpect(content().string(org.hamcrest.Matchers.not(

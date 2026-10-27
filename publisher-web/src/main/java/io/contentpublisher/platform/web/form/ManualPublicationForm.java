@@ -6,6 +6,12 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public class ManualPublicationForm {
+    @jakarta.validation.constraints.Pattern(regexp = "original|en", message = "请选择主稿或英文稿")
+    private String language = "original";
+
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+
     @NotNull
     private ContentFormat contentFormat;
 

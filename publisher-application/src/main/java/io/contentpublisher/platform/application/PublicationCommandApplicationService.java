@@ -80,8 +80,13 @@ public final class PublicationCommandApplicationService {
 
     public AdaptedContent adaptContent(ActorContext actor, UUID articleId, ChannelType channelType,
                                        String canonicalUrl) {
+        return adaptContent(actor, articleId, channelType, canonicalUrl, "original");
+    }
+
+    public AdaptedContent adaptContent(ActorContext actor, UUID articleId, ChannelType channelType,
+                                       String canonicalUrl, String language) {
         Article article = getArticle(actor, articleId);
-        return contentAdapter.adaptForManual(article, channelType, validateCanonicalUrl(canonicalUrl));
+        return contentAdapter.adaptForManual(article, channelType, validateCanonicalUrl(canonicalUrl), language);
     }
 
     public ManualPublication completeManualPublication(ActorContext actor, UUID articleId, ChannelType channelType,

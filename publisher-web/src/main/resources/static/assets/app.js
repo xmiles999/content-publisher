@@ -1,4 +1,11 @@
 (() => {
+    const currentLocation = new URL(window.location.href);
+    if (currentLocation.pathname === '/channels' && currentLocation.hash.startsWith('#account-')
+            && !currentLocation.searchParams.has('view')) {
+        currentLocation.searchParams.set('view', 'api');
+        window.location.replace(currentLocation.href);
+        return;
+    }
     document.querySelectorAll('time[data-local-time]').forEach(time => {
         const date = new Date(time.dateTime);
         if (!Number.isFinite(date.getTime())) return;
@@ -250,12 +257,17 @@
         }
     }));
 
+    const copyFeedback = message => {
+        const feedback = document.querySelector('[data-copy-feedback]');
+        if (feedback) feedback.textContent = message;
+    };
     const copy = async (value, button) => {
         try {
             await navigator.clipboard.writeText(value);
             const label = button.textContent;
             button.textContent = '已复制';
             button.classList.add('copied');
+            copyFeedback('已复制');
             window.setTimeout(() => {
                 button.textContent = label;
                 button.classList.remove('copied');
@@ -264,6 +276,7 @@
             return true;
         } catch (_error) {
             button.textContent = '复制失败';
+            copyFeedback('复制失败，请允许剪贴板权限后重试，或手动选择正文复制。');
             return false;
         }
     };
@@ -279,10 +292,53 @@
     document.querySelectorAll('[data-copy-and-open]').forEach(button => button.addEventListener('click', async () => {
         const title = document.querySelector(button.dataset.copyTitle);
         const content = document.querySelector(button.dataset.copyContent);
-        if (title && content) await copy(`${title.value}\n\n${content.value}`, button);
+        if (!title || !content || !await copy(`${title.value}\n\n${content.value}`, button)) return;
         const launch = document.querySelector('[data-platform-launch]');
         if (launch) launch.click();
     }));
+    document.querySelectorAll('[data-copy-rich-text]').forEach(button => button.addEventListener('click', async () => {
+        const template = document.querySelector(button.dataset.copyRichText);
+        if (!template || !navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+            copyFeedback('当前浏览器不支持富文本复制，请使用复制正文。');
+            return;
+        }
+        try {
+            const html = template.innerHTML;
+            const text = template.content.textContent;
+            await navigator.clipboard.write([new ClipboardItem({
+                'text/html': new Blob([html], {type: 'text/html'}),
+                'text/plain': new Blob([text], {type: 'text/plain'})
+            })]);
+            copyFeedback('主稿富文本已复制，请在平台检查排版和图片。');
+            button.dispatchEvent(new CustomEvent('publisher:copied', {bubbles: true}));
+        } catch (_error) {
+            copyFeedback('富文本复制失败，请允许剪贴板权限后重试，或使用复制正文。');
+        }
+    }));
+    document.querySelectorAll('[data-channel-selection]').forEach(button => button.addEventListener('click', () => {
+        const recommended = new Set(['WECHAT_OFFICIAL', 'JUEJIN', 'CSDN', 'CNBLOGS', 'ZHIHU']);
+        document.querySelectorAll('input[form="channel-selection"][name="enabled"]').forEach(input => {
+            input.checked = button.dataset.channelSelection === 'recommended' && recommended.has(input.value);
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+        const showAll = document.querySelector('[data-channel-show-all]');
+        if (showAll) { showAll.checked = true; showAll.dispatchEvent(new Event('change')); }
+    }));
+    const showAllChannels = document.querySelector('[data-channel-show-all]');
+    if (showAllChannels) {
+        const refreshChannels = () => document.querySelectorAll('.manual-profile-table tr.is-disabled')
+            .forEach(row => { row.hidden = !showAllChannels.checked; });
+        showAllChannels.addEventListener('change', refreshChannels);
+        refreshChannels();
+    }
+    document.querySelector('[data-coverage-unpublished]')?.addEventListener('change', event => {
+        document.querySelectorAll('.coverage-article').forEach(article => {
+            const cells = [...article.querySelectorAll('[data-coverage-cell]')];
+            cells.forEach(cell => { cell.hidden = event.target.checked && cell.dataset.covered === 'true'; });
+            const complete = article.querySelector('[data-coverage-complete]');
+            if (complete) complete.hidden = !event.target.checked || cells.some(cell => !cell.hidden);
+        });
+    });
     document.querySelectorAll('[data-copy-tags]').forEach(button => button.addEventListener('click', async () => {
         const tags = [...document.querySelectorAll(button.dataset.copyTags)]
             .map(tag => tag.textContent.trim()).filter(Boolean);
@@ -380,6 +436,10 @@
         form.addEventListener('input', () => { dirty = true; });
         form.addEventListener('change', () => { dirty = true; });
         form.addEventListener('submit', () => { dirty = false; });
+        [...form.elements].filter(input => !form.contains(input)).forEach(input => {
+            input.addEventListener('input', () => { dirty = true; });
+            input.addEventListener('change', () => { dirty = true; });
+        });
         window.addEventListener('beforeunload', event => {
             if (!dirty) return;
             event.preventDefault();

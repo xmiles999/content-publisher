@@ -5,5 +5,6 @@ import io.contentpublisher.platform.application.PublicationRecord;
 
 public record PublicationMatrixCell(
         ChannelCatalog.ChannelDefinition channel,
-        PublicationRecord latest) {
+        PublicationRecord latest,
+        PublicationRecord published) {
 }

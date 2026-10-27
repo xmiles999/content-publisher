@@ -28,6 +28,9 @@ class PersonalWorkspaceIntegrationTest {
 
     @Test
     void publishingSearchAndPaginationReachBeyondTheLatestFiftyArticles() throws Exception {
+        mvc.perform(post("/channels/manual/CSDN/profile").param("channelType", "CSDN")
+                        .param("expectedVersion", "0").param("enabled", "true").param("sortOrder", "10"))
+                .andExpect(status().is3xxRedirection());
         String prefix = "coverage-" + UUID.randomUUID();
         for (int i = 0; i < 55; i++) create(prefix + "-" + i);
         var page = mvc.perform(get("/publishing").param("tab", "coverage").param("q", prefix).param("size", "20").param("page", "2"))

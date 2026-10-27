@@ -359,7 +359,16 @@ a { color: inherit; }
 .coverage-article { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
 .coverage-article > header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .coverage-channel-list { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px 18px; margin-top: 13px; }
-.coverage-channel-list > div { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--neutral-soft); }
+.coverage-channel-list > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--neutral-soft); }
+.coverage-channel-list > [hidden] { display: none; }
+.coverage-channel-list .record-error { flex-basis: 100%; }
+.coverage-filter, .channel-selection-check { display: flex; align-items: center; gap: 8px; }
+.coverage-filter { padding: 8px 0; color: var(--muted); font-size: 13px; }
+.coverage-complete, .copy-feedback { color: var(--muted); font-size: 13px; }
+.channel-selection-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 0; }
+.channel-selection-toolbar small { color: var(--muted); }
+.channel-selection-check input { flex-shrink: 0; width: 18px; height: 18px; }
+.manual-language-form { align-items: end; }
 .coverage-channel-list strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .channel-create-panel { margin: 18px 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .channel-create-panel > summary { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 10px 14px; cursor: pointer; list-style: none; }
@@ -382,10 +391,11 @@ a { color: inherit; }
 .verification-state.verification-failed { color: var(--danger) !important; }
 .manual-profile-notice { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 8px 14px; margin-top: 16px; padding: 11px 13px; border-left: 3px solid var(--primary); color: var(--muted); background: var(--primary-soft); font-size: 12px; line-height: 1.55; }
 .manual-profile-notice strong { color: var(--primary-dark); }
-.manual-profile-table table { min-width: 1180px; }
+.manual-profile-table table { min-width: 850px; }
 .manual-profile-table tr { scroll-margin-top: 92px; }
 .manual-profile-table tr:target td { background: var(--primary-soft); }
 .manual-profile-table tr.is-disabled td { color: var(--muted); }
+.manual-profile-table tr[hidden] { display: none; }
 .manual-profile-table td:nth-child(2) small, .manual-profile-table td:nth-child(3) small,
 .manual-profile-table td:nth-child(4) small, .manual-profile-table td:nth-child(5) small,
 .manual-profile-table td:nth-child(6) small { margin-top: 5px; font-size: 11px; line-height: 1.45; }
@@ -1151,6 +1161,19 @@ thead .matrix-article-column { z-index: 3; background: var(--table-head); }
     .monitor-section-header, .monitor-state-toolbar { align-items: stretch; flex-direction: column; }
     .monitor-feed-section .monitor-section-header { align-items: stretch; }
     .monitor-tabs { align-self: flex-start; }
+}
+
+@media (max-width: 820px) {
+    .manual-profile-table table { min-width: 0; }
+    .manual-profile-table thead { display: none; }
+    .manual-profile-table tbody tr { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 6px 10px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .manual-profile-table tbody td { min-width: 0; padding: 0; border: 0; }
+    .manual-profile-table tbody td:nth-child(1) { grid-column: 1; grid-row: 1; }
+    .manual-profile-table tbody td:nth-child(2) { grid-column: 2; grid-row: 1; }
+    .manual-profile-table tbody td:nth-child(5) { grid-column: 3; grid-row: 1; }
+    .manual-profile-table tbody td:nth-child(3), .manual-profile-table tbody td:nth-child(4) { grid-column: 2 / -1; }
+    .channel-selection-check > span { display: none; }
+    .manual-profile-table tbody td strong, .manual-profile-table tbody td small { white-space: normal; overflow-wrap: anywhere; }
 }
 
 @media (prefers-reduced-motion: reduce) {

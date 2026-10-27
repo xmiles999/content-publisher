@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import io.contentpublisher.platform.application.ApplicationException;
 
 @Repository
 @Transactional
@@ -52,6 +54,31 @@ public class JpaManualChannelProfilePersistenceAdapter implements ManualChannelP
         if (updated == 0) return Optional.empty();
         return profiles.findByTenantIdAndChannelType(profile.tenantId(), profile.channelType())
                 .map(mapper::manualChannelProfile);
+    }
+
+    @Override
+    public void saveAllIfVersionsMatch(List<ManualChannelProfile> candidates,
+                                      Map<ChannelType, Integer> expectedVersions) {
+        try {
+            for (ManualChannelProfile candidate : candidates) {
+                int expected = expectedVersions.get(candidate.channelType());
+                if (expected == 0) {
+                    if (profiles.findByTenantIdAndChannelType(candidate.tenantId(), candidate.channelType()).isPresent()) {
+                        throw selectionConflict();
+                    }
+                    save(candidate);
+                } else if (updateIfVersionMatches(candidate, expected).isEmpty()) {
+                    throw selectionConflict();
+                }
+            }
+            profiles.flush();
+        } catch (org.springframework.dao.DataIntegrityViolationException exception) {
+            throw selectionConflict();
+        }
+    }
+
+    private ApplicationException selectionConflict() {
+        return new ApplicationException("MANUAL_CHANNEL_PROFILE_VERSION_CONFLICT", "渠道配置已变化，请刷新后重试；本次选择未保存");
     }
 
     @Override

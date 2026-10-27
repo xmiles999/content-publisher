@@ -11,23 +11,30 @@ import java.util.Locale;
 
 public final class PlatformContentAdapter {
     public AdaptedContent adapt(Article article, ChannelType channelType, String canonicalUrl) {
-        return adapt(article, channelType, canonicalUrl, true);
+        return adapt(article, channelType, canonicalUrl, true, "original");
     }
 
     public AdaptedContent adaptForManual(Article article, ChannelType channelType, String canonicalUrl) {
-        return adapt(article, channelType, canonicalUrl, false);
+        return adaptForManual(article, channelType, canonicalUrl, "original");
+    }
+
+    public AdaptedContent adaptForManual(Article article, ChannelType channelType, String canonicalUrl,
+                                         String language) {
+        return adapt(article, channelType, canonicalUrl, false, language);
     }
 
     private AdaptedContent adapt(Article article, ChannelType channelType, String canonicalUrl,
-                                 boolean enforcePlatformLimits) {
+                                 boolean enforcePlatformLimits, String language) {
         ChannelCatalog.ChannelDefinition definition = ChannelCatalog.definition(channelType);
-        Localized content = localize(article, definition.region());
+        Localized content = localize(article, language);
+        ChannelRegion languageRegion = "en".equals(language) || article.language().startsWith("en")
+                ? ChannelRegion.OVERSEAS : ChannelRegion.DOMESTIC;
         List<String> sourceTags = content.tags().isEmpty() ? content.keywords() : content.tags();
         List<String> tags = sourceTags.stream().map(this::normalizeTag)
                 .filter(value -> !value.isBlank()).distinct().limit(tagLimit(channelType)).toList();
         String body = switch (definition.contentFormat()) {
-            case MARKDOWN -> markdown(content, channelType, canonicalUrl, definition.region());
-            case PLAIN_TEXT -> plainText(content, channelType, canonicalUrl, tags, definition.region());
+            case MARKDOWN -> markdown(content, channelType, canonicalUrl, languageRegion);
+            case PLAIN_TEXT -> plainText(content, channelType, canonicalUrl, tags, languageRegion);
             case SHORT_TEXT -> shortText(content, channelType, canonicalUrl, tags,
                     enforcePlatformLimits ? definition.characterLimit() : 0);
         };
@@ -37,11 +44,14 @@ public final class PlatformContentAdapter {
                 definition.characterLimit());
     }
 
-    private Localized localize(Article article, ChannelRegion region) {
-        if (region == ChannelRegion.OVERSEAS) {
+    private Localized localize(Article article, String language) {
+        if (!"original".equals(language) && !"en".equals(language)) {
+            throw new ApplicationException("CONTENT_LANGUAGE_INVALID", "请选择主稿或英文稿");
+        }
+        if ("en".equals(language)) {
             if (!article.hasEnglishContent()) {
                 throw new ApplicationException("ARTICLE_TRANSLATION_MISSING",
-                        "文章暂无英文版本，无法发布到国外渠道，请先编辑文章补充英文标题、摘要和正文");
+                        "文章暂无完整英文版本，请先补充英文稿或选择主稿");
             }
             return new Localized(article.titleEn(), article.summaryEn(), article.markdownEn(),
                     article.tagsEn(), article.keywordsEn());

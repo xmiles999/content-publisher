@@ -84,7 +84,7 @@ class PublishingApplicationServiceTest {
     }
 
     @Test
-    void shouldBlockOverseasPreflightWhenEnglishContentIsMissing() {
+    void shouldAllowOriginalManuscriptInOverseasApiPreflightWithoutTranslation() {
         Fixture fixture = fixture(ArticleStatus.READY);
         Article articleWithoutEnglish = new Article(fixture.article.id(), fixture.article.tenantId(),
                 fixture.article.origin(), fixture.article.generationJobId(), fixture.article.title(),
@@ -98,8 +98,7 @@ class PublishingApplicationServiceTest {
 
         var result = fixture.service.preflight(ACTOR, fixture.article.id(), fixture.account.id());
 
-        assertThat(result.ready()).isFalse();
-        assertThat(result.message()).contains("暂无英文版本").contains("补充英文标题、摘要和正文");
+        assertThat(result.ready()).isTrue();
     }
 
     @Test

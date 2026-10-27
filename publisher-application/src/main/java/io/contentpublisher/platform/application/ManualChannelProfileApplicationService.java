@@ -13,6 +13,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Map;
+import java.util.Set;
+import java.util.EnumMap;
+import java.util.stream.Collectors;
 
 public final class ManualChannelProfileApplicationService {
     private static final int MAX_TAGS = 20;
@@ -36,7 +40,39 @@ public final class ManualChannelProfileApplicationService {
     }
 
     public boolean isEnabled(ActorContext actor, ChannelType channelType) {
-        return findProfile(actor, channelType).map(ManualChannelProfile::enabled).orElse(true);
+        return findProfile(actor, channelType).map(ManualChannelProfile::enabled).orElse(false);
+    }
+
+    public void selectChannels(ActorContext actor, Set<ChannelType> enabled,
+                               Map<ChannelType, Integer> expectedVersions) {
+        Set<ChannelType> allowed = configurableChannels().stream().map(ChannelCatalog.ChannelDefinition::type)
+                .collect(Collectors.toSet());
+        if (enabled == null || expectedVersions == null || !allowed.containsAll(enabled)
+                || !expectedVersions.keySet().equals(allowed)
+                || expectedVersions.values().stream().anyMatch(v -> v == null || v < 0)) {
+            throw invalid("渠道选择无效，请刷新后重试");
+        }
+        Map<ChannelType, ManualChannelProfile> existing = new EnumMap<>(ChannelType.class);
+        listProfiles(actor).forEach(profile -> existing.put(profile.channelType(), profile));
+        List<ManualChannelProfile> candidates = new ArrayList<>();
+        Instant now = clock.instant();
+        for (var definition : configurableChannels()) {
+            ChannelType type = definition.type();
+            ManualChannelProfile profile = existing.get(type);
+            if (expectedVersions.get(type) != (profile == null ? 0 : profile.version())) throw versionConflict();
+            boolean selected = enabled.contains(type);
+            if (profile == null && selected) {
+                candidates.add(new ManualChannelProfile(UUID.randomUUID(), actor.tenantId(), type, true,
+                        null, List.of(), null, null, defaultSortOrder(type), null, 1,
+                        actor.subject(), actor.subject(), now, now));
+            } else if (profile != null && profile.enabled() != selected) {
+                candidates.add(new ManualChannelProfile(profile.id(), profile.tenantId(), type, selected,
+                        profile.accountAlias(), profile.defaultTags(), profile.defaultSection(), profile.notes(),
+                        profile.sortOrder(), profile.loginConfirmedAt(), profile.version() + 1,
+                        profile.createdBy(), actor.subject(), profile.createdAt(), now));
+            }
+        }
+        profiles.saveAllIfVersionsMatch(candidates, expectedVersions);
     }
 
     public ManualChannelProfile saveProfile(ActorContext actor, ChannelType channelType, int expectedVersion,

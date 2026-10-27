@@ -471,7 +471,7 @@ OpenAPI 快照当前包含 50 个 REST 操作。完整路径与角色见 `API_RE
 - REST Request 使用 Bean Validation。
 - REST Response 显式挑选安全字段，不直接序列化 JPA Entity。
 - `ManualChannelProfileForm` 是 Portal 表单模型，接收版本、启停、账号别名、标签文本、栏目、备注和排序；标签文本通过 `PortalFormSupport.splitValues(...)` 转为列表。
-- `ManualChannelProfileView` 合并目录定义和可选持久化配置，向模板提供默认启用、官方入口和排序展示；兼容字段仍可读取，但当前页面不展示登录确认，也不暴露任何登录秘密。
+- `ManualChannelProfileView` 合并目录定义和可选持久化配置；无配置时默认为未启用，已有状态保持不变，启用项优先展示。`ChannelSelectionForm` 将勾选集合与完整版本映射提交到 Admin + CSRF 的 `/channels/manual/selection`，应用服务保留其他字段，仓储在单事务中检查版本并保存，冲突整体回滚。兼容字段仍可读取，但当前页面不展示登录确认，也不暴露任何登录秘密。
 - Portal Form 与 REST DTO 分离，避免 HTML 字段和 API 契约相互污染。
 - `ArticleResponse` 统一输出三类来源。
 - `JobResponse` 根据任务类型计算结果资源类型。
@@ -577,12 +577,16 @@ Portal reopen（Editor/Admin）
 
 外部结果不确定时不自动重试。通用重放创建新 Job 和新 Publication，不覆盖原失败记录；批量重放先验证全部任务后在单个事务创建最多 20 个新任务。
 
+`PlatformContentAdapter` 的 API 路径始终取主稿，平台地区只用于目录展示，不再决定语言。人工适配支持 `original|en`；仅显式选英文时要求完整英文内容。该变化同样影响尚未执行的旧任务，应在发布前核对主稿。
+
+覆盖矩阵使用启用人工平台与 ACTIVE、仍可运行的 API 渠道的并集，并按 `ChannelType` 去重。`PublicationMatrixCell` 同时保留最新尝试和最新成功，避免后续失败遮蔽已有结果；覆盖是平台级历史成功，不是账号级或最新版本同步证明。前端的未发布筛选仅作用于当前分页，服务端分页边界不变。
+
 ### 10.6 人工发布
 
 ```text
 渠道管理
   → ChannelCatalog 过滤具有固定官方人工入口的渠道
-  → 读取或创建 ManualChannelProfile（未配置默认启用）
+  → 读取或创建 ManualChannelProfile（未配置默认未启用）
   → 保存别名 / 默认标签 / 栏目 / 备注 / 排序 / 启停
   → 历史客户端可选记录兼容登录确认时间
 
@@ -933,6 +937,7 @@ Git、网站、AI 和自托管渠道都执行：
 | 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V25、`APPROVED → READY` 回填、JPA、自定义文章、配图、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 个人工作区 | `PersonalWorkspaceIntegrationTest` | 无认证开发入口、监控入口保留、编辑权限、失败输入恢复 |
+| 渠道精简与覆盖 | `ChannelOptimizationIntegrationTest` | 默认未启用、批量选择与配置保留、事务冲突回滚、API-only 覆盖、平台去重、成功链接保留、显式英文与富文本清洗 |
 | 草稿边界 | `AutomationApplicationServiceTest` | 10 万字符中英文正文、标签超限、状态门禁、基线冲突 |
 | 前端状态 | `publisher-web/src/test/js/*.test.cjs` | 原生 Node 测试，草稿串行/备份/失败/提交，主题对比度 |
 | 启动合同 | `scripts/test-dev.py` | 用本地 HTTP 替身验证启动、健康、重复执行、配置/依赖/端口/进程失败和停止；非真实 PostgreSQL 测试 |

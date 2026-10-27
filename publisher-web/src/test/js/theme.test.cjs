@@ -108,7 +108,8 @@ function themeHarness({stored = null, systemDark = false, blockedStorage = false
             createElement: () => ({}), querySelector: () => metas[0] || null,
             querySelectorAll: selector => selector === '[data-theme-toggle]' ? [button] : []
         },
-        window: {localStorage: storage, matchMedia: () => media,
+        URL,
+        window: {location: {href: 'https://example.com/login'}, localStorage: storage, matchMedia: () => media,
             addEventListener: (type, fn) => { listeners[type] = fn; }},
         getComputedStyle: () => ({getPropertyValue: () => (root.dataset.theme === 'dark' ? dark : light).bg})
     };

@@ -151,14 +151,14 @@ class ManualChannelProfileApplicationServiceTest {
     }
 
     @Test
-    void shouldTreatUnconfiguredChannelAsEnabledAndRespectSavedDisabledState() {
+    void shouldLeaveUnconfiguredChannelsDisabledAndRespectSavedState() {
         ManualChannelProfileRepository repository = mock(ManualChannelProfileRepository.class);
         when(repository.findByChannel("personal", ChannelType.CSDN)).thenReturn(Optional.empty());
         when(repository.findByChannel("personal", ChannelType.V2EX))
                 .thenReturn(Optional.of(profile(ChannelType.V2EX, false, 1, null)));
         ManualChannelProfileApplicationService service = service(repository);
 
-        assertThat(service.isEnabled(ACTOR, ChannelType.CSDN)).isTrue();
+        assertThat(service.isEnabled(ACTOR, ChannelType.CSDN)).isFalse();
         assertThat(service.isEnabled(ACTOR, ChannelType.V2EX)).isFalse();
     }
 

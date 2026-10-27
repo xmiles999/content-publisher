@@ -15,6 +15,8 @@
 
 产品长期采用纯个人模式。Portal 已使用 `READY` 和本人内容确认；REST 仍保留多租户、Viewer/Editor/Admin、`approve/reject`、`APPROVED/REJECTED` 与旧错误码作为历史兼容合同。人工平台配置和个人确认通过 Session + CSRF 的 Portal 表单实现，不新增 `/api/v1` 路径。
 
+渠道优化不新增 REST 字段：API 适配和自动发布使用主稿，不再按平台地区强制使用附属英文稿；Portal 人工工作区可通过 `language=original|en` 选择内容。附属英文稿缺失仅阻止显式选择英文稿的适配。已有异步任务执行时也按主稿适配，发布前应核对主稿语言。批量常用渠道选择使用 Admin + CSRF 的 Portal 表单，不属于 OpenAPI 合同。
+
 ## 2. 通用协议
 
 ### 2.1 认证模式
@@ -276,6 +278,7 @@ API 发布和批量发布接受文章状态 `READY`、兼容 `APPROVED` 或 `PUB
 | POST | `/articles/{articleId}/reopen` | Editor/Admin | 将 `READY/APPROVED` 重新进入 `DRAFT`；`PUBLISHED` 拒绝 |
 | POST | `/channels/{accountId}/delete` | Admin | 使用 `expectedVersion` 安全移除 API 账号并清除凭据 |
 | POST | `/channels/manual/{channelType}/profile` | Admin | 保存具有固定官方入口的平台个人配置 |
+| POST | `/channels/manual/selection` | Admin | `enabled` 集合与 `versions[渠道类型]` 完整版本映射；原子调整 24 个可选平台的启停，保留其他配置 |
 | POST | `/channels/manual/{channelType}/login-confirmation` | Admin | 历史兼容：记录人工登录确认时间；当前 Portal 不再提供入口 |
 
 LOCAL 模式使用服务端 Session 和 CSRF Token。写操作由 Spring Security 的 POST `/channels/**` Admin 门禁保护；GET 页面按现有只读角色规则开放。这是历史角色兼容，不表示未来纯个人模式需要渠道管理员审批。

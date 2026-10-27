@@ -24,7 +24,7 @@ public record ManualChannelProfileView(
                                                 ManualChannelProfile profile,
                                                 int defaultSortOrder) {
         if (profile == null) {
-            return new ManualChannelProfileView(channel, false, true, null, List.of(), "", null, null,
+            return new ManualChannelProfileView(channel, false, false, null, List.of(), "", null, null,
                     defaultSortOrder, null, 0, null);
         }
         return new ManualChannelProfileView(channel, true, profile.enabled(), profile.accountAlias(),

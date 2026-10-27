@@ -9,6 +9,10 @@
             <section class="page-header"><div><p class="section-kicker">人工发布</p><h2 th:text="|发布到 ${channel.displayName()}|">发布平台</h2><p th:text="|源内容：${article.title} · 主稿 v${article.currentVersion}|">source</p></div>
                 <div class="header-actions"><a class="secondary-link" th:href="@{/publishing/articles/{id}(id=${article.id})}">返回文章发布</a></div></section>
             <div class="alert error" th:if="${error}" th:text="${error}"></div>
+            <form class="filter-toolbar manual-language-form" method="get" th:action="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.type()})}" data-manual-language-form>
+                <div class="filter-field"><label for="manual-language">发布内容</label><select id="manual-language" name="language"><option value="original" th:selected="${selectedLanguage == 'original'}" th:text="|主稿（${article.language}）|">主稿</option><option value="en" th:selected="${selectedLanguage == 'en'}" th:disabled="${!article.hasEnglishContent()}">英文稿</option></select></div>
+                <button class="secondary-button" type="submit">切换内容</button>
+            </form>
             <form data-manual-progress
                   th:attr="data-progress-url=${manualProgressUrl},
                            data-copied-title=${manualProgress.copiedTitle},
@@ -18,9 +22,13 @@
                            data-published=${manualProgress.published}"
                   th:action="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.type()})}"
                   th:object="${manualPublicationForm}" method="post" data-dirty-form>
-                <input type="hidden" th:field="*{contentFormat}"><div class="manual-editor-grid"><section class="card"><div class="card-header"><div><p class="section-kicker">渠道版本</p><h3>平台专用版本</h3><p>可以在发布前继续调整；最终提交时保存的是当前文本快照。</p></div><span class="format-badge" th:text="${channel.contentFormat()}">MARKDOWN</span></div>
+                <input type="hidden" th:field="*{contentFormat}"><input type="hidden" th:field="*{language}"><div class="manual-editor-grid"><section class="card"><div class="card-header"><div><p class="section-kicker">渠道版本</p><h3>平台专用版本</h3><p>可以在发布前继续调整；最终提交时保存的是当前文本快照。</p></div><span class="format-badge" th:text="${channel.contentFormat()}">MARKDOWN</span></div>
                     <div class="copy-toolbar"><button class="primary-button" type="button" data-copy-and-open data-copy-title="#manual-title" data-copy-content="#manual-content" data-progress-step="copiedAll">复制并打开编辑器</button>
-                        <button class="copy-button" type="button" data-copy-target="#manual-title" data-progress-step="copiedTitle">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content" data-progress-step="copiedContent">复制正文</button></div>
+                        <button class="copy-button" type="button" data-copy-target="#manual-title" data-progress-step="copiedTitle">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content" data-progress-step="copiedContent">复制正文</button>
+                        <button class="copy-button" type="button" th:if="${channel.contentFormat().name() == 'PLAIN_TEXT' and channel.type().name() != 'XIAOHONGSHU' and channel.type().name() != 'LINKEDIN'}" data-copy-rich-text="#manual-rich-content" data-progress-step="copiedContent">复制主稿富文本</button></div>
+                    <template id="manual-rich-content" th:utext="${richTextHtml}"></template>
+                    <small class="copy-feedback" data-copy-feedback role="status" aria-live="polite"></small>
+                    <small th:if="${channel.contentFormat().name() == 'PLAIN_TEXT' and channel.type().name() != 'XIAOHONGSHU' and channel.type().name() != 'LINKEDIN'}">富文本取自所选语言的主稿，保留排版；下方平台文本的调整仅用于普通复制。图片需在目标平台检查或重新上传。</small>
                     <div class="stack-form section-gap"><div class="field"><label for="manual-title">平台标题</label><input id="manual-title" th:field="*{title}" maxlength="500" required><small class="character-counter" data-count-source="#manual-title">0</small></div>
                         <div class="field"><div class="manual-tag-heading"><span class="field-label">发布标签</span><button class="copy-button" type="button" data-copy-tags="#manual-publish-tags .tag" th:unless="${#lists.isEmpty(adapted.tags())}">复制标签</button></div>
                             <div id="manual-publish-tags" class="manual-tag-panel"><div class="tag-row" th:unless="${#lists.isEmpty(adapted.tags())}"><span class="tag" th:each="tag : ${adapted.tags()}" th:text="|#${tag}|">#标签</span></div><span class="manual-tag-empty" th:if="${#lists.isEmpty(adapted.tags())}">暂无生成标签</span></div>

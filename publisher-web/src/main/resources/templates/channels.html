@@ -16,8 +16,8 @@
             <div class="alert error" th:if="${error}" th:text="${error}"></div><div class="alert success" th:if="${success}" th:text="${success}"></div>
 
             <nav class="workspace-tabs" aria-label="渠道管理视图">
+                <a th:href="@{/channels(view='manual')}" th:classappend="${selectedChannelView == 'manual'} ? ' active'" th:attr="aria-current=${selectedChannelView == 'manual' ? 'page' : null}">我的渠道 <span th:text="${enabledManualChannelCount}">0</span></a>
                 <a th:href="@{/channels(view='api')}" th:classappend="${selectedChannelView == 'api'} ? ' active'" th:attr="aria-current=${selectedChannelView == 'api' ? 'page' : null}">API 账号 <span th:text="${accounts.size()}">0</span></a>
-                <a th:href="@{/channels(view='manual')}" th:classappend="${selectedChannelView == 'manual'} ? ' active'" th:attr="aria-current=${selectedChannelView == 'manual' ? 'page' : null}">我的发布包 <span th:text="${manualChannels.size()}">0</span></a>
             </nav>
 
             <section class="workspace-panel" th:if="${selectedChannelView == 'api'}">
@@ -76,16 +76,21 @@
             </section>
 
             <section class="workspace-panel" th:if="${selectedChannelView == 'manual'}">
-                <header class="workspace-panel-header"><div><h3>人工发布平台</h3><p>支持官方创作入口的平台都可使用；即使平台同时支持 API，也不要求先申请或配置接口。</p></div><strong th:text="|${manualChannels.size()} 个平台|">0 个平台</strong></header>
-                <div class="manual-profile-notice"><strong>一次登录，持续复用</strong><span>使用 <code>./scripts/dev browser</code> 打开本系统，第一次在各官方平台完成登录；后续发布继续使用同一浏览器资料中的 Cookie 和站点会话。平台主动使会话失效时才需要重新登录。</span></div>
-                <div class="table-wrap manual-profile-table"><table class="management-table"><thead><tr><th>启用</th><th>平台</th><th>个人账号</th><th>默认设置</th><th>登录方式</th><th>更新时间</th><th class="table-actions-column">操作</th></tr></thead>
+                <header class="workspace-panel-header"><div><h3>常用平台</h3><p>勾选实际使用的平台后统一保存，其他平台不会出现在文章发布列表中。</p></div><strong th:text="|已启用 ${enabledManualChannelCount} / ${manualChannels.size()}|">已启用 0</strong></header>
+                <form id="channel-selection" class="channel-selection-toolbar" th:if="${canAdmin}" th:action="@{/channels/manual/selection}" method="post" data-dirty-form>
+                    <button class="primary-button" type="submit">保存常用渠道</button>
+                    <button class="secondary-button" type="button" data-channel-selection="recommended">选择常用中文平台</button>
+                    <button class="secondary-button" type="button" data-channel-selection="none">清空选择</button>
+                    <small>只调整启用状态，保留账号别名、标签和备注。</small>
+                </form>
+                <label class="coverage-filter"><input type="checkbox" data-channel-show-all th:checked="${enabledManualChannelCount == 0}">显示全部平台</label>
+                <details class="manual-profile-notice"><summary>复用平台登录状态</summary><p>在同一设备和浏览器中打开官方创作页，可继续使用已有会话；平台要求时重新登录。需要专用浏览器资料时，可使用项目的浏览器启动入口，见开发文档。</p></details>
+                <div class="table-wrap manual-profile-table"><table class="management-table"><thead><tr><th>启用</th><th>平台</th><th>个人账号</th><th>默认设置</th><th class="table-actions-column">操作</th></tr></thead>
                     <tbody><tr th:each="channel : ${manualChannels}" th:id="|manual-${channel.channel.type()}|" th:classappend="${!channel.enabled} ? ' is-disabled'">
-                        <td data-label="启用"><span class="manual-profile-state" th:classappend="${channel.enabled} ? ' enabled' : ' disabled'" th:text="${channel.enabled ? '启用' : '停用'}">启用</span><small th:unless="${channel.configured}">默认状态</small></td>
+                        <td data-label="启用"><label class="channel-selection-check"><input th:if="${canAdmin}" form="channel-selection" type="checkbox" name="enabled" th:value="${channel.channel.type()}" th:checked="${channel.enabled}" th:attr="aria-label=|启用 ${channel.channel.displayName()}|"><span class="manual-profile-state" th:classappend="${channel.enabled} ? ' enabled' : ' disabled'" th:text="${channel.enabled ? '已启用' : '未启用'}">未启用</span></label><input th:if="${canAdmin}" form="channel-selection" type="hidden" th:name="|versions[${channel.channel.type()}]|" th:value="${channel.version}"></td>
                         <td data-label="平台"><strong th:text="${channel.channel.displayName()}">平台</strong><small th:text="|${channel.channel.region().name() == 'DOMESTIC' ? '国内' : '海外'} · ${channel.channel.contentFormat()} · ${channel.channel.characterLimit()} 字符|">平台要求</small><small th:if="${channel.channel.apiSupported()}">同时支持 API，可独立改用人工发布</small></td>
                         <td data-label="个人账号"><strong th:text="${channel.accountLabel()}">未填写账号别名</strong><small>用于识别当前个人平台账号</small></td>
                         <td data-label="默认设置"><strong th:text="${channel.defaultSettingLabel()}">未设置默认值</strong><small th:if="${channel.notes != null}" th:text="${channel.notes}">备注</small><small th:unless="${channel.notes != null}">发布时可继续调整</small></td>
-                        <td data-label="登录方式"><span class="manual-profile-state confirmed">持久浏览器会话</span><small>同一设备和浏览器资料自动复用</small></td>
-                        <td data-label="更新时间"><span th:text="${channel.updatedAt != null ? channel.updatedAt : '尚未保存配置'}">时间</span><small th:text="|配置版本 v${channel.version}|">v0</small></td>
                         <td data-label="操作"><details class="table-action-menu"><summary>配置</summary><div class="account-action-panel manual-profile-form">
                             <a class="primary-link" th:href="${channel.channel.editorUrl()}" th:attr="target=|publisher-${channel.channel.type()}|,data-platform-window=|publisher-${channel.channel.type()}|" data-platform-launch rel="noopener noreferrer">打开官方登录/创作页 ↗</a>
                             <form th:if="${canAdmin}" class="stack-form compact-form" th:action="@{/channels/manual/{type}/profile(type=${channel.channel.type()})}" method="post">

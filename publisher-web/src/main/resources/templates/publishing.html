@@ -76,9 +76,25 @@
             </section>
 
             <section class="workspace-panel" th:if="${selectedTab == 'coverage'}">
-                <header class="workspace-panel-header"><div><h3>常用渠道覆盖</h3><p>只统计你启用的发布包。停用的平台不会出现在矩阵里。</p></div><strong th:text="|${articlePage.totalItems} 篇|">0 篇</strong></header>
+                <header class="workspace-panel-header"><div><h3>常用渠道覆盖</h3><p>合并已启用的人工平台和 API 渠道，同一平台只显示一次。</p></div><a class="text-link" th:href="@{/channels}">调整常用渠道</a></header>
+                <div class="empty-state" th:if="${publishPackSize == 0}">还没有选择常用渠道。<a class="text-link" th:href="@{/channels}">选择发布平台</a></div>
+                <label class="coverage-filter" th:if="${publishPackSize > 0 and !#lists.isEmpty(publicationMatrix)}"><input type="checkbox" data-coverage-unpublished>仅显示本页未发布的渠道</label>
                 <div class="empty-state" th:if="${#lists.isEmpty(publicationMatrix)}">没有匹配的文稿。<a class="text-link" th:href="@{/publishing}" th:if="${!#strings.isEmpty(searchQuery)}">清除筛选</a></div>
-                <div class="coverage-list" th:unless="${#lists.isEmpty(publicationMatrix)}"><article class="coverage-article" th:each="row : ${publicationMatrix}"><header><a class="table-title" th:href="@{/publishing/articles/{id}(id=${row.article.id})}" th:text="${row.article.title}">文章</a><span class="status-pill" th:classappend="| status-${row.article.status.name().toLowerCase()}|" th:text="${articleStatusNames.get(row.article.status)}">草稿</span></header><div class="coverage-channel-list"><div th:each="cell : ${row.cells}"><strong th:text="${cell.channel.displayName}">渠道</strong><span class="matrix-empty" th:if="${cell.latest == null}">未发布</span><a th:if="${cell.latest != null and cell.latest.externalUrl != null}" th:href="${cell.latest.externalUrl}" target="_blank" rel="noopener noreferrer" class="text-link" th:text="${publicationStatusNames.get(cell.latest.status)}">已发布</a><span th:if="${cell.latest != null and cell.latest.externalUrl == null}" class="status-pill" th:classappend="| status-${cell.latest.status.name().toLowerCase()}|" th:text="${publicationStatusNames.get(cell.latest.status)}">发布失败</span></div></div></article></div>
+                <div class="coverage-list" th:if="${publishPackSize > 0 and !#lists.isEmpty(publicationMatrix)}">
+                    <article class="coverage-article" th:each="row : ${publicationMatrix}">
+                        <header><a class="table-title" th:href="@{/publishing/articles/{id}(id=${row.article.id})}" th:text="${row.article.title}">文章</a><span class="status-pill" th:classappend="| status-${row.article.status.name().toLowerCase()}|" th:text="${articleStatusNames.get(row.article.status)}">草稿</span></header>
+                        <div class="coverage-channel-list"><div th:each="cell : ${row.cells}" data-coverage-cell th:attr="data-covered=${cell.published != null}">
+                            <strong th:text="${cell.channel.displayName}">渠道</strong>
+                            <a th:if="${cell.published != null and cell.published.externalUrl != null}" th:href="${cell.published.externalUrl}" target="_blank" rel="noopener noreferrer" class="text-link">已发布 ↗</a>
+                            <span th:if="${cell.published != null and cell.published.externalUrl == null}" class="status-pill status-published">已发布</span>
+                            <small class="record-error" th:if="${cell.published != null and cell.latest.status.name() == 'FAILED'}">最近尝试失败，原发布记录保留</small>
+                            <span class="matrix-empty" th:if="${cell.published == null and cell.latest == null}">未发布</span>
+                            <span th:if="${cell.published == null and cell.latest != null}" class="status-pill" th:classappend="| status-${cell.latest.status.name().toLowerCase()}|" th:text="${publicationStatusNames.get(cell.latest.status)}">发布失败</span>
+                            <a class="text-link" th:if="${cell.published == null and row.article.status.isPublishable()}" th:href="@{/publishing/articles/{id}(id=${row.article.id})}">去发布</a>
+                        </div></div>
+                        <p class="coverage-complete" data-coverage-complete hidden>本篇已覆盖所有常用渠道。</p>
+                    </article>
+                </div>
                 <nav class="pagination" th:if="${articlePage.totalPages > 1}" aria-label="覆盖矩阵分页">
                     <a th:if="${articlePage.hasPrevious()}" th:href="@{/publishing(tab='coverage',q=${searchQuery},size=${articlePage.pageSize},page=${articlePage.previousPage()})}">上一页</a>
                     <span th:text="|第 ${articlePage.page + 1} / ${articlePage.totalPages} 页|">第 1 页</span>

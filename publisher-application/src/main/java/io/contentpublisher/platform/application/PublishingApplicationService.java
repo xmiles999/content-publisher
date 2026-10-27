@@ -171,6 +171,11 @@ public final class PublishingApplicationService {
         return commands.adaptContent(actor, articleId, channelType, canonicalUrl);
     }
 
+    public AdaptedContent adaptContent(ActorContext actor, UUID articleId, ChannelType channelType,
+                                       String canonicalUrl, String language) {
+        return commands.adaptContent(actor, articleId, channelType, canonicalUrl, language);
+    }
+
     public ManualPublication completeManualPublication(ActorContext actor, UUID articleId, ChannelType channelType,
                                                        String adaptedTitle, String adaptedContent,
                                                        ContentFormat contentFormat, String externalUrl) {

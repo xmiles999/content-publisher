@@ -63,8 +63,8 @@ class PlatformContentAdapterTest {
     }
 
     @Test
-    void shouldUseEnglishContentAndSourceLabelForOverseasChannels() {
-        var content = adapter.adapt(article(), ChannelType.DEV, "https://example.com/source");
+    void shouldUseEnglishOnlyWhenExplicitlySelectedForManualPublishing() {
+        var content = adapter.adaptForManual(article(), ChannelType.DEV, "https://example.com/source", "en");
 
         assertThat(content.title()).isEqualTo("Enterprise Content Platform");
         assertThat(content.body()).contains("## Core Capabilities").doesNotContain("核心能力");
@@ -78,12 +78,17 @@ class PlatformContentAdapterTest {
     }
 
     @Test
-    void shouldRejectOverseasPublishingWithoutEnglishContent() {
+    void shouldAllowOriginalLanguageOnAnyPlatformAndRejectOnlyExplicitMissingTranslation() {
         Article withoutEnglish = article("企业级内容发布平台", "面向开发团队的多平台内容分发能力", "", "");
 
-        assertThatThrownBy(() -> adapter.adapt(withoutEnglish, ChannelType.MEDIUM, "https://example.com/source"))
+        assertThat(adapter.adapt(withoutEnglish, ChannelType.MEDIUM, null).body()).contains("核心能力");
+        assertThat(adapter.adapt(withoutEnglish, ChannelType.WORDPRESS, null).title()).isEqualTo("企业级内容发布平台");
+        assertThat(adapter.adaptForManual(article(), ChannelType.DEV, null).body()).contains("核心能力");
+        assertThatThrownBy(() -> adapter.adaptForManual(withoutEnglish, ChannelType.MEDIUM, null, "en"))
                 .isInstanceOf(ApplicationException.class)
                 .hasMessageContaining("英文");
+        assertThatThrownBy(() -> adapter.adaptForManual(article(), ChannelType.CSDN, null, "invalid"))
+                .isInstanceOf(ApplicationException.class).hasMessageContaining("请选择");
     }
 
     private Article article() {
