@@ -41,6 +41,39 @@ class ChannelOptimizationIntegrationTest {
 
     @BeforeEach void resetProfiles() { jdbc.update("delete from manual_channel_profiles"); }
 
+    @Test void shouldShowPublishedPerChannelAndPreserveSuccessAfterLaterFailure() throws Exception {
+        String article = create();
+        UUID id = UUID.fromString(article.substring(article.lastIndexOf('/') + 1));
+        mvc.perform(post(article + "/confirm")).andExpect(status().is3xxRedirection());
+        for (ChannelType type : List.of(ChannelType.ZHIHU, ChannelType.CSDN, ChannelType.DEV)) {
+            profiles.saveProfile(ACTOR, type, 0, true, null, List.of(), null, null, 10);
+        }
+        Instant now = Instant.now();
+        manualPublications.save(new ManualPublication(UUID.randomUUID(), "local", id, ChannelType.ZHIHU,
+                ContentFormat.PLAIN_TEXT, "旧标题", "旧内容", "https://zhuanlan.zhihu.com/p/old", "owner", now.minusSeconds(60)));
+        manualPublications.save(new ManualPublication(UUID.randomUUID(), "local", id, ChannelType.ZHIHU,
+                ContentFormat.PLAIN_TEXT, "新标题", "新内容", "https://zhuanlan.zhihu.com/p/new", "owner", now.minusSeconds(30)));
+        UUID account = account(ChannelType.DEV);
+        var success = new Publication(UUID.randomUUID(), "local", id, account, UUID.randomUUID(), ChannelType.DEV,
+                null, PublicationStatus.PUBLISHED, "dev-success", "https://dev.to/owner/success", null, null, now.minusSeconds(40), now.minusSeconds(40), now.minusSeconds(40));
+        var failure = new Publication(UUID.randomUUID(), "local", id, account, UUID.randomUUID(), ChannelType.DEV,
+                null, PublicationStatus.FAILED, null, null, "FAILED", "失败", null, now, now);
+        doReturn(List.of(failure, success)).when(publications).findApiByArticle("local", id);
+        jdbc.update("update articles set status='PUBLISHED' where id=?", id);
+        var page = mvc.perform(get("/publishing" + article)).andExpect(status().isOk()).andReturn();
+        var html = Jsoup.parse(page.getResponse().getContentAsString());
+        var rows = html.select(".manual-channel-row");
+        var zhihu = rows.stream().filter(row -> row.text().contains("知乎")).findFirst().orElseThrow();
+        assertThat(zhihu.text()).contains("已发布", "查看结果", "再次发布").doesNotContain("准备发布");
+        assertThat(zhihu.select("a[href='https://zhuanlan.zhihu.com/p/new']")).hasSize(1);
+        var dev = rows.stream().filter(row -> row.text().contains("DEV Community")).findFirst().orElseThrow();
+        assertThat(dev.text()).contains("已发布").doesNotContain("准备发布");
+        assertThat(dev.select("a[href='https://dev.to/owner/success']")).hasSize(1);
+        var csdn = rows.stream().filter(row -> row.text().contains("CSDN")).findFirst().orElseThrow();
+        assertThat(csdn.text()).contains("准备发布").doesNotContain("已发布");
+        assertThat(html.text()).contains("历史成功记录", "修订后是否已同步");
+    }
+
     @Test void shouldDefaultToPersonalChannelsAndSaveSelectionWithoutLosingPreferences() throws Exception {
         var page = mvc.perform(get("/channels")).andExpect(status().isOk())
                 .andExpect(model().attribute("selectedChannelView", "manual")).andReturn();

@@ -259,7 +259,12 @@ public class PortalPublishingController {
                 .filter(io.contentpublisher.platform.application.PublicationPreflightResult::ready).count());
         model.addAttribute("manualTargets", manualProfileViews(actor).stream()
                 .filter(ManualChannelProfileView::enabled).toList());
-        model.addAttribute("publicationRecords", publishing.getArticlePublicationRecords(actor, articleId));
+        var records = publishing.getArticlePublicationRecords(actor, articleId);
+        model.addAttribute("publicationRecords", records);
+        Map<ChannelType, PublicationRecord> publishedChannels = new EnumMap<>(ChannelType.class);
+        records.stream().filter(record -> record.status() == PublicationStatus.PUBLISHED)
+                .forEach(record -> publishedChannels.putIfAbsent(record.channelType(), record));
+        model.addAttribute("publishedChannels", publishedChannels);
         model.addAttribute("channelNames", channelNames());
         return "article-publishing";
     }
