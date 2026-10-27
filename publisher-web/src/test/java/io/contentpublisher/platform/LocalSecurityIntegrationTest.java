@@ -689,7 +689,7 @@ class LocalSecurityIntegrationTest {
         mockMvc.perform(get("/channels?view=manual").session(session)).andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("打开官方登录/创作页")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("个人小红书")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("持久浏览器会话")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("复用平台登录状态")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "同时支持 API，可独立改用人工发布")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("DEV Community")))
