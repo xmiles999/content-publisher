@@ -14,6 +14,8 @@
 
 本机只承担源码、构建、测试和预发布。正式加载、启动、健康检查和回滚必须在部署端按门禁执行，不得把开发数据库、附件、环境文件或整个工作区同步到生产。
 
+当前生产发布事实、用户针对单次安全门禁的明确例外、实际检查和回滚入口见[发布检查记录](发布检查记录.md)。2026-10-27 发布的应用提交为 `b85f62caaefe63cb9107f79a30d1e23be791e467`；保留原有依赖，安全扫描失败尚未修复。本次例外不改变后续版本的常规门禁。
+
 ## 2. 运行与交付路径
 
 | 类型 | 路径 |
@@ -307,7 +309,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 1. 只允许 fast-forward 获取已授权提交，记录完整 Commit SHA。
 2. 执行第 5 节门禁并校验 `SHA256SUMS`。
 3. 部署端先备份数据库与 Secret 元数据，验证备份校验和。
-4. Dokploy 构建/加载不可变镜像并启动 PostgreSQL、应用。
+4. 部署端加载已在开发或 CI 环境构建的不可变镜像。已有数据库的应用更新仅使用 `docker compose up -d --no-deps --no-build --pull never publisher`，保留 PostgreSQL、代理和原有 Compose 路由设置。
 5. 检查 Flyway 到 V25、readiness、容器用户、配图卷和网络。
 6. 在 Dokploy Domains 配置正确目标端口后检查 Traefik 源站 HTTPS。
 7. 最后切换或确认 Cloudflare DNS，并执行业务冒烟。
@@ -319,7 +321,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 应用无宿主机 published port
 PostgreSQL User=70:70、无外部端口且卷已挂载
 /actuator/health/readiness = UP
-flyway_schema_history 最新成功版本 = 23
+flyway_schema_history 最新成功版本 = 25
 登录/认证成功
 租户隔离查询成功
 草稿自动保存、动作台、日历、任务重放至少各一条冒烟
