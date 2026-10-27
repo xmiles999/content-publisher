@@ -38,6 +38,9 @@ class ChannelOptimizationIntegrationTest {
     @Autowired ChannelAccountRepository accounts;
     @Autowired ManualPublicationRepository manualPublications;
     @MockitoSpyBean PublicationRepository publications;
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    io.contentpublisher.platform.infrastructure.ai.OpenAiCompatibleContentGenerator copyGenerator;
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @BeforeEach void resetProfiles() { jdbc.update("delete from manual_channel_profiles"); }
 
@@ -72,6 +75,54 @@ class ChannelOptimizationIntegrationTest {
         var csdn = rows.stream().filter(row -> row.text().contains("CSDN")).findFirst().orElseThrow();
         assertThat(csdn.text()).contains("准备发布").doesNotContain("已发布");
         assertThat(html.text()).contains("历史成功记录", "修订后是否已同步");
+    }
+
+    @Test void shouldOptimizeCopyWithoutChangingMasterAndRejectInvalidOrStaleResults() throws Exception {
+        String article = create();
+        UUID id = UUID.fromString(article.substring(article.lastIndexOf('/') + 1));
+        profiles.saveProfile(ACTOR, ChannelType.XIAOHONGSHU, 0, true, null, List.of(), null, null, 10);
+        String url = article + "/manual/XIAOHONGSHU/optimize";
+        String original = jdbc.queryForObject("select markdown from articles where id=?", String.class, id);
+        String body = objectMapper.writeValueAsString(Map.of("articleVersion", 1, "language", "original",
+                "title", "渠道回归文稿", "body", "原始平台文案".repeat(250)));
+        org.mockito.Mockito.when(copyGenerator.optimizeChannelCopy(org.mockito.ArgumentMatchers.eq("local"),
+                org.mockito.ArgumentMatchers.eq(ChannelType.XIAOHONGSHU), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.eq(20), org.mockito.ArgumentMatchers.eq(1000)))
+                .thenReturn(new ContentGenerator.ChannelCopy("AI 无需改标题", "保留核心内容和限制。"));
+        mvc.perform(post(url).contentType("application/json").content(body)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("渠道回归文稿"))
+                .andExpect(jsonPath("$.body").value("保留核心内容和限制。"));
+        assertThat(jdbc.queryForObject("select markdown from articles where id=?", String.class, id)).isEqualTo(original);
+        assertThat(jdbc.queryForObject("select current_version from articles where id=?", Integer.class, id)).isEqualTo(1);
+        org.mockito.Mockito.when(copyGenerator.optimizeChannelCopy(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(new ContentGenerator.ChannelCopy("标题", "文".repeat(1100)));
+        mvc.perform(post(url).contentType("application/json").content(body)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CHANNEL_COPY_LIMIT_EXCEEDED"));
+        org.mockito.Mockito.clearInvocations(copyGenerator);
+        mvc.perform(post(url).contentType("application/json").content(body.replace("\"articleVersion\":1", "\"articleVersion\":2")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("ARTICLE_VERSION_CONFLICT"));
+        org.mockito.Mockito.verifyNoInteractions(copyGenerator);
+        jdbc.update("update articles set tenant_id='another-tenant' where id=?", id);
+        mvc.perform(post(url).contentType("application/json").content(body)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("ARTICLE_NOT_FOUND"));
+        org.mockito.Mockito.verifyNoInteractions(copyGenerator);
+    }
+
+    @Test void shouldSkipAiForInLimitCopyAndValidateRequestsBeforeCallingGenerator() throws Exception {
+        String article = create();
+        profiles.saveProfile(ACTOR, ChannelType.XIAOHONGSHU, 0, true, null, List.of(), null, null, 10);
+        String url = article + "/manual/XIAOHONGSHU/optimize";
+        String body = objectMapper.writeValueAsString(Map.of("articleVersion", 1, "language", "original", "title", "标题", "body", "正文"));
+        mvc.perform(post(url).contentType("application/json").content(body)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.body").value("正文"));
+        mvc.perform(post(url).contentType("application/json").content(body.replace("original", "arbitrary")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(url).contentType("application/json").content(body.replace("original", "en")))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("ARTICLE_TRANSLATION_MISSING"));
+        org.mockito.Mockito.verifyNoInteractions(copyGenerator);
     }
 
     @Test void shouldDefaultToPersonalChannelsAndSaveSelectionWithoutLosingPreferences() throws Exception {

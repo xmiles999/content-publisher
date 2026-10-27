@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-09-22 |
+| 文档基线 | 2026-10-27 |
 | API 前缀 | `/api/v1` |
 | 实现入口 | `publisher-web/.../controller/*Controller.java` |
 | 请求模型 | `publisher-web/.../dto/*Request.java` |
@@ -16,6 +16,8 @@
 产品长期采用纯个人模式。Portal 已使用 `READY` 和本人内容确认；REST 仍保留多租户、Viewer/Editor/Admin、`approve/reject`、`APPROVED/REJECTED` 与旧错误码作为历史兼容合同。人工平台配置和个人确认通过 Session + CSRF 的 Portal 表单实现，不新增 `/api/v1` 路径。
 
 渠道优化不新增 REST 字段：API 适配和自动发布使用主稿，不再按平台地区强制使用附属英文稿；Portal 人工工作区可通过 `language=original|en` 选择内容。附属英文稿缺失仅阻止显式选择英文稿的适配。已有异步任务执行时也按主稿适配，发布前应核对主稿语言。批量常用渠道选择使用 Admin + CSRF 的 Portal 表单，不属于 OpenAPI 合同。
+
+平台限长优化也不改变 `/api/v1` 请求字段或 OpenAPI：预检不调用 AI，实际发布任务超限时通过当前租户 AI 压缩，失败在外部发布前结束，不再硬截断。Portal 的 Editor/Admin + CSRF JSON POST `/articles/{articleId}/manual/{channelType}/optimize` 接收 `articleVersion`（正整数）、`language`（`original|en`）、`title`（必填，最多 500）、`body`（必填，最多 100000）；返回 `title/body/titleLimit/bodyLimit`，不保存主稿或平台草稿。应用错误为 400 `code/message`，参数校验使用既有错误结构，未授权/缺 CSRF 沿用认证模式。常见错误：`AI_DISABLED`、`CHANNEL_COPY_BUSY`、`CHANNEL_COPY_OPTIMIZATION_FAILED`、`CHANNEL_COPY_LIMIT_EXCEEDED`、`CHANNEL_COPY_INVALID`、`ARTICLE_VERSION_CONFLICT`、`ARTICLE_TRANSLATION_MISSING`。租户归属、渠道启用、主稿版本均由服务端验证；该 Portal 辅助接口不属于 OpenAPI 合同。
 
 ## 2. 通用协议
 

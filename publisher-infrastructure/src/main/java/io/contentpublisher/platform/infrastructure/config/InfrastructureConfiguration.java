@@ -113,8 +113,13 @@ public class InfrastructureConfiguration {
     }
 
     @Bean
-    PlatformContentAdapter platformContentAdapter() {
-        return new PlatformContentAdapter();
+    io.contentpublisher.platform.application.ChannelCopyOptimizationService channelCopyOptimizationService(ContentGenerator generator) {
+        return new io.contentpublisher.platform.application.ChannelCopyOptimizationService(generator);
+    }
+
+    @Bean
+    PlatformContentAdapter platformContentAdapter(io.contentpublisher.platform.application.ChannelCopyOptimizationService optimizer) {
+        return new PlatformContentAdapter(optimizer);
     }
 
     @Bean

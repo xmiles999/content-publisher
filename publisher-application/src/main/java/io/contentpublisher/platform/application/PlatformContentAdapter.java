@@ -10,6 +10,11 @@ import java.util.List;
 import java.util.Locale;
 
 public final class PlatformContentAdapter {
+    private final ChannelCopyOptimizationService optimizer;
+
+    public PlatformContentAdapter() { this(new ChannelCopyOptimizationService(null)); }
+
+    public PlatformContentAdapter(ChannelCopyOptimizationService optimizer) { this.optimizer = optimizer; }
     public AdaptedContent adapt(Article article, ChannelType channelType, String canonicalUrl) {
         return adapt(article, channelType, canonicalUrl, true, "original");
     }
@@ -35,13 +40,16 @@ public final class PlatformContentAdapter {
         String body = switch (definition.contentFormat()) {
             case MARKDOWN -> markdown(content, channelType, canonicalUrl, languageRegion);
             case PLAIN_TEXT -> plainText(content, channelType, canonicalUrl, tags, languageRegion);
-            case SHORT_TEXT -> shortText(content, channelType, canonicalUrl, tags,
-                    enforcePlatformLimits ? definition.characterLimit() : 0);
+            case SHORT_TEXT -> shortText(content, channelType, canonicalUrl, tags);
         };
-        String title = enforcePlatformLimits ? adaptTitle(content.title(), channelType) : content.title();
-        String adaptedBody = enforcePlatformLimits ? truncate(body, definition.characterLimit()) : body;
-        return new AdaptedContent(channelType, definition.contentFormat(), title, adaptedBody, tags,
+        AdaptedContent result = new AdaptedContent(channelType, definition.contentFormat(), content.title(), body, tags,
                 definition.characterLimit());
+        if (!enforcePlatformLimits) return result;
+        AdaptedContent optimized = optimizer.optimize(article.tenantId(), result);
+        if (canonicalUrl != null && body.contains(canonicalUrl) && !optimized.body().contains(canonicalUrl)) {
+            throw new ApplicationException("CHANNEL_COPY_INVALID", "优化结果丢失原文链接，请调整内容或改用人工发布");
+        }
+        return optimized;
     }
 
     private Localized localize(Article article, String language) {
@@ -90,8 +98,7 @@ public final class PlatformContentAdapter {
         return body.toString().strip();
     }
 
-    private String shortText(Localized content, ChannelType channelType, String canonicalUrl, List<String> tags,
-                             int limit) {
+    private String shortText(Localized content, ChannelType channelType, String canonicalUrl, List<String> tags) {
         StringBuilder suffix = new StringBuilder();
         if (canonicalUrl != null) suffix.append("\n\n").append(canonicalUrl);
         if (!tags.isEmpty()) {
@@ -100,22 +107,7 @@ public final class PlatformContentAdapter {
             tags.stream().limit(allowedTags).forEach(tag -> suffix.append('#').append(tag).append(' '));
         }
         String lead = content.title() + "\n\n" + content.summary();
-        if (limit < 1) return (lead + suffix).stripTrailing();
-        int available = Math.max(20, limit - codePoints(suffix.toString()));
-        return truncate(lead, available) + suffix.toString().stripTrailing();
-    }
-
-    private String adaptTitle(String title, ChannelType type) {
-        return switch (type) {
-            case XIAOHONGSHU -> truncate(title, 20);
-            case WECHAT_OFFICIAL -> truncate(title, 64);
-            case TOUTIAO -> truncate(title, 30);
-            case BILIBILI_COLUMN -> truncate(title, 80);
-            case LINKEDIN, JIANSHU -> truncate(title, 100);
-            case REDDIT -> truncate(title, 300);
-            case X, MASTODON -> truncate(title, 100);
-            default -> title;
-        };
+        return (lead + suffix).stripTrailing();
     }
 
     private String appendLink(String content, String canonicalUrl, String labelWithSeparator) {
@@ -149,16 +141,6 @@ public final class PlatformContentAdapter {
 
     private String normalizeTag(String value) {
         return value.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}_-]", "");
-    }
-
-    private String truncate(String value, int maxCodePoints) {
-        if (codePoints(value) <= maxCodePoints) return value;
-        int end = value.offsetByCodePoints(0, Math.max(1, maxCodePoints - 1));
-        return value.substring(0, end).stripTrailing() + "…";
-    }
-
-    private int codePoints(String value) {
-        return value.codePointCount(0, value.length());
     }
 
     private record Localized(String title, String summary, String markdown, List<String> tags, List<String> keywords) {

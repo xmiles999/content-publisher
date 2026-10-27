@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-10-26 |
+| 文档基线 | 2026-10-27 |
 | 适用版本 | `0.1.0-SNAPSHOT` |
 | 架构形态 | 模块化单体 |
 | 主包名 | `io.contentpublisher.platform` |
@@ -579,7 +579,15 @@ Portal reopen（Editor/Admin）
 
 `PlatformContentAdapter` 的 API 路径始终取主稿，平台地区只用于目录展示，不再决定语言。人工适配支持 `original|en`；仅显式选英文时要求完整英文内容。该变化同样影响尚未执行的旧任务，应在发布前核对主稿。
 
+`ChannelTextLimits` 集中默认标题限制、正文计数、X 加权及 X/Mastodon 链接默认 23 字规则；目录正文值不变，未知实例/套餐配额仍属当前限制。`PlatformContentAdapter.adaptForManual` 返回完整派生内容供编辑，API `adapt` 通过 `ChannelCopyOptimizationService` 仅在超限时调用 `ContentGenerator.optimizeChannelCopy`，不再截断标题或正文。发布预检使用不调用 AI 的人工适配路径；实际执行时重新校验 AI 输出与 canonical 链接，失败在外部调用前落库。
+
+优化服务保留未超限字段、格式和标签元数据，拒绝空输出、仍超限或新增 HTTP(S) URL；一次请求不循环重写，AI 网络错误包装为不可自动重试的 `CHANNEL_COPY_OPTIMIZATION_FAILED`。每进程 Semaphore 限制 2 个同时优化请求，满额立即失败并提示重试。基础设施复用租户配置、SecretCipher、SSRF 策略、HTTP Client 与 2MB 响应上限；本功能超时取配置值与 60 秒的较小值。平台名和原文作为 JSON 数据发送，系统提示明确忽略原文指令、保留原语言与事实、不虚构外链。没有迁移、依赖或新环境变量。
+
+Portal 新增 Editor/Admin + CSRF 的 JSON POST `/articles/{articleId}/manual/{channelType}/optimize`，校验启用渠道、租户归属、语言与调用前后 `currentVersion`；请求标题最多 500、正文最多 100000（沿用表单 Java 长度合同），返回字段 `title/body/titleLimit/bodyLimit`，不写数据库。专用 `channel-copy-optimization.js` 在首次超限时请求一次，复用当前表单输入；客户端保存输入序号与快照，拒绝覆盖请求期间的编辑，提供一次撤销，70 秒停止等待。复制与保存受当前限长状态保护；主稿富文本在平台正文修改后禁用，防止绕过压缩结果。被阻止的提交保留脏表单离开提醒；无 JS 时仍可手动修改和记录外部发布事实。
+
 覆盖矩阵使用启用人工平台与 ACTIVE、仍可运行的 API 渠道的并集，并按 `ChannelType` 去重。`PublicationMatrixCell` 同时保留最新尝试和最新成功，避免后续失败遮蔽已有结果；覆盖是平台级历史成功，不是账号级或最新版本同步证明。前端的未发布筛选仅作用于当前分页，服务端分页边界不变。
+
+文章发布页复用本次文章的全部 `PublicationRecord`，构造按 `ChannelType` 的最近成功映射 `publishedChannels`，只用 `PUBLISHED` 记录决定渠道卡片状态。有成功记录时显示已发布/结果链接，重复操作放入详情菜单；无成功记录且当前文章可发布时才显示准备发布。不依赖文章整体状态推断所有平台成功，也不把后续失败覆盖历史成功链接；回归由 `ChannelOptimizationIntegrationTest` 覆盖人工多次成功、API 成功后失败与尚未发布平台并存。
 
 ### 10.6 人工发布
 
@@ -933,6 +941,7 @@ Git、网站、AI 和自托管渠道都执行：
 | AI/网站安全 | `OpenAiCompatibleContentGeneratorTest`、`SecureAiEndpointPolicyTest`、`SecureWebsiteInspectorTest` | 输出校验、SSRF、响应限制 |
 | 发布与加密 | `PublishingApplicationServiceTest`、`OfficialChannelPublishersTest`、`ManualChannelProfileApplicationServiceTest`、`AesGcmCredentialVaultTest`、`AesGcmSecretCipherTest` | `READY/APPROVED/PUBLISHED` 发布门禁、请求映射、人工平台配置、凭据 |
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
+| 平台字数优化 | `ChannelCopyOptimizationServiceTest`、`ChannelOptimizationIntegrationTest`、`OpenAiCompatibleContentGeneratorTest`、`channel-optimization.test.cjs` | 零 AI 的限内路径、字段保留、超限/错误输出拒绝、并发上限、主稿不变、租户/版本/CSRF/角色、注入资料隔离、X 加权、过期响应、撤销与失败保留；模型响应使用本地模拟，不验证实际模型质量 |
 | Worker | `DurableJobWorkerTest`、`DurableJobIntegrationTest` | 领取、重试、租约、调度、取消 |
 | 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V25、`APPROVED → READY` 回填、JPA、自定义文章、配图、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |

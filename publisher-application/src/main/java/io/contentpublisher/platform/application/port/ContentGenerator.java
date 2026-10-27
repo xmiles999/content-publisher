@@ -9,6 +9,13 @@ import io.contentpublisher.platform.domain.WebsiteSnapshot;
 import java.util.List;
 
 public interface ContentGenerator {
+    default ChannelCopy optimizeChannelCopy(String tenantId, io.contentpublisher.platform.domain.ChannelType channel,
+                                            io.contentpublisher.platform.domain.ContentFormat format,
+                                            String title, String body, int titleLimit, int bodyLimit) {
+        throw new io.contentpublisher.platform.application.ApplicationException("AI_DISABLED", "当前 AI 服务不支持平台文案优化");
+    }
+
+    record ChannelCopy(String title, String body) { }
     GeneratedContent generate(String tenantId, RepositorySnapshot snapshot, GenerationPolicy policy);
     GeneratedContent generateFromBrief(String tenantId, TopicBrief brief, GenerationPolicy policy);
     GeneratedContent generateFromWebsite(String tenantId, WebsiteBrief brief, WebsiteSnapshot snapshot,

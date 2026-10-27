@@ -68,6 +68,24 @@ class PublishingApplicationServiceTest {
     }
 
     @Test
+    void shouldKeepPreflightFreeOfAiAndStopOversizedPublishingBeforeExternalCall() {
+        Fixture fixture = fixture(ArticleStatus.READY);
+        Article a = fixture.article;
+        Article longArticle = new Article(a.id(), a.tenantId(), a.origin(), a.generationJobId(), a.title(),
+                a.summary(), "长正文".repeat(7000), a.tags(), a.keywords(), a.titleEn(), a.summaryEn(), a.markdownEn(),
+                a.tagsEn(), a.keywordsEn(), a.language(), a.sourceRevision(), a.currentVersion(), a.status(),
+                a.createdBy(), a.updatedBy(), a.createdAt(), a.updatedAt());
+        when(fixture.articles.findArticleById("tenant", a.id())).thenReturn(Optional.of(longArticle));
+        assertThat(fixture.service.preflight(ACTOR, a.id(), fixture.account.id()).ready()).isTrue();
+        assertThatThrownBy(() -> fixture.service.publish(ACTOR, a.id(), fixture.account.id(), null, UUID.randomUUID()))
+                .isInstanceOfSatisfying(ApplicationException.class, e -> assertThat(e.code()).isEqualTo("AI_DISABLED"));
+        org.mockito.Mockito.verify(fixture.publisher, org.mockito.Mockito.never()).publish(any(), any(), any());
+        var saved = ArgumentCaptor.forClass(Publication.class);
+        verify(fixture.publications, org.mockito.Mockito.atLeastOnce()).save(saved.capture());
+        assertThat(saved.getAllValues().get(saved.getAllValues().size() - 1).status()).isEqualTo(PublicationStatus.FAILED);
+    }
+
+    @Test
     void shouldKeepLegacyApprovedContentPublishable() {
         Fixture fixture = fixture(ArticleStatus.APPROVED);
 
@@ -335,7 +353,7 @@ class PublishingApplicationServiceTest {
         var service = new PublishingApplicationService(articles, accounts, publications, manualPublications, vault,
                 endpointPolicy, List.of(publisher), audits, new PlatformContentAdapter(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
-        return new Fixture(service, article, account, accounts, articles, publications, manualPublications);
+        return new Fixture(service, article, account, accounts, articles, publications, manualPublications, publisher);
     }
 
     private Article article(ArticleStatus status) {
@@ -354,5 +372,5 @@ class PublishingApplicationServiceTest {
     private record Fixture(PublishingApplicationService service, Article article, ChannelAccount account,
                            ChannelAccountRepository accounts, ArticleRepository articles,
                            PublicationRepository publications,
-                           ManualPublicationRepository manualPublications) {}
+                           ManualPublicationRepository manualPublications, ChannelPublisher publisher) {}
 }

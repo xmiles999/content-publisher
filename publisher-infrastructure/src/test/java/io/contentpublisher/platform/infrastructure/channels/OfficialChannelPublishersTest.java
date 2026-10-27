@@ -57,14 +57,24 @@ class OfficialChannelPublishersTest {
         start("/2/tweets", body, "{\"data\":{\"id\":\"12345\"}}");
         var publisher = new XChannelPublisher(HttpClient.newHttpClient(), new ObjectMapper(), properties());
         Article article = article("技术".repeat(200), "能力".repeat(300));
+        var generator = org.mockito.Mockito.mock(io.contentpublisher.platform.application.port.ContentGenerator.class);
+        org.mockito.Mockito.when(generator.optimizeChannelCopy(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(new io.contentpublisher.platform.application.port.ContentGenerator.ChannelCopy(
+                        "技术平台", "技术平台简介\n\nhttps://example.com/article"));
+        var adapter = new PlatformContentAdapter(new io.contentpublisher.platform.application.ChannelCopyOptimizationService(generator));
 
         String canonicalUrl = "https://example.com/article";
         publisher.publish(account(ChannelType.X), new ChannelPublisher.PublishContent(article,
-                new PlatformContentAdapter().adapt(article, ChannelType.X, canonicalUrl), canonicalUrl),
+                adapter.adapt(article, ChannelType.X, canonicalUrl), canonicalUrl),
                 Map.of("accessToken", "x-token"));
 
         String text = new ObjectMapper().readTree(body.get()).path("text").asText();
         assertThat(text.codePointCount(0, text.length())).isLessThanOrEqualTo(280);
+        assertThat(io.contentpublisher.platform.application.ChannelTextLimits.bodyLength(ChannelType.X, text)).isLessThanOrEqualTo(280);
+        assertThat(text).contains(canonicalUrl);
     }
 
     @Test

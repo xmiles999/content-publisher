@@ -55,7 +55,15 @@ class PlatformContentAdapterTest {
         Article source = article("技术平台".repeat(100), "能力摘要".repeat(100),
                 "Tech Platform ".repeat(100), "Capability summary ".repeat(100));
 
-        var content = adapter.adapt(source, ChannelType.X, "https://example.com/source");
+        var generator = org.mockito.Mockito.mock(io.contentpublisher.platform.application.port.ContentGenerator.class);
+        org.mockito.Mockito.when(generator.optimizeChannelCopy(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(new io.contentpublisher.platform.application.port.ContentGenerator.ChannelCopy(
+                        "精简标题", "技术平台摘要\n\nhttps://example.com/source"));
+        var optimizing = new PlatformContentAdapter(new io.contentpublisher.platform.application.ChannelCopyOptimizationService(generator));
+        var content = optimizing.adapt(source, ChannelType.X, "https://example.com/source");
 
         assertThat(content.format()).isEqualTo(ContentFormat.SHORT_TEXT);
         assertThat(content.body().codePointCount(0, content.body().length())).isLessThanOrEqualTo(280);

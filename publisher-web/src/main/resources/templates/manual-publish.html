@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title th:text="|发布到 ${channel.displayName()} · Content Publisher|">人工发布</title><link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
+    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/channel-copy-optimization.js}"></script><script defer th:src="@{/assets/app.js}"></script></head>
 <body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('人工发布工作区', '复制适配内容、跳转登录并回填结果')}"></header>
         <main class="page-content"><div class="process-rail process-rail-two"><div class="process-item active"><span>1</span><div><strong>复制并打开</strong><small>复制标题、正文和标签，打开官方编辑器</small></div></div>
@@ -13,8 +13,13 @@
                 <div class="filter-field"><label for="manual-language">发布内容</label><select id="manual-language" name="language"><option value="original" th:selected="${selectedLanguage == 'original'}" th:text="|主稿（${article.language}）|">主稿</option><option value="en" th:selected="${selectedLanguage == 'en'}" th:disabled="${!article.hasEnglishContent()}">英文稿</option></select></div>
                 <button class="secondary-button" type="submit">切换内容</button>
             </form>
-            <form data-manual-progress
+            <form data-manual-progress data-copy-optimization
                   th:attr="data-progress-url=${manualProgressUrl},
+                           data-optimize-url=@{/articles/{id}/manual/{type}/optimize(id=${article.id},type=${channel.type()})},
+                           data-article-version=${article.currentVersion},data-language=${selectedLanguage},
+                           data-channel-type=${channel.type()},data-title-limit=${channelTitleLimit},
+                           data-rich-copy-current=${manualPublicationForm.content == adapted.body},
+                           data-body-limit=${channel.characterLimit()},data-auto-optimize=${autoOptimize},
                            data-copied-title=${manualProgress.copiedTitle},
                            data-copied-content=${manualProgress.copiedContent},
                            data-opened-editor=${manualProgress.openedEditor},
@@ -29,11 +34,12 @@
                     <template id="manual-rich-content" th:utext="${richTextHtml}"></template>
                     <small class="copy-feedback" data-copy-feedback role="status" aria-live="polite"></small>
                     <small th:if="${channel.contentFormat().name() == 'PLAIN_TEXT' and channel.type().name() != 'XIAOHONGSHU' and channel.type().name() != 'LINKEDIN'}">富文本取自所选语言的主稿，保留排版；下方平台文本的调整仅用于普通复制。图片需在目标平台检查或重新上传。</small>
-                    <div class="stack-form section-gap"><div class="field"><label for="manual-title">平台标题</label><input id="manual-title" th:field="*{title}" maxlength="500" required><small class="character-counter" data-count-source="#manual-title">0</small></div>
+                    <div class="section-gap" data-optimization-controls hidden><div class="copy-toolbar"><button class="secondary-button" type="button" data-optimize-copy>按平台字数优化</button><button class="secondary-button" type="button" data-undo-optimization hidden>撤销本次优化</button></div><p data-optimization-state role="status" aria-live="polite">超限时自动使用已配置 AI 精简平台文案，保留主稿；请核对后再复制发布。</p></div>
+                    <div class="stack-form section-gap"><div class="field"><label for="manual-title">平台标题</label><input id="manual-title" th:field="*{title}" maxlength="500" required><small class="character-counter" data-count-source="#manual-title" th:attr="data-count-limit=${channelTitleLimit}">0</small></div>
                         <div class="field"><div class="manual-tag-heading"><span class="field-label">发布标签</span><button class="copy-button" type="button" data-copy-tags="#manual-publish-tags .tag" th:unless="${#lists.isEmpty(adapted.tags())}">复制标签</button></div>
                             <div id="manual-publish-tags" class="manual-tag-panel"><div class="tag-row" th:unless="${#lists.isEmpty(adapted.tags())}"><span class="tag" th:each="tag : ${adapted.tags()}" th:text="|#${tag}|">#标签</span></div><span class="manual-tag-empty" th:if="${#lists.isEmpty(adapted.tags())}">暂无生成标签</span></div>
                             <small>已合并文章生成标签和该平台的个人默认标签，并按当前平台规则完成适配。</small></div>
-                        <div class="field"><label for="manual-content">平台正文</label><textarea id="manual-content" th:field="*{content}" rows="28" maxlength="100000" required></textarea><small class="character-counter" data-count-source="#manual-content" th:attr="data-count-limit=${channel.characterLimit()}">0</small><small>系统保留完整正文，不再自动截断；超过平台建议上限时，请在发布前按平台要求调整。</small></div>
+                        <div class="field"><label for="manual-content">平台正文</label><textarea id="manual-content" th:field="*{content}" rows="28" maxlength="100000" required></textarea><small class="character-counter" data-count-source="#manual-content" th:attr="data-count-limit=${channel.characterLimit()},data-count-channel=${channel.type()}">0</small><small>超限时由 AI 压缩改写，不硬截断；失败时保留当前输入，可手动修改或重试。标签、链接和换行计入正文；目录为默认参考限制，最终以平台编辑器为准。</small></div>
                         <div class="field"><label for="manual-external-url">发布后的文章链接</label><div class="url-validation-row"><input id="manual-external-url" th:field="*{externalUrl}" type="url" maxlength="2048" placeholder="完成发布后，将平台文章 URL 粘贴到这里" required>
                             <button class="secondary-button" type="button" data-validate-published-url th:attr="data-validation-url=@{/api/v1/publications/link-validation},data-channel-type=${channel.type()}">验证链接</button></div>
                             <small class="link-validation-state" data-published-url-state th:text="|允许域名：${#strings.listJoin(channel.publishedHosts(), '、')}|">允许域名</small></div>

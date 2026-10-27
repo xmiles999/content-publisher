@@ -142,7 +142,8 @@ public final class PublicationCommandApplicationService {
         if (!credentials.keySet().equals(new java.util.HashSet<>(definition.credentialKeys()))) {
             throw new ApplicationException("CHANNEL_CREDENTIALS_INVALID", "渠道凭据字段不完整，请重新轮换凭据");
         }
-        contentAdapter.adapt(article, account.type(), null);
+        // 预检不调用付费 AI；限长优化在实际执行任务时完成。
+        contentAdapter.adaptForManual(article, account.type(), null);
     }
 
     public PublicationPreflightResult preflight(ActorContext actor, UUID articleId, UUID accountId) {

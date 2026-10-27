@@ -3,6 +3,8 @@ package io.contentpublisher.platform.web.controller;
 import io.contentpublisher.platform.application.ApplicationException;
 import io.contentpublisher.platform.application.AutomationApplicationService;
 import io.contentpublisher.platform.application.ChannelCatalog;
+import io.contentpublisher.platform.application.ChannelCopyOptimizationService;
+import io.contentpublisher.platform.application.ChannelTextLimits;
 import io.contentpublisher.platform.application.JobApplicationService;
 import io.contentpublisher.platform.application.ManualChannelProfileApplicationService;
 import io.contentpublisher.platform.application.ProjectApplicationService;
@@ -65,6 +67,7 @@ public class PortalPublishingController {
     private final ScheduleParser scheduleParser;
     private final RequestActorProvider actors;
     private final MarkdownRenderer markdownRenderer;
+    private final ChannelCopyOptimizationService copyOptimizer;
 
     public PortalPublishingController(PublishingApplicationService publishing,
                                       ProjectApplicationService projects,
@@ -72,7 +75,8 @@ public class PortalPublishingController {
                                       AutomationApplicationService automation,
                                       ManualChannelProfileApplicationService manualProfiles,
                                       ScheduleParser scheduleParser,
-                                      RequestActorProvider actors, MarkdownRenderer markdownRenderer) {
+                                      RequestActorProvider actors, MarkdownRenderer markdownRenderer,
+                                      ChannelCopyOptimizationService copyOptimizer) {
         this.publishing = publishing;
         this.projects = projects;
         this.jobs = jobs;
@@ -81,6 +85,7 @@ public class PortalPublishingController {
         this.scheduleParser = scheduleParser;
         this.actors = actors;
         this.markdownRenderer = markdownRenderer;
+        this.copyOptimizer = copyOptimizer;
     }
 
     @GetMapping("/publishing")
@@ -508,7 +513,8 @@ public class PortalPublishingController {
             return "redirect:/publishing/articles/" + articleId;
         }
         adapted = withProfileTags(adapted, profile);
-        if (!model.containsAttribute("manualPublicationForm")) {
+        boolean freshForm = !model.containsAttribute("manualPublicationForm");
+        if (freshForm) {
             ManualPublicationForm form = new ManualPublicationForm();
             form.setContentFormat(adapted.format());
             form.setTitle(adapted.title());
@@ -519,6 +525,8 @@ public class PortalPublishingController {
         model.addAttribute("article", article);
         model.addAttribute("channel", definition);
         model.addAttribute("adapted", adapted);
+        model.addAttribute("channelTitleLimit", ChannelTextLimits.titleLimit(channelType));
+        model.addAttribute("autoOptimize", freshForm);
         model.addAttribute("selectedLanguage", language);
         model.addAttribute("richTextHtml", markdownRenderer.render("en".equals(language) ? article.markdownEn() : article.markdown()));
         model.addAttribute("manualProfile", ManualChannelProfileView.from(definition, profile,
@@ -532,6 +540,37 @@ public class PortalPublishingController {
         model.addAttribute("manualProgressUrl", "/api/v1/articles/" + articleId + "/manual/"
                 + channelType.name() + "/progress");
         return "manual-publish";
+    }
+
+    @PostMapping("/articles/{articleId}/manual/{channelType}/optimize")
+    @io.swagger.v3.oas.annotations.Hidden
+    @org.springframework.web.bind.annotation.ResponseBody
+    public org.springframework.http.ResponseEntity<?> optimizeManualCopy(
+            @PathVariable UUID articleId, @PathVariable ChannelType channelType,
+            @Valid @org.springframework.web.bind.annotation.RequestBody
+            io.contentpublisher.platform.web.form.OptimizeChannelCopyRequest request) {
+        try {
+            var actor = actors.currentActor();
+            var definition = requireEnabledManualChannel(actor, channelType);
+            var article = publishing.getArticle(actor, articleId);
+            if (article.currentVersion() != request.articleVersion()) {
+                throw new ApplicationException("ARTICLE_VERSION_CONFLICT", "主稿已更新，请刷新后重新准备平台文案");
+            }
+            if ("en".equals(request.language()) && !article.hasEnglishContent()) {
+                throw new ApplicationException("ARTICLE_TRANSLATION_MISSING", "文章暂无完整英文稿，请先补充或选择主稿");
+            }
+            var source = new AdaptedContent(channelType, definition.contentFormat(), request.title(), request.body(),
+                    List.of(), definition.characterLimit());
+            var result = copyOptimizer.optimize(actor.tenantId(), source);
+            // AI 调用期间主稿被正式更新时，返回结果不再适用。
+            if (publishing.getArticle(actor, articleId).currentVersion() != request.articleVersion()) {
+                throw new ApplicationException("ARTICLE_VERSION_CONFLICT", "优化期间主稿已更新，请刷新后重试");
+            }
+            return org.springframework.http.ResponseEntity.ok(Map.of("title", result.title(), "body", result.body(),
+                    "titleLimit", ChannelTextLimits.titleLimit(channelType), "bodyLimit", definition.characterLimit()));
+        } catch (ApplicationException exception) {
+            return org.springframework.http.ResponseEntity.badRequest().body(Map.of("code", exception.code(), "message", exception.getMessage()));
+        }
     }
 
     @PostMapping("/articles/{articleId}/manual/{channelType}")

@@ -423,7 +423,9 @@
         const source = document.querySelector(counter.dataset.countSource);
         const limit = Number(counter.dataset.countLimit || 0);
         const refresh = () => {
-            const count = [...(source?.value || '')].length;
+            const value = source?.value || '';
+            const count = counter.dataset.countChannel && window.PublisherChannelCopy
+                ? window.PublisherChannelCopy.bodyLength(counter.dataset.countChannel, value) : [...value].length;
             counter.textContent = limit ? `${count} / ${limit}` : String(count);
             counter.classList.toggle('over-limit', limit > 0 && count > limit);
         };
@@ -435,7 +437,7 @@
         let dirty = false;
         form.addEventListener('input', () => { dirty = true; });
         form.addEventListener('change', () => { dirty = true; });
-        form.addEventListener('submit', () => { dirty = false; });
+        form.addEventListener('submit', event => { if (!event.defaultPrevented) dirty = false; });
         [...form.elements].filter(input => !form.contains(input)).forEach(input => {
             input.addEventListener('input', () => { dirty = true; });
             input.addEventListener('change', () => { dirty = true; });

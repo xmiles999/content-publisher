@@ -256,6 +256,12 @@ class LocalSecurityIntegrationTest {
                 .andExpect(status().is3xxRedirection()).andReturn();
         MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
         String body = "{\"gitUrl\":\"https://github.com/contentpublisher/platform.git\"}";
+        String optimizeUrl = "/articles/" + UUID.randomUUID() + "/manual/XIAOHONGSHU/optimize";
+        String copy = "{\"articleVersion\":1,\"language\":\"original\",\"title\":\"标题\",\"body\":\"正文\"}";
+        mockMvc.perform(post(optimizeUrl).session(session).contentType("application/json").content(copy))
+                .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/access-denied"));
+        mockMvc.perform(post(optimizeUrl).session(session).with(csrf()).contentType("application/json").content(copy))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").exists());
 
         mockMvc.perform(post("/api/v1/projects/imports").session(session)
                         .header("Idempotency-Key", "local-security-import-001")
@@ -910,6 +916,13 @@ class LocalSecurityIntegrationTest {
             mockMvc.perform(get("/articles/" + articleId + "/manual/XIAOHONGSHU").session(session))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl("/access-denied"));
+            mockMvc.perform(post("/articles/" + articleId + "/manual/XIAOHONGSHU/optimize")
+                            .session(session).with(csrf()).contentType("application/json")
+                            .content("{\"articleVersion\":1,\"language\":\"original\",\"title\":\"标题\",\"body\":\"正文\"}"))
+                    .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/access-denied"));
+            mockMvc.perform(post("/articles/" + articleId + "/manual/XIAOHONGSHU/optimize")
+                            .session(session).contentType("application/json").content("{}"))
+                    .andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/access-denied"));
             mockMvc.perform(get("/settings/ai").session(session))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(redirectedUrl("/access-denied"));
