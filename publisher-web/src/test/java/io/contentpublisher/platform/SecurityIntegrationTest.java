@@ -39,6 +39,23 @@ class SecurityIntegrationTest {
     @Autowired ObjectMapper objectMapper;
 
     @Test
+    void shouldProtectWorkspaceDraftWritesByRoleAndOwner() throws Exception {
+        String body = "{\"revision\":0,\"fields\":{\"title\":\"私人草稿\"}}";
+        mockMvc.perform(put("/articles/workspace-drafts/new").contentType("application/json").content(body)
+                .with(jwt().jwt(token -> token.subject("reader").claim("tenant_id", "draft-role-test"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_VIEWER"))))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/articles/workspace-drafts/new").contentType("application/json").content(body)
+                .with(jwt().jwt(token -> token.subject("owner").claim("tenant_id", "draft-role-test"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_EDITOR"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1));
+        mockMvc.perform(put("/articles/workspace-drafts/new").contentType("application/json").content(body)
+                .with(jwt().jwt(token -> token.subject("different").claim("tenant_id", "draft-role-test"))
+                        .authorities(new SimpleGrantedAuthority("ROLE_EDITOR"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.revision").value(1));
+    }
+
+    @Test
     void shouldRequireAuthentication() throws Exception {
         mockMvc.perform(get("/api/v1/projects/" + UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());

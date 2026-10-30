@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title>写新稿 · Content Publisher</title>
     <link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script></head>
+    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/app.js}"></script><script defer th:src="@{/assets/workspace-drafts.js}"></script></head>
 <body class="app-page"><div class="app-layout">
     <aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('写新稿', '编写文章，保存后选择发布渠道')}"></header>
@@ -33,7 +33,10 @@
                     <span class="service-badge" th:if="${activeSourcePanel != 'custom'}" th:classappend="${aiEnabled} ? ' online' : ' offline'" th:text="${aiEnabled} ? 'AI 已就绪' : 'AI 未配置'">AI 状态</span></div>
 
                 <div id="source-panel-custom" class="source-panel" th:if="${activeSourcePanel == 'custom'}">
-                    <form class="stack-form" th:action="@{/articles/custom}" th:object="${customArticleForm}" method="post" data-dirty-form>
+                    <form class="stack-form" th:action="@{/articles/custom}" th:object="${customArticleForm}" method="post" data-workspace-draft="new"
+                          th:attr="data-workspace-owner=${currentTenant + ':' + currentUsername}">
+                        <input type="hidden" th:field="*{draftRevision}">
+                        <p data-workspace-state role="status" aria-live="polite">未完成的内容也会自动保存。</p>
                         <div class="field"><label for="custom-title">文章标题</label><input id="custom-title" th:field="*{title}" maxlength="500" placeholder="例如：深入理解 Java 21 虚拟线程调度机制" required><small class="field-error" th:if="${#fields.hasErrors('title')}" th:errors="*{title}"></small></div>
                         <div class="field"><label for="custom-markdown">Markdown 正文 / 笔记内容</label><textarea id="custom-markdown" class="markdown-editor" th:field="*{markdown}" rows="22" maxlength="100000" placeholder="在此直接编写或粘贴 Markdown 笔记内容..." required></textarea><small class="field-error" th:if="${#fields.hasErrors('markdown')}" th:errors="*{markdown}"></small></div>
                         <details class="advanced-settings">

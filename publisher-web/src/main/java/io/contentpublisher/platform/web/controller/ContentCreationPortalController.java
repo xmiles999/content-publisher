@@ -49,6 +49,7 @@ public class ContentCreationPortalController {
     private final AiProperties aiProperties;
     private final AiSettingsApplicationService aiSettings;
     private final AutomationApplicationService automation;
+    private final io.contentpublisher.platform.application.WorkspaceDraftService workspaceDrafts;
 
     public ContentCreationPortalController(ProjectApplicationService projects,
                                            PublishingApplicationService publishing,
@@ -56,7 +57,8 @@ public class ContentCreationPortalController {
                                            RequestActorProvider actors,
                                            AiProperties aiProperties,
                                            AiSettingsApplicationService aiSettings,
-                                           AutomationApplicationService automation) {
+                                           AutomationApplicationService automation,
+                                           io.contentpublisher.platform.application.WorkspaceDraftService workspaceDrafts) {
         this.projects = projects;
         this.publishing = publishing;
         this.jobs = jobs;
@@ -64,6 +66,7 @@ public class ContentCreationPortalController {
         this.aiProperties = aiProperties;
         this.aiSettings = aiSettings;
         this.automation = automation;
+        this.workspaceDrafts = workspaceDrafts;
     }
 
     @GetMapping("/projects")
@@ -80,12 +83,15 @@ public class ContentCreationPortalController {
                                       RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) return invalidSourceForm(model, "custom");
         try {
+            workspaceDrafts.checkRevision(actors.currentActor(), "new", form.getDraftRevision());
             Article article = publishing.createCustomArticle(actors.currentActor(),
                     form.getTitle(), form.getSummary(), form.getMarkdown(),
                     splitValues(form.getTags()), splitValues(form.getKeywords()),
                     form.getTitleEn(), form.getSummaryEn(), form.getMarkdownEn(),
                     splitValues(form.getTagsEn()), splitValues(form.getKeywordsEn()),
                     form.getLanguage());
+            workspaceDrafts.discard(actors.currentActor(), "new", form.getDraftRevision());
+            redirectAttributes.addFlashAttribute("workspaceDraftSaved", "new");
             redirectAttributes.addFlashAttribute("success", "自定义文章主稿已创建，可直接编辑确认或进入发布中心分发");
             return "redirect:/articles/" + article.id();
         } catch (ApplicationException | IllegalArgumentException exception) {
@@ -204,6 +210,11 @@ public class ContentCreationPortalController {
     private void populateSourceForms(Model model) {
         if (!model.containsAttribute("customArticleForm")) {
             CreateCustomArticleForm form = new CreateCustomArticleForm();
+            workspaceDrafts.find(actors.currentActor(), "new").ifPresent(draft -> {
+                var binder = new org.springframework.beans.BeanWrapperImpl(form);
+                draft.fields().forEach(binder::setPropertyValue);
+                form.setDraftRevision(draft.revision());
+            });
             model.addAttribute("customArticleForm", form);
         }
         if (!model.containsAttribute("importProjectForm")) {

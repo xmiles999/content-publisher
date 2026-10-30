@@ -56,13 +56,15 @@ public class JdbcAutomationRepository implements AutomationRepository {
         int updated = jdbc.update("""
                 update article_drafts set base_version=?, title=?, summary=?, markdown=?, tags_json=?,
                     keywords_json=?, title_en=?, summary_en=?, markdown_en=?, tags_en_json=?,
-                    keywords_en_json=?, updated_at=?
-                where tenant_id=? and article_id=? and actor_subject=?
+                    keywords_en_json=?, updated_at=?, revision=revision+1
+                where tenant_id=? and article_id=? and actor_subject=? and (?=0 or revision=?)
                 """, draft.baseVersion(), draft.title(), draft.summary(), draft.markdown(), write(draft.tags()),
                 write(draft.keywords()), draft.titleEn(), draft.summaryEn(), draft.markdownEn(),
                 write(draft.tagsEn()), write(draft.keywordsEn()), timestamp(draft.updatedAt()), draft.tenantId(),
-                draft.articleId(), draft.actorSubject());
+                draft.articleId(), draft.actorSubject(), draft.revision(), draft.revision() - 1);
         if (updated == 0) {
+            if (draft.revision() > 1) throw new io.contentpublisher.platform.application.ApplicationException(
+                    "DRAFT_VERSION_CONFLICT", "其他页面已保存新的草稿，请保留当前内容后刷新核对");
             try {
                 jdbc.update("""
                         insert into article_drafts(id, tenant_id, article_id, actor_subject, base_version, title,
@@ -74,10 +76,17 @@ public class JdbcAutomationRepository implements AutomationRepository {
                         write(draft.keywords()), draft.titleEn(), draft.summaryEn(), draft.markdownEn(),
                         write(draft.tagsEn()), write(draft.keywordsEn()), timestamp(draft.updatedAt()));
             } catch (DuplicateKeyException ignored) {
-                return saveDraft(draft);
+                throw new io.contentpublisher.platform.application.ApplicationException(
+                        "DRAFT_VERSION_CONFLICT", "其他页面已保存新的草稿，请保留当前内容后刷新核对");
             }
         }
         return findDraft(draft.tenantId(), draft.articleId(), draft.actorSubject()).orElseThrow();
+    }
+
+    @Override
+    public boolean deleteDraftIfRevisionMatches(String tenantId, UUID articleId, String subject, long revision) {
+        return jdbc.update("delete from article_drafts where tenant_id=? and article_id=? and actor_subject=? and revision=?",
+                tenantId, articleId, subject, revision) == 1;
     }
 
     @Override
@@ -473,7 +482,7 @@ public class JdbcAutomationRepository implements AutomationRepository {
                 rs.getString("summary"), rs.getString("markdown"), readList(rs.getString("tags_json")),
                 readList(rs.getString("keywords_json")), rs.getString("title_en"), rs.getString("summary_en"),
                 rs.getString("markdown_en"), readList(rs.getString("tags_en_json")),
-                readList(rs.getString("keywords_en_json")), instant(rs, "updated_at"));
+                readList(rs.getString("keywords_en_json")), instant(rs, "updated_at"), rs.getLong("revision"));
     }
 
     private GenerationPreset preset(java.sql.ResultSet rs) throws java.sql.SQLException {

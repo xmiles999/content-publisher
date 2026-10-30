@@ -9,10 +9,12 @@
             form.dataset.draftOwner, form.dataset.draftUrl])}`;
         let timer, inFlight = null, revision = 0, savedRevision = 0;
         let conflict = false, submitting = false, resubmitting = false;
+        let serverRevision = Number(form.elements.namedItem('draftRevision')?.value || form.dataset.draftRevision || 0);
         const message = text => { if (state) state.textContent = text; };
         const field = name => form.elements.namedItem(name);
         const payload = () => Object.fromEntries([
             ['baseVersion', Number(field('expectedVersion')?.value || 0)],
+            ['revision', serverRevision],
             ...fields.map(name => {
                 const value = field(name)?.value || '';
                 return [name, /^(tags|keywords)/.test(name)
@@ -65,6 +67,10 @@
                             ? '登录已失效或无保存权限，请重新登录。'
                             : result?.message || '保存失败，请检查网络后重试。');
                     }
+                    if (Number.isSafeInteger(result.revision)) {
+                        serverRevision = result.revision;
+                        if (field('draftRevision')) field('draftRevision').value = String(serverRevision);
+                    }
                     savedRevision = savingRevision;
                     if (revision === savingRevision && !submitting) {
                         clearBackup();
@@ -95,6 +101,11 @@
         });
         form.addEventListener('submit', async event => {
             if (event.defaultPrevented || resubmitting) return;
+            if (conflict) {
+                event.preventDefault();
+                message('草稿存在冲突，请复制当前内容后刷新核对，再保存正式版本。');
+                return;
+            }
             if (submitting) {
                 event.preventDefault();
                 return;
@@ -109,6 +120,7 @@
             const submitter = event.submitter;
             message('等待草稿同步完成后保存版本…');
             await inFlight;
+            if (conflict) { submitting = false; return; }
             resubmitting = true;
             form.requestSubmit(submitter || undefined);
             resubmitting = false;

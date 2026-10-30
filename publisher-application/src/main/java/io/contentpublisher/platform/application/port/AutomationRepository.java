@@ -21,6 +21,7 @@ public interface AutomationRepository {
     Optional<ArticleDraft> findDraft(String tenantId, UUID articleId, String subject);
     ArticleDraft saveDraft(ArticleDraft draft);
     boolean deleteDraft(String tenantId, UUID articleId, String subject);
+    boolean deleteDraftIfRevisionMatches(String tenantId, UUID articleId, String subject, long revision);
     List<GenerationPreset> findPresets(String tenantId, String sourceType);
     GenerationPreset savePreset(GenerationPreset preset);
     boolean deletePreset(String tenantId, UUID presetId);

@@ -216,6 +216,13 @@ public class InfrastructureConfiguration {
     }
 
     @Bean
+    io.contentpublisher.platform.application.WorkspaceDraftService workspaceDraftService(
+            io.contentpublisher.platform.application.port.WorkspaceDraftRepository repository,
+            ArticleRepository articles, Clock clock) {
+        return new io.contentpublisher.platform.application.WorkspaceDraftService(repository, articles, clock);
+    }
+
+    @Bean
     AutomationApplicationService automationApplicationService(AutomationRepository automation,
                                                                ArticleRepository articles,
                                                                AuditRecorder auditRecorder,

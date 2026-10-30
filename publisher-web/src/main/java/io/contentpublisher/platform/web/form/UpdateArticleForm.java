@@ -5,6 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public class UpdateArticleForm {
+    @Min(0)
+    private Long draftRevision;
+    public Long getDraftRevision() { return draftRevision; }
+    public void setDraftRevision(Long draftRevision) { this.draftRevision = draftRevision; }
+
     @Min(value = 1, message = "文章版本无效")
     private int expectedVersion;
 

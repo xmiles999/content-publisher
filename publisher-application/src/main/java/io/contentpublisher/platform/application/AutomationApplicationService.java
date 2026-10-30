@@ -38,6 +38,11 @@ public final class AutomationApplicationService {
     }
 
     public ArticleDraft saveDraft(ActorContext actor, UUID articleId, int baseVersion, DraftContent content) {
+        return saveDraft(actor, articleId, baseVersion, null, content);
+    }
+
+    public ArticleDraft saveDraft(ActorContext actor, UUID articleId, int baseVersion, Long expectedRevision, DraftContent content) {
+        if (expectedRevision != null && expectedRevision < 0) throw new IllegalArgumentException("草稿修订号无效");
         if (baseVersion < 1) throw new ApplicationException("DRAFT_VERSION_INVALID", "草稿基线版本无效");
         var article = articles.findArticleById(actor.tenantId(), articleId)
                 .orElseThrow(() -> new ApplicationException("ARTICLE_NOT_FOUND", "文章不存在"));
@@ -57,8 +62,14 @@ public final class AutomationApplicationService {
                 limited(content.summaryEn(), ArticleLimits.SUMMARY, false),
                 limited(content.markdownEn(), ArticleLimits.MARKDOWN, false),
                 draftValues(content.tagsEn(), ArticleLimits.TAGS, ArticleLimits.TAG, true),
-                draftValues(content.keywordsEn(), ArticleLimits.KEYWORDS, ArticleLimits.KEYWORD, false), clock.instant());
+                draftValues(content.keywordsEn(), ArticleLimits.KEYWORDS, ArticleLimits.KEYWORD, false), clock.instant(),
+                expectedRevision == null ? 0 : expectedRevision + 1);
         return repository.saveDraft(draft);
+    }
+
+    public void deleteDraft(ActorContext actor, UUID articleId, Long revision) {
+        if (revision == null) deleteDraft(actor, articleId);
+        else repository.deleteDraftIfRevisionMatches(actor.tenantId(), articleId, actor.subject(), revision);
     }
 
     public void deleteDraft(ActorContext actor, UUID articleId) {
@@ -339,7 +350,7 @@ public final class AutomationApplicationService {
     public record ArticleDraft(UUID id, String tenantId, UUID articleId, String actorSubject, int baseVersion,
                                String title, String summary, String markdown, List<String> tags,
                                List<String> keywords, String titleEn, String summaryEn, String markdownEn,
-                               List<String> tagsEn, List<String> keywordsEn, Instant updatedAt) {}
+                               List<String> tagsEn, List<String> keywordsEn, Instant updatedAt, long revision) {}
     public record PresetCommand(String name, String sourceType, String language, String tone, int minCharacters,
                                 int maxCharacters, int maxKeywords, String requiredSections, String articleType,
                                 String knowledgeLevel, String recommendationAngle, String model,

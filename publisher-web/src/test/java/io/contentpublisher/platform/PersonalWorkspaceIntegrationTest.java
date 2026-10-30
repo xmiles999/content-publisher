@@ -82,7 +82,7 @@ class PersonalWorkspaceIntegrationTest {
         var createPage = mvc.perform(get("/projects").param("source", "custom"))
                 .andExpect(status().isOk()).andReturn();
         org.assertj.core.api.Assertions.assertThat(Jsoup.parse(createPage.getResponse().getContentAsString())
-                .select("form[action='/articles/custom'][data-dirty-form]")).hasSize(1);
+                .select("form[action='/articles/custom'][data-workspace-draft='new']")).hasSize(1);
     }
 
     @Test

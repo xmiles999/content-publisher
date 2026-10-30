@@ -40,7 +40,7 @@ public class AutomationController {
     @PutMapping("/articles/{articleId}/draft")
     public AutomationApplicationService.ArticleDraft saveDraft(@PathVariable UUID articleId,
                                                                @RequestBody DraftRequest request) {
-        return automation.saveDraft(actors.currentActor(), articleId, request.baseVersion(),
+        return automation.saveDraft(actors.currentActor(), articleId, request.baseVersion(), request.revision(),
                 new DraftContent(request.title(), request.summary(), request.markdown(), request.tags(),
                         request.keywords(), request.titleEn(), request.summaryEn(), request.markdownEn(),
                         request.tagsEn(), request.keywordsEn()));
@@ -124,7 +124,7 @@ public class AutomationController {
         return automation.recentWebhookDeliveries(actors.currentActor(), limit);
     }
 
-    public record DraftRequest(int baseVersion, String title, String summary, String markdown, List<String> tags,
+    public record DraftRequest(int baseVersion, Long revision, String title, String summary, String markdown, List<String> tags,
                                List<String> keywords, String titleEn, String summaryEn, String markdownEn,
                                List<String> tagsEn, List<String> keywordsEn) {}
 

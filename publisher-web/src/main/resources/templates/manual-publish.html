@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow"><title th:text="|发布到 ${channel.displayName()} · Content Publisher|">人工发布</title><link rel="icon" type="image/svg+xml" th:href="@{/assets/logo.svg}">
-    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/channel-copy-optimization.js}"></script><script defer th:src="@{/assets/app.js}"></script></head>
+    <script th:src="@{/assets/theme-init.js}"></script><link rel="stylesheet" th:href="@{/assets/app.css}"><script defer th:src="@{/assets/channel-copy-optimization.js}"></script><script defer th:src="@{/assets/app.js}"></script><script defer th:src="@{/assets/workspace-drafts.js}"></script></head>
 <body class="app-page"><div class="app-layout"><aside th:replace="~{fragments/app-shell :: sidebar}"></aside>
     <div class="app-main"><header th:replace="~{fragments/app-shell :: topbar('人工发布工作区', '复制适配内容、跳转登录并回填结果')}"></header>
         <main class="page-content"><div class="process-rail process-rail-two"><div class="process-item active"><span>1</span><div><strong>复制并打开</strong><small>复制标题、正文和标签，打开官方编辑器</small></div></div>
@@ -14,7 +14,7 @@
                 <button class="secondary-button" type="submit">切换内容</button>
             </form>
             <form data-manual-progress data-copy-optimization
-                  th:attr="data-progress-url=${manualProgressUrl},
+                  th:attr="data-workspace-draft=${workspaceDraftKey},data-workspace-owner=${currentTenant + ':' + currentUsername},data-progress-url=${manualProgressUrl},
                            data-optimize-url=@{/articles/{id}/manual/{type}/optimize(id=${article.id},type=${channel.type()})},
                            data-article-version=${article.currentVersion},data-language=${selectedLanguage},
                            data-channel-type=${channel.type()},data-title-limit=${channelTitleLimit},
@@ -26,7 +26,9 @@
                            data-checked-format=${manualProgress.checkedFormat},
                            data-published=${manualProgress.published}"
                   th:action="@{/articles/{id}/manual/{type}(id=${article.id},type=${channel.type()})}"
-                  th:object="${manualPublicationForm}" method="post" data-dirty-form>
+                  th:object="${manualPublicationForm}" method="post">
+                <input type="hidden" th:field="*{draftRevision}"><input type="hidden" th:field="*{articleVersion}">
+                <p data-workspace-state role="status" aria-live="polite">平台文案自动保存，可稍后继续发布。</p>
                 <input type="hidden" th:field="*{contentFormat}"><input type="hidden" th:field="*{language}"><div class="manual-editor-grid"><section class="card"><div class="card-header"><div><p class="section-kicker">渠道版本</p><h3>平台专用版本</h3><p>可以在发布前继续调整；最终提交时保存的是当前文本快照。</p></div><span class="format-badge" th:text="${channel.contentFormat()}">MARKDOWN</span></div>
                     <div class="copy-toolbar"><button class="primary-button" type="button" data-copy-and-open data-copy-title="#manual-title" data-copy-content="#manual-content" data-progress-step="copiedAll">复制并打开编辑器</button>
                         <button class="copy-button" type="button" data-copy-target="#manual-title" data-progress-step="copiedTitle">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content" data-progress-step="copiedContent">复制正文</button>
@@ -44,7 +46,7 @@
                             <button class="secondary-button" type="button" data-validate-published-url th:attr="data-validation-url=@{/api/v1/publications/link-validation},data-channel-type=${channel.type()}">验证链接</button></div>
                             <small class="link-validation-state" data-published-url-state th:text="|允许域名：${#strings.listJoin(channel.publishedHosts(), '、')}|">允许域名</small></div>
                         <label class="check-row"><span><strong>格式检查完成</strong><small>已检查标题、正文、图片、链接、标签和平台字符限制。</small></span><input type="checkbox" data-progress-check="checkedFormat" th:checked="${manualProgress.checkedFormat}"></label>
-                        <div class="form-footer"><small data-progress-state>步骤进度会自动保存；平台标题、正文和链接会在提交时保存。离开前请先提交或复制内容。</small><button class="primary-button" type="submit">确认发布并保存记录</button></div></div>
+                        <div class="form-footer"><small data-progress-state>步骤和平台文案自动保存；完成外部发布后再保存发布记录。</small><button class="primary-button" type="submit">确认发布并保存记录</button></div></div>
                 </section>
                     <aside class="sticky-column"><section class="launch-card"><p class="section-kicker">官方编辑器</p><h3 th:text="${channel.displayName()}">平台</h3><p>官方页面会复用当前设备的持久浏览器资料。第一次登录后，关闭并重新打开浏览器也会继续使用该平台会话。</p>
                         <a class="primary-link" th:href="${channel.editorUrl()}" th:attr="target=|publisher-${channel.type()}|,data-platform-window=|publisher-${channel.type()}|" data-platform-launch data-progress-step="openedEditor">使用当前登录状态打开 ↗</a><ul class="checklist"><li>始终使用同一持久浏览器资料</li><li>平台要求时再重新登录</li><li>检查图片、链接与标签</li><li>发布后复制文章外链</li></ul></section>

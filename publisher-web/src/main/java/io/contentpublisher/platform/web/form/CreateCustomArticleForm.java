@@ -4,6 +4,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public class CreateCustomArticleForm {
+    @jakarta.validation.constraints.Min(0)
+    private long draftRevision;
+    public long getDraftRevision() { return draftRevision; }
+    public void setDraftRevision(long draftRevision) { this.draftRevision = draftRevision; }
+
     @NotBlank(message = "文章标题不能为空")
     @Size(max = 500, message = "文章标题不能超过 500 个字符")
     private String title;

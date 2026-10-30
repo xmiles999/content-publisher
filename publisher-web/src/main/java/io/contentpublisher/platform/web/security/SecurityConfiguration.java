@@ -114,7 +114,8 @@ public class SecurityConfiguration {
 
     private void protectedRequests(
             AuthorizeHttpRequestsConfigurer<HttpSecurity>.AuthorizationManagerRequestMatcherRegistry authorize) {
-        authorize.requestMatchers("/settings/**", "/automation", "/automation/**").hasRole("ADMIN")
+        authorize.requestMatchers(HttpMethod.PUT, "/articles/workspace-drafts/**").hasAnyRole("EDITOR", "ADMIN")
+                .requestMatchers("/settings/**", "/automation", "/automation/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.GET, "/actions", "/calendar")
                     .hasAnyRole("VIEWER", "EDITOR", "ADMIN")
                 .requestMatchers(HttpMethod.POST, "/actions/notifications/**")

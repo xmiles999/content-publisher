@@ -69,6 +69,7 @@ public class PortalPublishingController {
     private final MarkdownRenderer markdownRenderer;
     private final ChannelCopyOptimizationService copyOptimizer;
     private final io.contentpublisher.platform.application.ReadershipApplicationService readership;
+    private final io.contentpublisher.platform.application.WorkspaceDraftService workspaceDrafts;
 
     public PortalPublishingController(PublishingApplicationService publishing,
                                       ProjectApplicationService projects,
@@ -78,7 +79,8 @@ public class PortalPublishingController {
                                       ScheduleParser scheduleParser,
                                       RequestActorProvider actors, MarkdownRenderer markdownRenderer,
                                       ChannelCopyOptimizationService copyOptimizer,
-                                      io.contentpublisher.platform.application.ReadershipApplicationService readership) {
+                                      io.contentpublisher.platform.application.ReadershipApplicationService readership,
+                                      io.contentpublisher.platform.application.WorkspaceDraftService workspaceDrafts) {
         this.publishing = publishing;
         this.projects = projects;
         this.jobs = jobs;
@@ -89,6 +91,7 @@ public class PortalPublishingController {
         this.markdownRenderer = markdownRenderer;
         this.copyOptimizer = copyOptimizer;
         this.readership = readership;
+        this.workspaceDrafts = workspaceDrafts;
     }
 
     @GetMapping("/publishing")
@@ -528,6 +531,10 @@ public class PortalPublishingController {
             return "redirect:/publishing/articles/" + articleId;
         }
         adapted = withProfileTags(adapted, profile);
+        String draftKey = io.contentpublisher.platform.application.WorkspaceDraftService.manualKey(
+                articleId, channelType, language, article.currentVersion());
+        var savedDraft = workspaceDrafts.find(actor, draftKey);
+        model.addAttribute("workspaceDraftKey", draftKey);
         boolean freshForm = !model.containsAttribute("manualPublicationForm");
         if (freshForm) {
             ManualPublicationForm form = new ManualPublicationForm();
@@ -535,13 +542,20 @@ public class PortalPublishingController {
             form.setTitle(adapted.title());
             form.setContent(adapted.body());
             form.setLanguage(language);
+            form.setArticleVersion(article.currentVersion());
+            savedDraft.ifPresent(draft -> {
+                form.setTitle(draft.fields().getOrDefault("title", form.getTitle()));
+                form.setContent(draft.fields().getOrDefault("content", form.getContent()));
+                form.setExternalUrl(draft.fields().getOrDefault("externalUrl", ""));
+                form.setDraftRevision(draft.revision());
+            });
             model.addAttribute("manualPublicationForm", form);
         }
         model.addAttribute("article", article);
         model.addAttribute("channel", definition);
         model.addAttribute("adapted", adapted);
         model.addAttribute("channelTitleLimit", ChannelTextLimits.titleLimit(channelType));
-        model.addAttribute("autoOptimize", freshForm);
+        model.addAttribute("autoOptimize", freshForm && savedDraft.map(draft -> draft.fields().isEmpty()).orElse(true));
         model.addAttribute("selectedLanguage", language);
         model.addAttribute("richTextHtml", markdownRenderer.render("en".equals(language) ? article.markdownEn() : article.markdown()));
         model.addAttribute("manualProfile", ManualChannelProfileView.from(definition, profile,
@@ -599,10 +613,16 @@ public class PortalPublishingController {
         try {
             var actor = actors.currentActor();
             requireEnabledManualChannel(actor, channelType);
+            String draftKey = io.contentpublisher.platform.application.WorkspaceDraftService.manualKey(
+                    articleId, channelType, form.getLanguage(), form.getArticleVersion() > 0
+                            ? form.getArticleVersion() : publishing.getArticle(actor, articleId).currentVersion());
+            workspaceDrafts.checkRevision(actor, draftKey, form.getDraftRevision());
             publishing.completeManualPublication(actor, articleId, channelType, form.getTitle(),
                     form.getContent(), form.getContentFormat(), form.getExternalUrl());
             automation.saveManualProgress(actor, articleId, channelType.name(),
                     new AutomationApplicationService.ManualProgressCommand(true, true, true, true, true));
+            workspaceDrafts.discard(actor, draftKey, form.getDraftRevision());
+            redirectAttributes.addFlashAttribute("workspaceDraftSaved", draftKey);
             redirectAttributes.addFlashAttribute("success", "人工发布结果已记录，内容快照和外链已留档");
             return "redirect:/publishing/articles/" + articleId;
         } catch (ApplicationException | IllegalArgumentException exception) {

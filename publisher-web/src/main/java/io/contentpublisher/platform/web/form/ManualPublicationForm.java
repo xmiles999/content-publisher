@@ -6,6 +6,14 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public class ManualPublicationForm {
+    @jakarta.validation.constraints.Min(0)
+    private long draftRevision;
+    private int articleVersion;
+    public int getArticleVersion() { return articleVersion; }
+    public void setArticleVersion(int articleVersion) { this.articleVersion = articleVersion; }
+    public long getDraftRevision() { return draftRevision; }
+    public void setDraftRevision(long draftRevision) { this.draftRevision = draftRevision; }
+
     @jakarta.validation.constraints.Pattern(regexp = "original|en", message = "请选择主稿或英文稿")
     private String language = "original";
 

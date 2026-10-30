@@ -2069,6 +2069,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "title" : {
             "type" : "string"
           },
@@ -2179,6 +2183,10 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

@@ -94,6 +94,7 @@ public class ContentLibraryPortalController {
             model.addAttribute("updateArticleForm", draft.map(this::articleForm).orElseGet(() -> articleForm(article)));
         }
         model.addAttribute("hasServerDraft", draft.isPresent());
+        model.addAttribute("draftRevision", draft.map(AutomationApplicationService.ArticleDraft::revision).orElse(0L));
         model.addAttribute("draftUpdatedAt", draft.map(AutomationApplicationService.ArticleDraft::updatedAt).orElse(null));
         model.addAttribute("editable", article.status().isEditable());
         model.addAttribute("publishable", article.status().isPublishable());
@@ -128,6 +129,11 @@ public class ContentLibraryPortalController {
             return "redirect:/articles/" + articleId;
         }
         try {
+            var savedDraft = automation.getDraft(actors.currentActor(), articleId);
+            if (form.getDraftRevision() != null
+                    && savedDraft.map(AutomationApplicationService.ArticleDraft::revision).orElse(0L) != form.getDraftRevision()) {
+                throw new ApplicationException("DRAFT_VERSION_CONFLICT", "其他页面已保存新的草稿，请复制当前内容后刷新核对");
+            }
             boolean prepare = "ready".equalsIgnoreCase(form.getIntent());
             if (prepare) {
                 publishing.updateAndConfirm(actors.currentActor(), articleId, form.getExpectedVersion(), form.getTitle(),
@@ -140,7 +146,7 @@ public class ContentLibraryPortalController {
                         form.getTitleEn(), form.getSummaryEn(), form.getMarkdownEn(), splitValues(form.getTagsEn()),
                         splitValues(form.getKeywordsEn()));
             }
-            automation.deleteDraft(actors.currentActor(), articleId);
+            automation.deleteDraft(actors.currentActor(), articleId, form.getDraftRevision());
             redirectAttributes.addFlashAttribute("articleSaved", true);
             redirectAttributes.addFlashAttribute("success",
                     prepare ? "已保存新版本并准备发布" : "文章已保存为新版本");
@@ -196,6 +202,7 @@ public class ContentLibraryPortalController {
     private UpdateArticleForm articleForm(AutomationApplicationService.ArticleDraft draft) {
         UpdateArticleForm form = new UpdateArticleForm();
         form.setExpectedVersion(draft.baseVersion());
+        form.setDraftRevision(draft.revision());
         form.setTitle(draft.title());
         form.setSummary(draft.summary());
         form.setMarkdown(draft.markdown());

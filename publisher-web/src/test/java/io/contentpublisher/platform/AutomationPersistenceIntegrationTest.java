@@ -253,7 +253,7 @@ class AutomationPersistenceIntegrationTest {
     private ArticleDraft draft(String tenant, UUID articleId, String subject, String title, Instant updatedAt) {
         return new ArticleDraft(UUID.randomUUID(), tenant, articleId, subject, 1,
                 title, "摘要", "正文", List.of("tag"), List.of("keyword"),
-                null, null, null, List.of(), List.of(), updatedAt);
+                null, null, null, List.of(), List.of(), updatedAt, 0);
     }
 
     private GenerationPreset preset(String tenant, String name, String tone, Instant updatedAt) {
