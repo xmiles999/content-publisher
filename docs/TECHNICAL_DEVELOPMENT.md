@@ -1,10 +1,12 @@
 # Content Publisher 详细开发设计文档
 
+当前草稿、版本门禁、条件状态更新、配图检查与 V27 见[草稿与发布完整性](草稿与发布完整性.md)。`WorkspaceDraftService` 通过 `WorkspaceDraftRepository` 和 JDBC 保存不完整表单，独立 JS 串行保存；发布完成通过数据库条件更新状态，不回写旧正文。
+
 ## 1. 文档信息
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-10-27 |
+| 文档基线 | 2026-10-30 |
 | 适用版本 | `0.1.0-SNAPSHOT` |
 | 架构形态 | 模块化单体 |
 | 主包名 | `io.contentpublisher.platform` |
@@ -78,7 +80,7 @@
 |---|---|---|
 | Spring Data JPA / Hibernate | Boot 管理 | ORM 和事务 |
 | PostgreSQL Driver | 42.7.13 | 生产数据库连接 |
-| Flyway Core + PostgreSQL | Boot 管理 | V1–V26 迁移 |
+| Flyway Core + PostgreSQL | Boot 管理 | V1–V27 迁移 |
 | Eclipse JGit | 7.3.0.202506031305-r | 安全浅克隆和仓库分析 |
 | Jsoup | 1.18.3 | 网站 HTML 文本提取 |
 | CommonMark | 0.24.0 | Markdown 解析与安全渲染 |

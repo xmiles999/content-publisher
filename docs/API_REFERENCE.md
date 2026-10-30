@@ -167,6 +167,8 @@ REST `approve`/`reject` 仍可用，但已标记 deprecated，Portal 不调用�
 
 `summary` 留空时服务端自动从 Markdown 正文提取清洗纯文本（最多 200 字）。创建成功返回 `201 Created` 与 `Location: /api/v1/articles/{articleId}`。
 
+草稿请求可携带 `revision`（首次 0，后续使用响应值），响应增加 `revision`；冲突返回 HTTP 409 `DRAFT_VERSION_CONFLICT`。旧客户端不传时保留兼容写入。Portal 草稿与 ZIP 下载见[草稿与发布完整性](草稿与发布完整性.md)。
+
 草稿保存使用 `baseVersion` 而不是 `expectedVersion`，并按“租户 + 文章 + 当前主体”隔离。草稿不创建正式文章版本，也不能绕过正式保存时的版本冲突检查。正式保存成功后客户端可删除对应草稿。
 
 驳回请求：

@@ -313,7 +313,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 2. 执行第 5 节门禁并校验 `SHA256SUMS`。
 3. 部署端先备份数据库与 Secret 元数据，验证备份校验和。
 4. 部署端加载已在开发或 CI 环境构建的不可变镜像。已有数据库的应用更新仅使用 `docker compose up -d --no-deps --no-build --pull never publisher`，保留 PostgreSQL、代理和原有 Compose 路由设置。
-5. 检查 Flyway 到 V26、readiness、容器用户、配图卷和网络。
+5. 检查 Flyway 到 V27、readiness、容器用户、配图卷和网络。
 6. 在 Dokploy Domains 配置正确目标端口后检查 Traefik 源站 HTTPS。
 7. 最后切换或确认 Cloudflare DNS，并执行业务冒烟。
 
@@ -333,9 +333,9 @@ Traefik 源站 HTTPS 与 Cloudflare HTTPS 正常
 
 未实际执行的项必须明确标记“未验证”。
 
-## 9. Flyway V1–V26
+## 9. Flyway V1–V27
 
-- 迁移按 V1–V26 从空库前向执行。
+- 迁移按 V1–V27 从空库前向执行。
 - V19：文章草稿、生成预设、通知、Webhook 端点、人工发布进度。
 - V20：通知 Webhook 投递状态、唯一去重和到期索引。
 - V21：人工平台个人配置、启停、默认标签/栏目、备注、排序、登录确认时间和乐观锁版本。
@@ -343,6 +343,7 @@ Traefik 源站 HTTPS 与 Cloudflare HTTPS 正常
 - V23：为 `channel_accounts` 增加 `deleted_at`、`deleted_by` 和活跃账号查询索引，支持保留发布历史的安全移除。
 - V24：放宽 `ck_articles_source` 检查约束，支持 `CUSTOM` 来源类型（`project_id is null`）。
 - V25：新增 `article_assets`，保存文章配图元数据；文件本体在 `PUBLISHER_ASSETS_DIRECTORY`。
+- V27：主稿草稿增加 `revision`，新增 `workspace_drafts`；旧发布任务不回填版本。迁移与 Worker 回滚约束见[草稿与发布完整性](草稿与发布完整性.md)。
 - V26：新增 `publication_readership`，保存最新阅读统计和同步状态，不修改旧表。迁移前备份，启动后验证 V26 与隔离录入；[接口配置、验证 SQL、兼容回滚与限制](阅读统计.md)。
 - 已发布脚本不可修改；新增结构只添加更高版本。
 - Hibernate 使用 `ddl-auto=validate`。
@@ -459,7 +460,7 @@ publisher.channels.verification_failed
 
 ### 13.3 Schema 校验失败
 
-检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V26，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，`article_assets`、`publication_readership` 可写入，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
+检查数据库用户 DDL 权限、Flyway 执行结果和 `flyway_schema_history` 是否到 V27，并确认 `manual_channel_profiles` 可读取、同租户同渠道唯一，`article_assets`、`publication_readership` 可写入，且文章状态可以读取 `READY`。不要用 `ddl-auto=update` 绕过迁移。
 
 ### 13.4 人工平台配置或持久登录不符合预期
 
