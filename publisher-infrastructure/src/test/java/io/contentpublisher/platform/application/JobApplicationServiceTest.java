@@ -37,6 +37,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         AtomicReference<Job> stored = new AtomicReference<>();
         when(publishing.validateCanonicalUrl(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -57,6 +60,7 @@ class JobApplicationServiceTest {
                 "https://example.com/first", "publication-key-001");
 
         assertThat(first).isSameAs(stored.get());
+        assertThat(((JobPayload.PublishArticle) first.payload()).articleVersion()).isEqualTo(1);
         assertThatThrownBy(() -> service.submitPublication(actor, articleId, accountId,
                 "https://example.com/second", "publication-key-001"))
                 .isInstanceOfSatisfying(ApplicationException.class,
@@ -68,6 +72,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         Map<String, Job> stored = new LinkedHashMap<>();
         when(publishing.validateCanonicalUrl("https://example.com/original"))
@@ -102,6 +109,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         UUID failedJobId = UUID.randomUUID();
@@ -109,7 +119,7 @@ class JobApplicationServiceTest {
         UUID articleId = UUID.randomUUID();
         UUID accountId = UUID.randomUUID();
         Job failed = new Job(failedJobId, "tenant", "editor", JobType.PUBLISH_ARTICLE, JobStatus.FAILED,
-                new JobPayload.PublishArticle(articleId, accountId, "https://example.com/original"),
+                new JobPayload.PublishArticle(articleId, accountId, "https://example.com/original", 1),
                 "old-publication-job", "d".repeat(64), 4, 4, 100, "执行失败", "平台调用失败", batchId,
                 now, null, null, null, "CHANNEL_FAILED", "平台调用失败", now, now);
         when(jobs.findJobById("tenant", failedJobId)).thenReturn(Optional.of(failed));
@@ -133,6 +143,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         Job failed = failedImportJob(now, "IMPORT_FAILED", "仓库导入失败");
@@ -158,6 +171,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         Job pending = withStatus(failedImportJob(now, null, null), JobStatus.PENDING);
@@ -176,6 +192,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         Job failed = failedPublicationJob(now, UUID.randomUUID(), UUID.randomUUID(),
@@ -212,6 +231,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         UUID articleId = UUID.randomUUID();
@@ -237,6 +259,9 @@ class JobApplicationServiceTest {
         JobRepository jobs = mock(JobRepository.class);
         ProjectApplicationService projects = mock(ProjectApplicationService.class);
         PublishingApplicationService publishing = mock(PublishingApplicationService.class);
+        var manuscript = mock(io.contentpublisher.platform.domain.Article.class);
+        when(manuscript.currentVersion()).thenReturn(1);
+        when(publishing.getArticle(any(), any())).thenReturn(manuscript);
         AuditRecorder audits = mock(AuditRecorder.class);
         Instant now = Instant.parse("2026-07-20T00:00:00Z");
         Job first = failedImportJob(now, "IMPORT_FAILED", "仓库导入失败");

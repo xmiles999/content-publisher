@@ -165,12 +165,18 @@ public final class PublicationCommandApplicationService {
 
     public Publication publish(ActorContext actor, UUID articleId, UUID accountId, String canonicalUrl,
                                UUID publicationJobId, JobProgressReporter progress) {
+        return publish(actor, articleId, accountId, canonicalUrl, publicationJobId, progress, null, false);
+    }
+
+    public Publication publish(ActorContext actor, UUID articleId, UUID accountId, String canonicalUrl,
+                               UUID publicationJobId, JobProgressReporter progress, Integer articleVersion, boolean requireVersion) {
         progress.update(20, "校验发布条件", "正在核对内容确认状态、发布账号和渠道配置");
         Publication existing = publications.findByPublicationJobId(actor.tenantId(), publicationJobId).orElse(null);
         if (existing != null) {
             if (existing.status() == PublicationStatus.PUBLISHED) {
                 Article existingArticle = getArticle(actor, existing.articleId());
-                if (existingArticle.status() != ArticleStatus.PUBLISHED) {
+                if (articleVersion != null && existingArticle.currentVersion() == articleVersion
+                        && existingArticle.status().isPublishable()) {
                     updateArticleStatus(existingArticle, ArticleStatus.PUBLISHED, actor.subject());
                 }
                 progress.update(92, "复用发布结果", "检测到平台已经返回成功结果，正在完成状态同步");
@@ -180,6 +186,12 @@ public final class PublicationCommandApplicationService {
         }
         assertPublishable(actor, articleId, accountId);
         Article article = getArticle(actor, articleId);
+        if (requireVersion && articleVersion == null) {
+            throw new ApplicationException("PUBLICATION_VERSION_REQUIRED", "旧发布计划未绑定内容版本，请取消并重新确认发布计划");
+        }
+        if (articleVersion != null && article.currentVersion() != articleVersion) {
+            throw new ApplicationException("PUBLICATION_VERSION_CONFLICT", "主稿已变化，原计划未发送。请核对内容后重新创建发布计划");
+        }
         ChannelAccount account = getAccount(actor, accountId);
         ChannelPublisher publisher = publishers.get(account.type());
         if (publisher == null) throw new ApplicationException("CHANNEL_NOT_SUPPORTED", "当前渠道尚未配置发布适配器");
@@ -198,6 +210,12 @@ public final class PublicationCommandApplicationService {
             AdaptedContent adaptedContent = contentAdapter.adapt(article, account.type(), canonicalUrl);
             RefreshedCredentials refreshed = refreshCredentials(actor, account);
             account = refreshed.account();
+            if (articleVersion != null) {
+                Article latest = getArticle(actor, articleId);
+                if (latest.currentVersion() != articleVersion || !latest.status().isPublishable()) {
+                    throw new ApplicationException("PUBLICATION_VERSION_CONFLICT", "发布准备期间主稿已变化，请重新确认发布计划");
+                }
+            }
             progress.update(68, "调用平台接口", "内容适配完成，正在等待目标平台返回发布结果");
             result = publisher.publish(account,
                     new ChannelPublisher.PublishContent(article, adaptedContent, canonicalUrl),
@@ -306,11 +324,8 @@ public final class PublicationCommandApplicationService {
     }
 
     private Article updateArticleStatus(Article article, ArticleStatus status, String subject) {
-        return articles.save(new Article(article.id(), article.tenantId(), article.origin(), article.generationJobId(),
-                article.title(), article.summary(), article.markdown(), article.tags(), article.keywords(),
-                article.titleEn(), article.summaryEn(), article.markdownEn(), article.tagsEn(), article.keywordsEn(),
-                article.language(), article.sourceRevision(), article.currentVersion(), status, article.createdBy(), subject,
-                article.createdAt(), clock.instant()));
+        articles.markPublishedIfVersionMatches(article.tenantId(), article.id(), article.currentVersion(), subject, clock.instant());
+        return getArticle(new ActorContext(article.tenantId(), subject), article.id());
     }
 
     private String requireText(String value, String message, int maxLength) {

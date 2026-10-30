@@ -85,10 +85,12 @@ public final class JobApplicationService {
     public Job submitPublication(ActorContext actor, UUID articleId, UUID channelAccountId,
                                  String canonicalUrl, String idempotencyKey, Instant scheduledAt) {
         String normalizedCanonicalUrl = publishing.validateCanonicalUrl(canonicalUrl);
+        int articleVersion = publishing.getArticle(actor, articleId).currentVersion();
         publishing.assertPublishable(actor, articleId, channelAccountId);
         Instant now = clock.instant();
         Instant normalizedSchedule = normalizeSchedule(scheduledAt, now);
-        JobPayload.PublishArticle payload = new JobPayload.PublishArticle(articleId, channelAccountId, normalizedCanonicalUrl);
+        JobPayload.PublishArticle payload = new JobPayload.PublishArticle(articleId, channelAccountId, normalizedCanonicalUrl,
+                articleVersion);
         return submit(actor, JobType.PUBLISH_ARTICLE, payload, idempotencyKey,
                 hash("PUBLISH_ARTICLE", articleId.toString(), channelAccountId.toString(), value(normalizedCanonicalUrl),
                         scheduleKey(scheduledAt)), normalizedSchedule);
@@ -104,6 +106,7 @@ public final class JobApplicationService {
         validateIdempotencyKey(idempotencyKey);
         List<UUID> accountIds = normalizeAccountIds(channelAccountIds);
         String normalizedCanonicalUrl = publishing.validateCanonicalUrl(canonicalUrl);
+        int articleVersion = publishing.getArticle(actor, articleId).currentVersion();
         accountIds.forEach(accountId -> publishing.assertPublishable(actor, articleId, accountId));
 
         LinkedHashMap<String, Job> resolved = new LinkedHashMap<>();
@@ -121,7 +124,7 @@ public final class JobApplicationService {
                 continue;
             }
             JobPayload.PublishArticle payload = new JobPayload.PublishArticle(articleId, accountId,
-                    normalizedCanonicalUrl);
+                    normalizedCanonicalUrl, articleVersion);
             candidates.add(pendingJob(actor, JobType.PUBLISH_ARTICLE, payload, childKey, requestHash, batchId,
                     normalizedSchedule, now));
         }
@@ -146,6 +149,9 @@ public final class JobApplicationService {
         }
         JobPayload.PublishArticle payload = (JobPayload.PublishArticle) failed.payload();
         publishing.assertPublishable(actor, payload.articleId(), payload.channelAccountId());
+        if (payload.articleVersion() == null || publishing.getArticle(actor, payload.articleId()).currentVersion() != payload.articleVersion()) {
+            throw new ApplicationException("PUBLICATION_VERSION_CONFLICT", "原计划版本已失效，请核对内容后创建新的发布计划");
+        }
         String requestHash = hash("PUBLISH_ARTICLE", payload.articleId().toString(),
                 payload.channelAccountId().toString(), value(payload.canonicalUrl()));
         Job existing = existingJob(actor.tenantId(), JobType.PUBLISH_ARTICLE, idempotencyKey, requestHash);

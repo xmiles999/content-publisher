@@ -23,6 +23,12 @@ interface ProjectJpaRepository extends JpaRepository<ProjectEntity, UUID> {
 }
 
 interface ArticleJpaRepository extends JpaRepository<ArticleEntity, UUID> {
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update ArticleEntity a set a.status='PUBLISHED', a.updatedBy=:subject, a.updatedAt=:now "
+            + "where a.tenantId=:tenantId and a.id=:id and a.currentVersion=:version "
+            + "and a.deletedAt is null and a.status in ('READY','APPROVED','PUBLISHED')")
+    int markPublished(String tenantId, UUID id, int version, String subject, Instant now);
+
     Optional<ArticleEntity> findByTenantIdAndIdAndDeletedAtIsNull(String tenantId, UUID id);
     Optional<ArticleEntity> findByTenantIdAndIdAndDeletedAtIsNotNull(String tenantId, UUID id);
     Optional<ArticleEntity> findByTenantIdAndGenerationJobIdAndDeletedAtIsNull(String tenantId, UUID generationJobId);

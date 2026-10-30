@@ -61,6 +61,10 @@ public class JobPortalController {
     public String job(@PathVariable UUID jobId, Model model) {
         Job job = jobs.getJob(actors.currentActor(), jobId);
         model.addAttribute("job", job);
+        if (job.payload() instanceof io.contentpublisher.platform.domain.JobPayload.PublishArticle publication) {
+            model.addAttribute("publicationVersion", publication.articleVersion());
+            model.addAttribute("publicationArticleId", publication.articleId());
+        }
         model.addAttribute("active", job.status() == JobStatus.PENDING || job.status() == JobStatus.RUNNING
                 || job.status() == JobStatus.RETRY_WAIT);
         model.addAttribute("progress", JobProgressView.from(job));

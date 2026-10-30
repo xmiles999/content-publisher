@@ -37,6 +37,11 @@ public class JpaArticlePersistenceAdapter implements ArticleRepository {
     }
 
     @Override
+    public boolean markPublishedIfVersionMatches(String tenantId, UUID id, int version, String subject, Instant now) {
+        return articles.markPublished(tenantId, id, version, subject, now) == 1;
+    }
+
+    @Override
     public Article save(Article article) {
         ArticleEntity entity = new ArticleEntity();
         entity.id = article.id(); entity.tenantId = article.tenantId(); entity.projectId = article.projectId();

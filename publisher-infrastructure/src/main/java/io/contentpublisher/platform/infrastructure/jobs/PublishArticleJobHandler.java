@@ -27,6 +27,6 @@ public final class PublishArticleJobHandler implements JobHandler {
     public UUID handle(Job job, ActorContext actor, JobProgressReporter progress) {
         JobPayload.PublishArticle payload = (JobPayload.PublishArticle) job.payload();
         return publishing.publish(actor, payload.articleId(), payload.channelAccountId(),
-                payload.canonicalUrl(), job.id(), progress).id();
+                payload.canonicalUrl(), job.id(), progress, payload.articleVersion(), true).id();
     }
 }

@@ -14,6 +14,7 @@ import java.util.UUID;
 
 public interface ArticleRepository {
     Article save(Article article);
+    boolean markPublishedIfVersionMatches(String tenantId, UUID id, int version, String subject, Instant now);
     Article saveWithVersion(Article article, ArticleVersion version);
     Optional<Article> findArticleById(String tenantId, UUID id);
     Optional<Article> findDeletedArticleById(String tenantId, UUID id);

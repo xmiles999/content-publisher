@@ -12,5 +12,9 @@ public sealed interface JobPayload permits JobPayload.ImportProject, JobPayload.
 
     record GenerateWebsiteArticle(WebsiteBrief brief, GenerationPolicy policy) implements JobPayload {}
 
-    record PublishArticle(UUID articleId, UUID channelAccountId, String canonicalUrl) implements JobPayload {}
+    record PublishArticle(UUID articleId, UUID channelAccountId, String canonicalUrl, Integer articleVersion) implements JobPayload {
+        public PublishArticle(UUID articleId, UUID channelAccountId, String canonicalUrl) {
+            this(articleId, channelAccountId, canonicalUrl, null);
+        }
+    }
 }

@@ -245,7 +245,7 @@ class PublishingApplicationServiceTest {
 
         assertThat(result.channelType()).isEqualTo(ChannelType.XIAOHONGSHU);
         assertThat(result.adaptedContent()).isEqualTo("适配后的纯文本内容");
-        verify(fixture.articles).save(any());
+        verify(fixture.articles).markPublishedIfVersionMatches(eq("tenant"), eq(fixture.article.id()), eq(1), eq("admin"), any());
     }
 
     @Test
@@ -321,6 +321,25 @@ class PublishingApplicationServiceTest {
         assertThat(records.get(1).method()).isEqualTo(PublicationMethod.API);
         assertThat(records.get(1).channelAccountName()).isEqualTo("DEV");
         assertThat(records.get(1).contentFormat()).isEqualTo(ContentFormat.MARKDOWN);
+    }
+
+    @Test
+    void shouldRejectChangedOrLegacyTaskBeforeCallingPlatform() {
+        Fixture fixture = fixture(ArticleStatus.READY);
+        var vault = mock(CredentialVault.class);
+        when(vault.decrypt(any())).thenReturn(Map.of("apiKey", "test"));
+        var endpoint = mock(ChannelEndpointPolicy.class);
+        when(endpoint.validateAndNormalize(any(), any())).thenAnswer(invocation -> invocation.getArgument(1));
+        var command = new PublicationCommandApplicationService(fixture.articles, fixture.accounts,
+                fixture.publications, fixture.manualPublications, vault, endpoint, List.of(fixture.publisher),
+                mock(AuditRecorder.class), new PlatformContentAdapter(), Clock.fixed(NOW, ZoneOffset.UTC));
+        assertThatThrownBy(() -> command.publish(ACTOR, fixture.article.id(), fixture.account.id(), null,
+                UUID.randomUUID(), io.contentpublisher.platform.application.JobProgressReporter.noop(), 2, true))
+                .isInstanceOfSatisfying(ApplicationException.class, e -> assertThat(e.code()).isEqualTo("PUBLICATION_VERSION_CONFLICT"));
+        assertThatThrownBy(() -> command.publish(ACTOR, fixture.article.id(), fixture.account.id(), null,
+                UUID.randomUUID(), io.contentpublisher.platform.application.JobProgressReporter.noop(), null, true))
+                .isInstanceOfSatisfying(ApplicationException.class, e -> assertThat(e.code()).isEqualTo("PUBLICATION_VERSION_REQUIRED"));
+        org.mockito.Mockito.verify(fixture.publisher, org.mockito.Mockito.never()).publish(any(), any(), any());
     }
 
     private Fixture fixture(ArticleStatus status) {

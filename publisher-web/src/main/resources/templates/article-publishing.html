@@ -40,7 +40,7 @@
                             <div class="field"><label>计划发布时间（可选，本地时区）</label><input data-schedule-local th:field="*{scheduledAt}" type="datetime-local"><input type="hidden" th:field="*{scheduledAtOffset}"><input type="hidden" th:field="*{timeZone}"><small data-schedule-state>留空立即进入队列；最长可预约一年。</small></div>
                             <button class="primary-button" type="submit" th:disabled="${readyChannelAccountCount == 0 or !publishable}">提交发布任务</button>
                         </form>
-                        <div class="publish-reference"><h4>发布依据</h4><ul><li th:text="|内容版本 v${article.currentVersion}|">内容版本</li><li th:text="|内容语言 ${article.language}|">语言</li><li>渠道适配不修改内容库主稿</li></ul></div>
+                        <div class="publish-reference"><h4>发布依据</h4><ul><li th:text="|内容版本 v${article.currentVersion}|">内容版本</li><li th:text="|内容语言 ${article.language}|">语言</li><li>计划绑定提交时版本；主稿更新后需重新创建计划</li></ul></div>
                     </section>
                 </aside>
             </div>
