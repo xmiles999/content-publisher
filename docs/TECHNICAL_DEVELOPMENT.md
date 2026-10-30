@@ -1015,9 +1015,9 @@ Git、网站、AI 和自托管渠道都执行：
 ### 18.3 部署模板
 
 - `deploy/dev-compose.yaml`：仅本地 PostgreSQL。
-- `deploy/compose.yaml` 和 systemd：兼容路径，不是 `miles-01` 的正式入口。
+- `deploy/compose.yaml` 和 systemd：兼容路径，不是当前 `xyh-dep` Dokploy 项目的正式入口。
 - `deploy/dokploy-compose.yaml`：PostgreSQL 内部网络、应用 `10001:10001`、无 published port、外部 `dokploy-network`、只读根文件系统、tmpfs 和 readiness。
-- `miles-01` 公网入口只使用 Dokploy Traefik，不包含或启动 Caddy。
+- 当前生产由 `xyh-dep` Dokploy Traefik 提供入口；保留其专用用户 `994:994`、附件与数据库绑定目录及仅本机 `127.0.0.1:8081` 映射。仓库模板默认值不能覆盖生产设置；当前版本与回滚见[发布检查记录](发布检查记录.md)。
 - GitHub Actions 提供 verify、安全扫描和不可变 release artifact；正式部署仍需授权的 Git/镜像交付路径。
 
 ## 19. 扩展规范

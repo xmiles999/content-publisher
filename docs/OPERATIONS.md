@@ -4,17 +4,19 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档基线 | 2026-09-22 |
+| 文档基线 | 2026-10-30 |
 | 应用版本 | `0.1.0-SNAPSHOT` |
 | 配置来源 | `publisher-web/src/main/resources/application.yml` |
 | 本地数据库 | `deploy/dev-compose.yaml` |
 | 兼容模板 | `deploy/compose.yaml`、`deploy/content-publisher.service` |
 | 正式目标模板 | `deploy/dokploy-compose.yaml` |
-| 正式目标 | `miles-01` Dokploy + Traefik；本文不表示已部署 |
+| 正式目标 | `xyh-dep` Dokploy + Traefik；当前事实见发布检查记录 |
 
 本机只承担源码、构建、测试和预发布。正式加载、启动、健康检查和回滚必须在部署端按门禁执行，不得把开发数据库、附件、环境文件或整个工作区同步到生产。
 
-当前生产发布事实、用户针对单次安全门禁的明确例外、实际检查和回滚入口见[发布检查记录](发布检查记录.md)。2026-10-27 最新发布的应用提交为 `d6540593d1091534f8edfe58dbf74c8b84250d6b`；保留原有依赖，安全扫描失败尚未修复。本次例外不改变后续版本的常规门禁。
+当前生产发布事实、用户针对单次安全门禁的明确例外、实际检查和回滚入口见[发布检查记录](发布检查记录.md)。2026-10-30 已发布应用提交 `65b7a521c35bcb81b41b988cd76b3e16246c7642`，Flyway V27；按用户“直接切换, 不升级”要求为本版本单独记录安全例外，扫描仍失败。本次例外不改变后续版本的常规门禁。
+
+当前生产位于 `xyh-dep`，应用由 Dokploy 项目 `content-publisher-zea5sd` 管理，规范 Compose 原件为 `/data/services/dokploy/config/compose/content-publisher-zea5sd/code/deploy/dokploy-compose.yaml`，兼容入口仍为 `/etc/dokploy/compose/...`。实际用户 `994:994`，附件绑定 `/data/services/content-publisher/dokploy-assets`，数据库绑定 `/data/services/content-publisher/dokploy-postgres`；既有 `127.0.0.1:8081` 仅本机端口映射保留。仓库模板默认用户 `10001:10001`、命名卷和无 published port，不能直接覆盖生产配置。发布制品、即时备份和回滚入口见本次发布记录。原 `miles-01` 应用已停用，不能按历史说明启动。
 
 ## 2. 运行与交付路径
 
@@ -283,7 +285,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 
 ### 8.1 固定边界
 
-`miles-01` 上 Dokploy Traefik 独占公网 `80/443`：
+当前 `xyh-dep` 上 Dokploy Traefik 独占公网 `80/443`。以下是仓库模板约束；当前生产身份与本机映射差异见第 1 节：
 
 - 禁止启动 Caddy 或另一套公网反向代理。
 - 应用容器必须 `10001:10001` 非 root。
@@ -302,7 +304,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 3. 生产认证方式是 LOCAL 还是 JWT；JWT 需真实 Issuer，LOCAL 需管理员初始化/现有账号策略。
 4. `DB_PASSWORD`、两个加密主密钥、AI/渠道配置已经通过 Dokploy Secret 安全注入。
 5. 已确认现有生产数据库或旧实例归属，制定备份、迁移和回滚方案。
-6. 已确认 `publisher.xyh.wiki` 当前 Cloudflare 源站及切换授权，不能覆盖未知实例。
+6. 已确认 `publisher.xyh.wiki` 当前源站为 `xyh-dep`；同域名升级不修改 DNS，不能覆盖未知实例。
 7. Dokploy Domains 将域名映射到 `publisher:8080`，不配置 published port。
 
 缺少其中任何一项时应停止正式切换，不得虚构值。
@@ -324,7 +326,7 @@ jdbc:postgresql://127.0.0.1:55432/content_publisher
 应用无宿主机 published port
 PostgreSQL User=70:70、无外部端口且卷已挂载
 /actuator/health/readiness = UP
-flyway_schema_history 最新成功版本 = 26
+flyway_schema_history 最新成功版本 = 27
 登录/认证成功
 租户隔离查询成功
 草稿自动保存、动作台、日历、任务重放至少各一条冒烟
@@ -343,8 +345,8 @@ Traefik 源站 HTTPS 与 Cloudflare HTTPS 正常
 - V23：为 `channel_accounts` 增加 `deleted_at`、`deleted_by` 和活跃账号查询索引，支持保留发布历史的安全移除。
 - V24：放宽 `ck_articles_source` 检查约束，支持 `CUSTOM` 来源类型（`project_id is null`）。
 - V25：新增 `article_assets`，保存文章配图元数据；文件本体在 `PUBLISHER_ASSETS_DIRECTORY`。
-- V27：主稿草稿增加 `revision`，新增 `workspace_drafts`；旧发布任务不回填版本。迁移与 Worker 回滚约束见[草稿与发布完整性](草稿与发布完整性.md)。
 - V26：新增 `publication_readership`，保存最新阅读统计和同步状态，不修改旧表。迁移前备份，启动后验证 V26 与隔离录入；[接口配置、验证 SQL、兼容回滚与限制](阅读统计.md)。
+- V27：主稿草稿增加 `revision`，新增 `workspace_drafts`；旧发布任务不回填版本。迁移与 Worker 回滚约束见[草稿与发布完整性](草稿与发布完整性.md)。
 - 已发布脚本不可修改；新增结构只添加更高版本。
 - Hibernate 使用 `ddl-auto=validate`。
 - 没有 Down Migration；回滚应用前必须确认旧版本与新 Schema 和数据枚举兼容。

@@ -15,7 +15,7 @@ Content Publisher 是一个面向长期纯个人使用的技术内容生产与�
 | 数据迁移 | Flyway V1–V27 |
 | 生产数据库 | PostgreSQL |
 | 架构 | 模块化单体、领域/应用/基础设施/Web 分层 |
-| 生产交付目标 | `miles-01` Dokploy + Traefik；仓库模板不代表已经部署 |
+| 生产交付目标 | `xyh-dep` Dokploy + Traefik；实际版本和回滚见[发布检查记录](docs/发布检查记录.md) |
 
 当前代码形成“可信来源 → 持久化生成任务 → 草稿自动保存与正式版本 → 本人确认当前内容 → 时区化计划 → API/人工发布 → 通知、重放、巡检与监控”的闭环。Portal 主流程为 `DRAFT → READY → PUBLISHED`；发布门禁接受 `READY`、兼容 `APPROVED` 和已发布的 `PUBLISHED`。
 
