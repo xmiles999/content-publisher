@@ -49,6 +49,33 @@ class ArticleAssetApplicationServiceTest {
                         assertThat(exception.code()).isEqualTo("ARTICLE_ASSET_INVALID"));
     }
 
+    @Test
+    void shouldBundleOwnedImageAndRewriteBothLanguages() throws Exception {
+        var articles = mock(ArticleRepository.class);
+        var assets = mock(ArticleAssetRepository.class);
+        var store = mock(ArticleAssetStore.class);
+        UUID id = UUID.randomUUID(), imageId = UUID.randomUUID();
+        var image = new ArticleAsset(imageId, "personal", id, "cover.png", "image/png", PNG.length, "owner", Instant.EPOCH);
+        String body = "![cover](" + image.markdownUrl() + ")";
+        var article = new Article(id, "personal", io.contentpublisher.platform.domain.ContentOrigin.git(UUID.randomUUID()),
+                null, "标题", "摘要", body, java.util.List.of(), java.util.List.of(), "English", "Summary", body,
+                java.util.List.of(), java.util.List.of(), "zh-CN", "rev", 1, ArticleStatus.READY, "owner", "owner", Instant.EPOCH, Instant.EPOCH);
+        when(articles.findArticleById("personal", id)).thenReturn(Optional.of(article));
+        when(assets.findByArticleId("personal", id)).thenReturn(java.util.List.of(image));
+        when(store.read("personal", id, imageId)).thenReturn(PNG);
+        var service = new ArticleAssetApplicationService(articles, assets, store, mock(AuditRecorder.class));
+        var entries = new java.util.HashMap<String, byte[]>();
+        try (var zip = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(service.exportBundle(ACTOR, id)))) {
+            for (java.util.zip.ZipEntry entry; (entry = zip.getNextEntry()) != null;) entries.put(entry.getName(), zip.readAllBytes());
+        }
+        assertThat(entries.get("assets/" + imageId + "-cover.png")).isEqualTo(PNG);
+        assertThat(new String(entries.get("article.md"), java.nio.charset.StandardCharsets.UTF_8))
+                .contains("assets/" + imageId + "-cover.png").doesNotContain("/articles/");
+        assertThat(entries.get("article.en.md")).isEqualTo(entries.get("article.md"));
+        assertThatThrownBy(() -> service.exportBundle(new ActorContext("foreign", "owner"), id))
+                .isInstanceOf(ApplicationException.class);
+    }
+
     private Fixture fixture() {
         ArticleRepository articles = mock(ArticleRepository.class);
         ArticleAssetRepository assets = mock(ArticleAssetRepository.class);

@@ -342,6 +342,19 @@ class PublishingApplicationServiceTest {
         org.mockito.Mockito.verify(fixture.publisher, org.mockito.Mockito.never()).publish(any(), any(), any());
     }
 
+    @Test
+    void shouldStopPrivateImagesInPreflightBeforePaidOrExternalWork() {
+        Fixture fixture = fixture(ArticleStatus.READY);
+        Article a = fixture.article;
+        Article withImage = new Article(a.id(), a.tenantId(), a.origin(), a.generationJobId(), a.title(),
+                a.summary(), "![图片](/articles/" + a.id() + "/assets/" + UUID.randomUUID() + ")", a.tags(), a.keywords(),
+                a.titleEn(), a.summaryEn(), a.markdownEn(), a.tagsEn(), a.keywordsEn(), a.language(),
+                a.sourceRevision(), a.currentVersion(), a.status(), a.createdBy(), a.updatedBy(), a.createdAt(), a.updatedAt());
+        when(fixture.articles.findArticleById("tenant", a.id())).thenReturn(Optional.of(withImage));
+        assertThat(fixture.service.preflight(ACTOR, a.id(), fixture.account.id()).ready()).isFalse();
+        org.mockito.Mockito.verify(fixture.publisher, org.mockito.Mockito.never()).publish(any(), any(), any());
+    }
+
     private Fixture fixture(ArticleStatus status) {
         ArticleRepository articles = mock(ArticleRepository.class);
         ChannelAccountRepository accounts = mock(ChannelAccountRepository.class);

@@ -87,5 +87,18 @@ class WorkspaceDurabilityIntegrationTest {
         assertThatThrownBy(() -> automation.saveDraft(actor,article.id(),1,0L,content)).isInstanceOf(ApplicationException.class);
         assertThat(automation.saveDraft(actor,article.id(),1,1L,content).revision()).isEqualTo(2);
     }
-
+    @Test void exportsOwnedManuscriptAndRejectsForeignTenant() throws Exception {
+        var article=article();
+        byte[] data=mvc.perform(get("/articles/"+article.id()+"/export"))
+            .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+            .andReturn().getResponse().getContentAsByteArray();
+        Map<String,String> entries=new HashMap<>();
+        try(var zip=new ZipInputStream(new ByteArrayInputStream(data), java.nio.charset.StandardCharsets.UTF_8)) {
+            for(ZipEntry entry;(entry=zip.getNextEntry())!=null;) entries.put(entry.getName(),new String(zip.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
+        }
+        assertThat(entries).containsEntry("article.md","正文");
+        assertThat(entries.get("发布说明.txt")).contains("版本：1");
+        assertThatThrownBy(() -> publishing.getArticle(new ActorContext("other","owner"),article.id()))
+            .isInstanceOf(ApplicationException.class);
+    }
 }

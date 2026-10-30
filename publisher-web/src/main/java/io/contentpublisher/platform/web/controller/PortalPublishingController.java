@@ -557,6 +557,8 @@ public class PortalPublishingController {
         model.addAttribute("channelTitleLimit", ChannelTextLimits.titleLimit(channelType));
         model.addAttribute("autoOptimize", freshForm && savedDraft.map(draft -> draft.fields().isEmpty()).orElse(true));
         model.addAttribute("selectedLanguage", language);
+        model.addAttribute("hasPrivateAssets", io.contentpublisher.platform.application.PlatformContentAdapter
+                .hasPrivateAssetReferences("en".equals(language) ? article.markdownEn() : article.markdown()));
         model.addAttribute("richTextHtml", markdownRenderer.render("en".equals(language) ? article.markdownEn() : article.markdown()));
         model.addAttribute("manualProfile", ManualChannelProfileView.from(definition, profile,
                 manualProfiles.defaultSortOrder(channelType)));

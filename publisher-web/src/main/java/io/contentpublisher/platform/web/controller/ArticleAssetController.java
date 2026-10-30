@@ -30,6 +30,17 @@ public class ArticleAssetController {
         this.actors = actors;
     }
 
+    @GetMapping("/articles/{articleId}/export")
+    @io.swagger.v3.oas.annotations.Hidden
+    public ResponseEntity<byte[]> export(@PathVariable UUID articleId) {
+        byte[] body = assets.exportBundle(actors.currentActor(), articleId);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .header("X-Robots-Tag", "noindex,nofollow")
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename("article-" + articleId + ".zip").build().toString()).body(body);
+    }
+
     @GetMapping("/api/v1/articles/{articleId}/assets")
     public List<ArticleAssetResponse> list(@PathVariable UUID articleId) {
         return assets.list(actors.currentActor(), articleId).stream().map(ArticleAssetResponse::from).toList();

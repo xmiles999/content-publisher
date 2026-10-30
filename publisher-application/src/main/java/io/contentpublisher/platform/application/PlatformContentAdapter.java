@@ -52,6 +52,11 @@ public final class PlatformContentAdapter {
         return optimized;
     }
 
+    public static boolean hasPrivateAssetReferences(String content) {
+        return content != null && java.util.regex.Pattern.compile(
+                "/(?:api/v1/)?articles/[0-9a-fA-F-]{36}/assets/[0-9a-fA-F-]{36}").matcher(content).find();
+    }
+
     private Localized localize(Article article, String language) {
         if (!"original".equals(language) && !"en".equals(language)) {
             throw new ApplicationException("CONTENT_LANGUAGE_INVALID", "请选择主稿或英文稿");

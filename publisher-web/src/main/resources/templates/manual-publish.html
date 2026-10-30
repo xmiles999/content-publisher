@@ -30,6 +30,8 @@
                 <input type="hidden" th:field="*{draftRevision}"><input type="hidden" th:field="*{articleVersion}">
                 <p data-workspace-state role="status" aria-live="polite">平台文案自动保存，可稍后继续发布。</p>
                 <input type="hidden" th:field="*{contentFormat}"><input type="hidden" th:field="*{language}"><div class="manual-editor-grid"><section class="card"><div class="card-header"><div><p class="section-kicker">渠道版本</p><h3>平台专用版本</h3><p>可以在发布前继续调整；最终提交时保存的是当前文本快照。</p></div><span class="format-badge" th:text="${channel.contentFormat()}">MARKDOWN</span></div>
+                    <div class="alert warning" th:if="${hasPrivateAssets}" role="status">正文包含后台配图，请上传到目标平台并替换图片地址。
+                        <a class="text-link" th:href="@{/articles/{id}/export(id=${article.id})}">下载文章与配图</a></div>
                     <div class="copy-toolbar"><button class="primary-button" type="button" data-copy-and-open data-copy-title="#manual-title" data-copy-content="#manual-content" data-progress-step="copiedAll">复制并打开编辑器</button>
                         <button class="copy-button" type="button" data-copy-target="#manual-title" data-progress-step="copiedTitle">复制标题</button><button class="copy-button" type="button" data-copy-target="#manual-content" data-progress-step="copiedContent">复制正文</button>
                         <button class="copy-button" type="button" th:if="${channel.contentFormat().name() == 'PLAIN_TEXT' and channel.type().name() != 'XIAOHONGSHU' and channel.type().name() != 'LINKEDIN'}" data-copy-rich-text="#manual-rich-content" data-progress-step="copiedContent">复制主稿富文本</button></div>

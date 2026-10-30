@@ -68,6 +68,49 @@ public final class ArticleAssetApplicationService {
         return assets.findByArticleId(actor.tenantId(), articleId);
     }
 
+    /** Bundle owned files only; no remote fetch or exposure of private asset endpoints. */
+    public byte[] exportBundle(ActorContext actor, UUID articleId) {
+        var article = articles.findArticleById(actor.tenantId(), articleId)
+                .orElseThrow(() -> new ApplicationException("ARTICLE_NOT_FOUND", "文章不存在"));
+        var images = list(actor, articleId);
+        long total = images.stream().mapToLong(ArticleAsset::byteSize).sum();
+        if (total > 25L * 1024 * 1024) {
+            throw new ApplicationException("ARTICLE_ASSET_TOO_LARGE", "配图合计超过 25MB，请从编辑页逐张保存");
+        }
+        try {
+            var bytes = new java.io.ByteArrayOutputStream();
+            try (var zip = new java.util.zip.ZipOutputStream(bytes, java.nio.charset.StandardCharsets.UTF_8)) {
+                String markdown = article.markdown();
+                String english = article.markdownEn();
+                StringBuilder manifest = new StringBuilder("文章：").append(article.title())
+                        .append("\n版本：").append(article.currentVersion())
+                        .append("\n图片需要上传到目标平台；请将正文中的 assets/ 地址替换为平台返回的图片地址。\n\n");
+                for (ArticleAsset image : images) {
+                    String path = "assets/" + image.id() + "-" + image.originalFilename();
+                    byte[] content = store.read(actor.tenantId(), articleId, image.id());
+                    if (content.length != image.byteSize()) throw new ApplicationException(
+                            "ARTICLE_ASSET_INVALID", "配图文件与元数据不一致，请检查备份或重新上传");
+                    addEntry(zip, path, content);
+                    markdown = markdown.replace("/api/v1" + image.markdownUrl(), path).replace(image.markdownUrl(), path);
+                    english = english.replace("/api/v1" + image.markdownUrl(), path).replace(image.markdownUrl(), path);
+                    manifest.append(image.originalFilename()).append(" -> ").append(path).append("\n");
+                }
+                addEntry(zip, "article.md", markdown.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                if (!english.isBlank()) addEntry(zip, "article.en.md", english.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                addEntry(zip, "发布说明.txt", manifest.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            return bytes.toByteArray();
+        } catch (java.io.IOException ex) {
+            throw new ApplicationException("ARTICLE_ASSET_INVALID", "生成文章配图包失败，请重试", ex);
+        }
+    }
+
+    private static void addEntry(java.util.zip.ZipOutputStream zip, String name, byte[] content) throws java.io.IOException {
+        zip.putNextEntry(new java.util.zip.ZipEntry(name));
+        zip.write(content);
+        zip.closeEntry();
+    }
+
     static DetectedImage detect(byte[] content) {
         if (content.length >= 3 && content[0] == (byte) 0xFF && content[1] == (byte) 0xD8 && content[2] == (byte) 0xFF) {
             return DetectedImage.JPEG;
