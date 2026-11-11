@@ -55,12 +55,13 @@ class ChannelCopyOptimizationServiceTest {
     }
 
     @Test void shouldRejectOverflowEmptyAndNewLinksWithoutTruncatingOrRetrying() {
-        for (String invalid : List.of("文".repeat(1001), "", "虚构链接 https://invented.example/new")) {
+        for (String invalid : List.of("文".repeat(1001), "", "虚构链接 https://invented.example/new",
+                "文" + " ".repeat(100_000), "\u0085\u3000")) {
             result("标题", invalid);
             assertThatThrownBy(() -> service.optimize("tenant", source(ChannelType.XIAOHONGSHU, "标题", "文".repeat(1100))))
                     .isInstanceOf(ApplicationException.class);
         }
-        verify(generator, times(3)).optimizeChannelCopy(anyString(), any(), any(), anyString(), anyString(), anyInt(), anyInt());
+        verify(generator, times(5)).optimizeChannelCopy(anyString(), any(), any(), anyString(), anyString(), anyInt(), anyInt());
     }
 
     @Test void shouldPropagateAiFailureAndReleaseSlot() {
@@ -72,15 +73,53 @@ class ChannelCopyOptimizationServiceTest {
         }
     }
 
-    @Test void shouldCountXChineseEmojiLinksAndWhitespaceConservatively() {
-        assertThat(ChannelTextLimits.bodyLength(ChannelType.X, "中😀 a\nhttps://example.com/" + "x".repeat(400))).isEqualTo(30);
+    @Test void shouldCountXChineseEmojiAndLinksWithoutWhitespace() {
+        assertThat(ChannelTextLimits.bodyLength(ChannelType.X, "中😀 a\nhttps://example.com/" + "x".repeat(400))).isEqualTo(28);
         assertThat(ChannelTextLimits.fits(ChannelType.X, "标题", "中".repeat(140))).isTrue();
         assertThat(ChannelTextLimits.fits(ChannelType.X, "标题", "中".repeat(141))).isFalse();
-        assertThat(ChannelTextLimits.bodyLength(ChannelType.XIAOHONGSHU, "😀中 a\n")).isEqualTo(5);
-        assertThat(ChannelTextLimits.bodyLength(ChannelType.MASTODON, "中😀 a\nhttps://t.co/x")).isEqualTo(28);
+        assertThat(ChannelTextLimits.bodyLength(ChannelType.XIAOHONGSHU, "😀中 a\n")).isEqualTo(3);
+        assertThat(ChannelTextLimits.bodyLength(ChannelType.MASTODON, "中😀 a\nhttps://t.co/x")).isEqualTo(26);
         assertThat(ChannelTextLimits.bodyLength(ChannelType.X, "https://example.com/。" )).isEqualTo(25);
         assertThat(ChannelTextLimits.bodyLength(ChannelType.MASTODON, "https://example.com/。" )).isEqualTo(24);
         assertThat(ChannelTextLimits.bodyLength(ChannelType.X, "https://example.com/。下一句")).isEqualTo(31);
+    }
+
+    @Test void shouldExcludeUnicodeWhitespaceWithoutJoiningUrlsOrDroppingOtherCharacters() {
+        String whitespace = "\t\n\u000b\f\r \u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005"
+                + "\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000";
+        assertThat(ChannelTextLimits.textLength(whitespace)).isZero();
+        assertThat(ChannelTextLimits.textLength("中😀a" + whitespace)).isEqualTo(3);
+        assertThat(ChannelTextLimits.textLength("#标签，。\u200b")).isEqualTo(6);
+        for (int cp : whitespace.codePoints().toArray()) {
+            String text = "https://example.com/one" + Character.toString(cp) + "https://example.com/two";
+            assertThat(ChannelTextLimits.bodyLength(ChannelType.X, text)).isEqualTo(46);
+            assertThat(ChannelTextLimits.bodyLength(ChannelType.MASTODON, text)).isEqualTo(46);
+        }
+    }
+
+    @Test void shouldKeepFormattedCopyAtExactLimitWithoutCallingAi() {
+        var source = source(ChannelType.XIAOHONGSHU, "题 ".repeat(20), "文\r\n\t ".repeat(1000));
+        assertThat(service.optimize("tenant", source)).isSameAs(source);
+        verifyNoInteractions(generator);
+    }
+
+    @Test void shouldPreserveInLimitFormattedFieldAndAcceptFormattedAiOutput() {
+        String title = "题 ".repeat(20);
+        String body = "文\n\n".repeat(1000);
+        result("模型不应改写标题", body);
+        var optimized = service.optimize("tenant", source(ChannelType.XIAOHONGSHU, title, "文".repeat(1100)));
+        assertThat(optimized.title()).isEqualTo(title);
+        assertThat(optimized.body()).isEqualTo(body);
+    }
+
+    @Test void shouldRejectWhitespaceOnlyCopyAndKeepRawInputSizeCeiling() {
+        for (var input : List.of(source(ChannelType.XIAOHONGSHU, "\u00a0", "正文"),
+                source(ChannelType.XIAOHONGSHU, "标题", "\u0085\u3000"),
+                source(ChannelType.XIAOHONGSHU, "标题", "文" + " ".repeat(100_000)))) {
+            assertThatThrownBy(() -> service.optimize("tenant", input))
+                    .isInstanceOfSatisfying(ApplicationException.class, e -> assertThat(e.code()).isEqualTo("CHANNEL_COPY_INVALID"));
+        }
+        verifyNoInteractions(generator);
     }
 
     @Test void shouldBoundSimultaneousAiRequests() throws Exception {

@@ -588,6 +588,8 @@ Portal reopen（Editor/Admin）
 
 `ChannelTextLimits` 集中默认标题限制、正文计数、X 加权及 X/Mastodon 链接默认 23 字规则；目录正文值不变，未知实例/套餐配额仍属当前限制。`PlatformContentAdapter.adaptForManual` 返回完整派生内容供编辑，API `adapt` 通过 `ChannelCopyOptimizationService` 仅在超限时调用 `ContentGenerator.optimizeChannelCopy`，不再截断标题或正文。发布预检使用不调用 AI 的人工适配路径；实际执行时重新校验 AI 输出与 canonical 链接，失败在外部调用前落库。
 
+工作区字数由 `ChannelTextLimits.textLength/bodyLength` 与浏览器 `PublisherChannelCopy.textLength/bodyLength` 计算，Java `IsWhite_Space` 和 JavaScript `White_Space` 排除同一 Unicode 空白集合，包含 LF/CRLF、制表符、全角空格及不换行空格。显示计数、限长门禁、未超限字段保留和 AI 提示一致；不删除原文空白，不忽略标点、标签或其他字符。URL 在原文中先识别，空白分开的链接各计一次，避免合并。原始 UTF-16 标题 500、正文 100000 的输入与模型输出上限仍保留；主稿生成、SEO、存储校验不改。该计数是工作区策略，不声称等同目标平台实时配额。
+
 优化服务保留未超限字段、格式和标签元数据，拒绝空输出、仍超限或新增 HTTP(S) URL；一次请求不循环重写，AI 网络错误包装为不可自动重试的 `CHANNEL_COPY_OPTIMIZATION_FAILED`。每进程 Semaphore 限制 2 个同时优化请求，满额立即失败并提示重试。基础设施复用租户配置、SecretCipher、SSRF 策略、HTTP Client 与 2MB 响应上限；本功能超时取配置值与 60 秒的较小值。平台名和原文作为 JSON 数据发送，系统提示明确忽略原文指令、保留原语言与事实、不虚构外链。没有迁移、依赖或新环境变量。
 
 Portal 新增 Editor/Admin + CSRF 的 JSON POST `/articles/{articleId}/manual/{channelType}/optimize`，校验启用渠道、租户归属、语言与调用前后 `currentVersion`；请求标题最多 500、正文最多 100000（沿用表单 Java 长度合同），返回字段 `title/body/titleLimit/bodyLimit`，不写数据库。专用 `channel-copy-optimization.js` 在首次超限时请求一次，复用当前表单输入；客户端保存输入序号与快照，拒绝覆盖请求期间的编辑，提供一次撤销，70 秒停止等待。复制与保存受当前限长状态保护；主稿富文本在平台正文修改后禁用，防止绕过压缩结果。被阻止的提交保留脏表单离开提醒；无 JS 时仍可手动修改和记录外部发布事实。

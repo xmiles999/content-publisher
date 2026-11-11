@@ -5,7 +5,8 @@ import java.util.regex.Pattern;
 
 /** 当前渠道目录的默认限制；自托管实例和账号套餐仍须以平台实际规则为准。 */
 public final class ChannelTextLimits {
-    private static final Pattern URL = Pattern.compile("https?://[^\\s<>，。！？；：、）】》」』]+", Pattern.CASE_INSENSITIVE);
+    private static final Pattern WHITESPACE = Pattern.compile("\\p{IsWhite_Space}+");
+    private static final Pattern URL = Pattern.compile("https?://[^\\p{IsWhite_Space}<>，。！？；：、）】》」』]+", Pattern.CASE_INSENSITIVE);
     private static final String TRAILING_PUNCTUATION = ".,!?;:)]}，。！？；：、）】》」』";
     private ChannelTextLimits() { }
 
@@ -23,8 +24,13 @@ public final class ChannelTextLimits {
 
     public static int codePoints(String value) { return value.codePointCount(0, value.length()); }
 
+    /** 工作区字数不包含 Unicode White_Space；不修改需要发布的原文。 */
+    public static int textLength(String value) { return codePoints(withoutWhitespace(value)); }
+
+    private static String withoutWhitespace(String value) { return WHITESPACE.matcher(value).replaceAll(""); }
+
     public static int bodyLength(ChannelType type, String value) {
-        if (type != ChannelType.X && type != ChannelType.MASTODON) return codePoints(value);
+        if (type != ChannelType.X && type != ChannelType.MASTODON) return textLength(value);
         var urls = URL.matcher(value);
         int count = 0, start = 0;
         while (urls.find()) {
@@ -36,7 +42,7 @@ public final class ChannelTextLimits {
     }
 
     private static int segmentLength(ChannelType type, String value) {
-        return type == ChannelType.X ? weighted(value) : codePoints(value);
+        return type == ChannelType.X ? weighted(value) : textLength(value);
     }
 
     private static int urlEnd(String value, int start, int end) {
@@ -51,12 +57,12 @@ public final class ChannelTextLimits {
 
     private static int weighted(String value) {
         // X 的单权重区间；组合 emoji 按码点保守累计，不低估长度。
-        return value.codePoints().map(cp -> cp <= 0x10ff || cp >= 0x2000 && cp <= 0x200d
+        return withoutWhitespace(value).codePoints().map(cp -> cp <= 0x10ff || cp >= 0x2000 && cp <= 0x200d
                 || cp >= 0x2010 && cp <= 0x201f || cp >= 0x2032 && cp <= 0x2037 ? 1 : 2).sum();
     }
 
     public static boolean fits(ChannelType type, String title, String body) {
-        return codePoints(title) <= titleLimit(type)
+        return textLength(title) <= titleLimit(type)
                 && bodyLength(type, body) <= ChannelCatalog.definition(type).characterLimit();
     }
 }

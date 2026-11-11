@@ -425,7 +425,8 @@
         const refresh = () => {
             const value = source?.value || '';
             const count = counter.dataset.countChannel && window.PublisherChannelCopy
-                ? window.PublisherChannelCopy.bodyLength(counter.dataset.countChannel, value) : [...value].length;
+                ? window.PublisherChannelCopy.bodyLength(counter.dataset.countChannel, value)
+                : [...value.replace(/\p{White_Space}+/gu, '')].length;
             counter.textContent = limit ? `${count} / ${limit}` : String(count);
             counter.classList.toggle('over-limit', limit > 0 && count > limit);
         };

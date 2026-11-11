@@ -32,14 +32,66 @@ function harness({auto = false, title = '原标题', body = '文'.repeat(1100), 
 
 test('counts X Chinese, emoji, URLs and exact limits with the shared browser rule', () => {
     const {bodyLength, fits} = harness({body: '短文'}).window.PublisherChannelCopy;
-    assert.equal(bodyLength('X', '中😀 a\nhttps://example.com/' + 'x'.repeat(400)), 30);
-    assert.equal(bodyLength('XIAOHONGSHU', '😀中 a\n'), 5);
-    assert.equal(bodyLength('MASTODON', '中😀 a\nhttps://t.co/x'), 28);
+    assert.equal(bodyLength('X', '中😀 a\nhttps://example.com/' + 'x'.repeat(400)), 28);
+    assert.equal(bodyLength('XIAOHONGSHU', '😀中 a\n'), 3);
+    assert.equal(bodyLength('MASTODON', '中😀 a\nhttps://t.co/x'), 26);
     assert.equal(bodyLength('X', 'https://example.com/。'), 25);
     assert.equal(bodyLength('MASTODON', 'https://example.com/。'), 24);
     assert.equal(bodyLength('X', 'https://example.com/。下一句'), 31);
     assert.equal(fits('X', '标题', '中'.repeat(140), 100, 280), true);
     assert.equal(fits('X', '标题', '中'.repeat(141), 100, 280), false);
+});
+
+test('excludes Unicode whitespace while preserving punctuation, emoji and separate URLs', () => {
+    const {textLength, bodyLength, fits} = harness({body: '正文'}).window.PublisherChannelCopy;
+    const whitespace = '\t\n\v\f\r \u0085\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005'
+        + '\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000';
+    assert.equal(textLength(whitespace), 0);
+    assert.equal(textLength('中😀a' + whitespace), 3);
+    assert.equal(textLength('#标签，。\u200b'), 6);
+    for (const space of whitespace) {
+        for (const channel of ['X', 'MASTODON']) {
+            assert.equal(bodyLength(channel, 'https://example.com/one' + space + 'https://example.com/two'), 46);
+        }
+    }
+    assert.equal(fits('XIAOHONGSHU', '题 '.repeat(20), '文\r\n\t '.repeat(1000), 20, 1000), true);
+    assert.equal(fits('XIAOHONGSHU', '题 '.repeat(21), '正文', 20, 1000), false);
+    assert.equal(fits('XIAOHONGSHU', '标题', '文\n'.repeat(1001), 20, 1000), false);
+});
+
+test('does not optimize or block copying when only formatting crosses the raw length limit', async () => {
+    const body = '文\n\n\t '.repeat(1000);
+    const h = harness({auto: true, title: '题 '.repeat(20), body});
+    await tick();
+    assert.equal(h.calls.length, 0);
+    assert.equal(h.copies[0].disabled, false);
+    assert.equal(h.optimize.disabled, true);
+    assert.equal(h.body.value, body);
+    let blocked = false;
+    h.form.listeners.submit({preventDefault() { blocked = true; }});
+    assert.equal(blocked, false);
+});
+
+test('updates the rendered title and body counters with the same whitespace-free budget', () => {
+    const {window} = harness({body: '正文'});
+    const title = {value: '题 '.repeat(20), listeners: {}, addEventListener(name, listener) { this.listeners[name] = listener; }};
+    const body = {value: '文\r\n\t '.repeat(1000), listeners: {}, addEventListener(name, listener) { this.listeners[name] = listener; }};
+    const counter = dataset => ({dataset, classList: {toggle(name, value) { this[name] = value; }}});
+    const titleCount = counter({countSource: '#title', countLimit: '20'});
+    const bodyCount = counter({countSource: '#body', countChannel: 'XIAOHONGSHU', countLimit: '1000'});
+    const appSource = fs.readFileSync(path.join(__dirname, '../../main/resources/static/assets/app.js'), 'utf8');
+    const counterSource = appSource.slice(appSource.indexOf("    document.querySelectorAll('[data-count-source]')"),
+        appSource.indexOf("    document.querySelectorAll('[data-dirty-form]:not([data-draft-url])')"));
+    const document = {querySelectorAll: () => [titleCount, bodyCount],
+        querySelector: selector => selector === '#title' ? title : body};
+    vm.runInNewContext(counterSource, {window, document});
+    assert.equal(titleCount.textContent, '20 / 20');
+    assert.equal(bodyCount.textContent, '1000 / 1000');
+    assert.equal(bodyCount.classList['over-limit'], false);
+    body.value += '文';
+    body.listeners.input();
+    assert.equal(bodyCount.textContent, '1001 / 1000');
+    assert.equal(bodyCount.classList['over-limit'], true);
 });
 
 test('automatically optimizes overflow once with CSRF and version, then supports confirmed undo', async () => {
@@ -99,7 +151,9 @@ test('does not overwrite an edit made while AI is running even if text is restor
 });
 
 test('rejects oversized or malformed responses and keeps the editable source', async () => {
-    for (const result of [{title: '标题', body: '文'.repeat(1001)}, {title: '', body: '正文'}, {title: '标题', body: []}]) {
+    for (const result of [{title: '标题', body: '文'.repeat(1001)}, {title: '', body: '正文'},
+        {title: '标题', body: '\u0085\u3000'}, {title: '标题', body: '文' + ' '.repeat(100000)},
+        {title: '标题', body: []}]) {
         const h = harness({auto: true, fetch: async () => ({ok: true, json: async () => result})});
         await tick();
         assert.equal(h.body.value, '文'.repeat(1100));

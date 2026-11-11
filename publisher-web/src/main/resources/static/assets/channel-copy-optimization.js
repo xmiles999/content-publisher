@@ -1,15 +1,17 @@
 (() => {
     'use strict';
-    const weighted = value => [...value].reduce((sum, char) => {
+    const withoutWhitespace = value => value.replace(/\p{White_Space}+/gu, '');
+    const textLength = value => [...withoutWhitespace(value)].length;
+    const weighted = value => [...withoutWhitespace(value)].reduce((sum, char) => {
         const cp = char.codePointAt(0);
         return sum + (cp <= 0x10ff || cp >= 0x2000 && cp <= 0x200d
             || cp >= 0x2010 && cp <= 0x201f || cp >= 0x2032 && cp <= 0x2037 ? 1 : 2);
     }, 0);
     const bodyLength = (channel, value) => {
-        if (channel !== 'X' && channel !== 'MASTODON') return [...value].length;
-        const length = text => channel === 'X' ? weighted(text) : [...text].length;
+        if (channel !== 'X' && channel !== 'MASTODON') return textLength(value);
+        const length = text => channel === 'X' ? weighted(text) : textLength(text);
         let count = 0, start = 0;
-        for (const match of value.matchAll(/https?:\/\/[^\s<>，。！？；：、）】》」』]+/gi)) {
+        for (const match of value.matchAll(/https?:\/\/[^\p{White_Space}<>，。！？；：、）】》」』]+/giu)) {
             const url = match[0].replace(/[.,!?;:)\]}，。！？；：、）】》」』]+$/u, '');
             count += length(value.slice(start, match.index)) + 23;
             start = match.index + url.length;
@@ -17,7 +19,7 @@
         return count + length(value.slice(start));
     };
     const fits = (channel, title, body, titleLimit, bodyLimit) =>
-        [...title].length <= titleLimit && bodyLength(channel, body) <= bodyLimit;
+        textLength(title) <= titleLimit && bodyLength(channel, body) <= bodyLimit;
 
     const init = form => {
         const title = form.querySelector('#manual-title');
@@ -78,7 +80,8 @@
                     return;
                 }
                 if (typeof result.title !== 'string' || typeof result.body !== 'string'
-                    || !result.title.trim() || !result.body.trim()
+                    || result.title.length > 500 || result.body.length > 100000
+                    || textLength(result.title) === 0 || textLength(result.body) === 0
                     || !fits(channel, result.title, result.body, titleLimit, bodyLimit)) {
                     throw new Error('优化结果仍超限或格式无效，当前输入已保留；请手动精简或重试。');
                 }
@@ -115,6 +118,6 @@
         refresh();
         if (form.dataset.autoOptimize === 'true') void optimize();
     };
-    window.PublisherChannelCopy = {bodyLength, fits, init};
+    window.PublisherChannelCopy = {textLength, bodyLength, fits, init};
     document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('form[data-copy-optimization]').forEach(init));
 })();

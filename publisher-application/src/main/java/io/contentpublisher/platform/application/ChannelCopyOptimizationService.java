@@ -11,8 +11,8 @@ public final class ChannelCopyOptimizationService {
     public ChannelCopyOptimizationService(ContentGenerator generator) { this.generator = generator; }
 
     public AdaptedContent optimize(String tenantId, AdaptedContent source) {
-        if (source.title() == null || source.title().isBlank() || source.title().length() > 500
-                || source.body() == null || source.body().isBlank() || source.body().length() > 100_000) {
+        if (source.title() == null || source.title().length() > 500 || ChannelTextLimits.textLength(source.title()) == 0
+                || source.body() == null || source.body().length() > 100_000 || ChannelTextLimits.textLength(source.body()) == 0) {
             throw new ApplicationException("CHANNEL_COPY_INVALID", "平台标题或正文无效，请检查内容长度");
         }
         ChannelType type = source.channelType();
@@ -33,11 +33,12 @@ public final class ChannelCopyOptimizationService {
             slots.release();
         }
         var result = generated == null ? null : new ContentGenerator.ChannelCopy(
-                ChannelTextLimits.codePoints(source.title()) <= ChannelTextLimits.titleLimit(type) ? source.title() : generated.title(),
+                ChannelTextLimits.textLength(source.title()) <= ChannelTextLimits.titleLimit(type) ? source.title() : generated.title(),
                 ChannelTextLimits.bodyLength(type, source.body()) <= ChannelCatalog.definition(type).characterLimit()
                         ? source.body() : generated.body());
         if (result == null || result.title() == null || result.body() == null
-                || result.title().isBlank() || result.body().isBlank()
+                || result.title().length() > 500 || result.body().length() > 100_000
+                || ChannelTextLimits.textLength(result.title()) == 0 || ChannelTextLimits.textLength(result.body()) == 0
                 || !ChannelTextLimits.fits(type, result.title(), result.body())) {
             throw new ApplicationException("CHANNEL_COPY_LIMIT_EXCEEDED", "AI 结果仍超过平台限制或内容为空，请手动精简或重新优化；当前输入已保留");
         }

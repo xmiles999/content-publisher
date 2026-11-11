@@ -88,7 +88,8 @@ class OpenAiCompatibleContentGeneratorTest {
         var messages = mapper.readTree(lastRequestBody).path("messages");
         String system = messages.get(0).path("content").asText();
         assertThat(system).contains("内容审核与分发风险创作约束", "不承诺过审", "不使用谐音",
-                "未超限字段仍必须原样返回", "严格包含字符串 title、body", "完整保留该链接");
+                "未超限字段仍必须原样返回", "严格包含字符串 title、body", "完整保留该链接",
+                "Unicode White_Space 不计入字数", "仍保留原文排版");
         if (channel == ChannelType.XIAOHONGSHU) {
             assertThat(system).contains("小红书创作注意事项", "私信领资料", "不互粉互赞", "不新增推广链接",
                     "具体问题 → 解决方法 → 产品如何参与 → 适用条件与限制", "不强制新增章节",

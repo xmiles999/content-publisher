@@ -125,6 +125,19 @@ class ChannelOptimizationIntegrationTest {
         org.mockito.Mockito.verifyNoInteractions(copyGenerator);
     }
 
+    @Test void shouldKeepFormattedCopyAtWordLimitWithoutAiOrChangingMaster() throws Exception {
+        String article = create();
+        profiles.saveProfile(ACTOR, ChannelType.XIAOHONGSHU, 0, true, null, List.of(), null, null, 10);
+        String title = "题 ".repeat(20);
+        String content = "文\r\n\t ".repeat(1000);
+        String body = objectMapper.writeValueAsString(Map.of("articleVersion", 1, "language", "original",
+                "title", title, "body", content));
+        mvc.perform(post(article + "/manual/XIAOHONGSHU/optimize").contentType("application/json").content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.title").value(title))
+                .andExpect(jsonPath("$.body").value(content));
+        org.mockito.Mockito.verifyNoInteractions(copyGenerator);
+    }
+
     @Test void shouldDefaultToPersonalChannelsAndSaveSelectionWithoutLosingPreferences() throws Exception {
         var page = mvc.perform(get("/channels")).andExpect(status().isOk())
                 .andExpect(model().attribute("selectedChannelView", "manual")).andReturn();
