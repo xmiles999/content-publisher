@@ -341,6 +341,9 @@ publisher-infrastructure → publisher-application → publisher-domain
 - `translateToEnglish` 使用独立翻译提示词，只要求英文字段。
 - 使用 JSON response format、system/user messages、模型和温度。
 - 给 Git、主题、网站分别构造不可信事实边界。
+- `CONTENT_SAFETY_GUIDELINES` 与 `XIAOHONGSHU_WRITING_GUIDELINES` 拼接到文章生成的 system 提示词，三类来源及中英文共用；内容安全优先于 SEO、语气和必选词，但主稿长度、字段和必要来源链接合同继续生效。官方来源及内部策略的区分见[平台文案规范](平台文案规范.md)。
+- `XIAOHONGSHU_WRITING_GUIDELINES` 同时包含自然介绍产品的内部策略：在产品/项目/网站介绍场景按问题、方法、产品作用、条件与限制叙述，保留真实身份与已知合作声明，不强制新增章节；随三类主稿生成与小红书超限改写一同发送，不新增输出字段或额外 AI 请求。
+- 平台超限优化追加通用安全提示，仅 `XIAOHONGSHU` 追加专项提示；明确只改写超限字段。独立翻译和可用性探测提示词不追加创作规则，不改变服务端校验、文章状态或发布门禁。
 - 解析中英文 JSON 并执行长度、关键词、章节、SEO 和元叙述校验。
 - 限制 AI 响应体为 2 MiB。
 
@@ -945,6 +948,7 @@ Git、网站、AI 和自托管渠道都执行：
 |---|---|---|
 | 应用服务单元 | `ProjectApplicationServiceTest`、`JobApplicationServiceTest`、`RecordManagementApplicationServiceTest`、`ArticleEditorialApplicationServiceTest`、`ArticleAssetApplicationServiceTest` | 状态、保存并确认、已发布修订、配图类型探测、兼容审核、幂等、配额、删除恢复 |
 | AI/网站安全 | `OpenAiCompatibleContentGeneratorTest`、`SecureAiEndpointPolicyTest`、`SecureWebsiteInspectorTest` | 输出校验、SSRF、响应限制 |
+| 平台创作约束 | `OpenAiCompatibleContentGeneratorTest` | 三类来源共用小红书写作基线、恶意来源与 system 规则分离、不同渠道提示选择、主稿与平台稿合同保留、独立翻译及探测隔离；模拟响应不验证真实模型服从度或平台审核结果 |
 | 发布与加密 | `PublishingApplicationServiceTest`、`OfficialChannelPublishersTest`、`ManualChannelProfileApplicationServiceTest`、`AesGcmCredentialVaultTest`、`AesGcmSecretCipherTest` | `READY/APPROVED/PUBLISHED` 发布门禁、请求映射、人工平台配置、凭据 |
 | 内容适配 | `PlatformContentAdapterTest` | Markdown、普通文本、短帖和字符限制 |
 | 平台字数优化 | `ChannelCopyOptimizationServiceTest`、`ChannelOptimizationIntegrationTest`、`OpenAiCompatibleContentGeneratorTest`、`channel-optimization.test.cjs` | 零 AI 的限内路径、字段保留、超限/错误输出拒绝、并发上限、主稿不变、租户/版本/CSRF/角色、注入资料隔离、X 加权、过期响应、撤销与失败保留；模型响应使用本地模拟，不验证实际模型质量 |
