@@ -14,7 +14,7 @@
 
 本机只承担源码、构建、测试和预发布。正式加载、启动、健康检查和回滚必须在部署端按门禁执行，不得把开发数据库、附件、环境文件或整个工作区同步到生产。
 
-当前生产发布事实、用户针对单次安全门禁的明确例外、实际检查和回滚入口见[发布检查记录](发布检查记录.md)。2026-10-30 已发布应用提交 `65b7a521c35bcb81b41b988cd76b3e16246c7642`，Flyway V27；按用户“直接切换, 不升级”要求为本版本单独记录安全例外，扫描仍失败。本次例外不改变后续版本的常规门禁。
+当前生产发布事实、用户针对单次安全门禁的明确例外、实际检查和回滚入口见[发布检查记录](发布检查记录.md)。2026-11-16 实际核查生产运行镜像为 `content-publisher:0.1.0-20261027-d6540593d109`、Flyway V27；10 月 30 日发布 `65b7a52` 的记录保留为历史事实，不能据此推断当前运行版本。新候选 `9d74bc0` 已完成构建、隔离验收与即时备份，因扫描仍命中 24 个高危／严重 CVE，尚未切换。旧版本的单次例外不适用于本候选。
 
 当前生产位于 `xyh-dep`，应用由 Dokploy 项目 `content-publisher-zea5sd` 管理，规范 Compose 原件为 `/data/services/dokploy/config/compose/content-publisher-zea5sd/code/deploy/dokploy-compose.yaml`，兼容入口仍为 `/etc/dokploy/compose/...`。实际用户 `994:994`，附件绑定 `/data/services/content-publisher/dokploy-assets`，数据库绑定 `/data/services/content-publisher/dokploy-postgres`；既有 `127.0.0.1:8081` 仅本机端口映射保留。仓库模板默认用户 `10001:10001`、命名卷和无 published port，不能直接覆盖生产配置。发布制品、即时备份和回滚入口见本次发布记录。原 `miles-01` 应用已停用，不能按历史说明启动。
 
