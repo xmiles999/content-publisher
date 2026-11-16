@@ -9,7 +9,7 @@ Content Publisher 是一个面向长期纯个人使用的技术内容生产与�
 | 项目 | 内容 |
 |---|---|
 | 应用版本 | `0.1.0-SNAPSHOT` |
-| 文档基线 | 2026-10-30 |
+| 文档基线 | 2026-11-16 |
 | Java / 构建 | Java 17、Maven Wrapper 3.9.11 |
 | Spring Boot | 3.5.16 |
 | 数据迁移 | Flyway V1–V27 |
