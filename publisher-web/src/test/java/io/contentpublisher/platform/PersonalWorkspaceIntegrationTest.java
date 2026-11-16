@@ -25,6 +25,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PersonalWorkspaceIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    @Test
+    void markdownPreviewRendersChineseBoldLabelsAndPreservesLiteralCode() throws Exception {
+        String label = "**• 删除 ADS：**数仓只";
+        String markdown = label + "\n\n```markdown\n" + label + "\n```";
+        var response = mvc.perform(post("/api/v1/markdown/preview").contentType("application/json")
+                        .content(objectMapper.writeValueAsString(java.util.Map.of("markdown", markdown))))
+                .andExpect(status().isOk()).andReturn().getResponse();
+        var html = Jsoup.parse(objectMapper.readTree(response.getContentAsString()).get("html").asText());
+        org.assertj.core.api.Assertions.assertThat(html.select("strong").eachText()).containsExactly("• 删除 ADS：");
+        org.assertj.core.api.Assertions.assertThat(html.select("p").text()).isEqualTo("• 删除 ADS：数仓只");
+        org.assertj.core.api.Assertions.assertThat(html.select("pre code").text()).isEqualTo(label);
+    }
 
     @Test
     void publishingSearchAndPaginationReachBeyondTheLatestFiftyArticles() throws Exception {

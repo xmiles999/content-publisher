@@ -435,7 +435,9 @@ Adapter：
 
 ### 8.9 Markdown
 
-`SafeMarkdownRenderer` 使用 CommonMark 解析 Markdown，并输出用于 Portal 预览的受控 HTML。REST 预览请求最多 20000 字符。
+`SafeMarkdownRenderer` 使用 CommonMark 解析 Markdown，转义原始 HTML 后通过 Jsoup 白名单清理，输出用于 Portal 预览和人工发布富文本复制的受控 HTML。REST 预览请求按 `ArticleLimits.MARKDOWN` 限制为最多 100000 字符。
+
+`ChineseBoldLabelParser` 通过 CommonMark 行内解析扩展兼容以标点结尾、结束符后紧接汉字的纯文本加粗标签，例如 `**• 删除 ADS：**数仓只`。扩展直接生成 `StrongEmphasis`，不修改存储的 Markdown 或插入额外空白；包含转义、实体、链接或嵌套格式的标签交给 CommonMark 原有规则。围栏/缩进代码块和行内代码不做加粗转换。
 
 ## 9. Web 组件
 
@@ -958,6 +960,7 @@ Git、网站、AI 和自托管渠道都执行：
 | 持久化与租户 | `TenantPersistenceIntegrationTest`、`PostgresPersistenceIntegrationTest` | Flyway V1–V26、`APPROVED → READY` 回填、JPA、自定义文章、配图、渠道账号软删除、人工平台配置、唯一约束、租户、审计、并发 |
 | 自动化持久化 | `AutomationPersistenceIntegrationTest` | Flyway V20、草稿、预设、通知、端点启停、指定端点测试、导航计数和投递 |
 | 个人工作区 | `PersonalWorkspaceIntegrationTest` | 无认证开发入口、监控入口保留、编辑权限、失败输入恢复 |
+| Markdown 预览 | `SafeMarkdownRendererTest`、`PersonalWorkspaceIntegrationTest` | 中文标点加粗标签、无额外空白、代码与转义保真、安全清理及真实预览接口 |
 | 渠道精简与覆盖 | `ChannelOptimizationIntegrationTest` | 默认未启用、批量选择与配置保留、事务冲突回滚、API-only 覆盖、平台去重、成功链接保留、显式英文与富文本清洗 |
 | 草稿边界 | `AutomationApplicationServiceTest` | 10 万字符中英文正文、标签超限、状态门禁、基线冲突 |
 | 前端状态 | `publisher-web/src/test/js/*.test.cjs` | 原生 Node 测试，草稿串行/备份/失败/提交，主题对比度 |

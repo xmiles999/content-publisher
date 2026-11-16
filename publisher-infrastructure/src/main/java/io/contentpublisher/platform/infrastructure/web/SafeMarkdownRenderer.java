@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SafeMarkdownRenderer implements MarkdownRenderer {
-    private final Parser parser = Parser.builder().build();
+    private final Parser parser = Parser.builder()
+            .customInlineContentParserFactory(new ChineseBoldLabelParser()).build();
     private final HtmlRenderer renderer = HtmlRenderer.builder().escapeHtml(true).build();
     private final Safelist safelist = Safelist.relaxed()
             .addTags("h1", "h2", "h3", "h4", "h5", "h6", "pre", "code")
